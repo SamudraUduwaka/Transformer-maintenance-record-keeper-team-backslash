@@ -8,8 +8,9 @@ public class ImageDTO {
     private Integer imageId;
     private String imageUrl;
     private String type;
-    private LocalDateTime dateTime;
     private String weatherCondition;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
     // Parent reference
     private Integer inspectionId;

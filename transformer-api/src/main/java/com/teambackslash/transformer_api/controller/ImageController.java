@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/images")
@@ -36,9 +37,16 @@ public class ImageController {
 
     @PutMapping("/{id}")
     public ResponseEntity<ImageDTO> updateImage(@PathVariable Integer id,
-                                                @RequestBody ImageDTO imageDTO) {
+            @RequestBody ImageDTO imageDTO) {
         imageDTO.setImageId(id); // ensure ID consistency
         ImageDTO updated = imageService.saveImage(imageDTO);
+        return ResponseEntity.ok(updated);
+    }
+    
+    @PatchMapping("/{id}")
+    public ResponseEntity<ImageDTO> patchImage(@PathVariable Integer id,
+            @RequestBody Map<String, Object> updates) {
+        ImageDTO updated = imageService.updateImage(id, updates);
         return ResponseEntity.ok(updated);
     }
 

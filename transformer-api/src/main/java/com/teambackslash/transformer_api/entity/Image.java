@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
 @Entity
 @Table(name = "image")
 @Data
@@ -14,8 +16,9 @@ public class Image {
     @Column(name = "image_id")
     private Integer imageId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "inspection_id", nullable = false)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "inspection_id", nullable = false, unique = true)
+    @JsonBackReference
     private Inspection inspection;
 
     @Column(name = "image_url", nullable = false, length = 200)
@@ -24,10 +27,23 @@ public class Image {
     @Column(name = "type", nullable = false, length = 200)
     private String type;
 
-    @Column(name = "date_time", nullable = false)
-    private LocalDateTime dateTime;
-
     @Column(name = "weather_condition", nullable = false, length = 50)
     private String weatherCondition;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
+    
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 
 }
