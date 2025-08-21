@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Entity
 @Table(name = "inspection")
@@ -29,7 +28,9 @@ public class Inspection {
     @Column(name = "inspector", nullable = false, length = 100)
     private String inspector;
 
-    @OneToMany(mappedBy = "inspection", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Image> images;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "image_id", referencedColumnName = "image_id")
+    private Image image;
+
 
 }

@@ -14,8 +14,8 @@ public class Image {
     @Column(name = "image_id")
     private Integer imageId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "inspection_id", nullable = false)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "inspection_id", nullable = false, unique = true)
     private Inspection inspection;
 
     @Column(name = "image_url", nullable = false, length = 200)

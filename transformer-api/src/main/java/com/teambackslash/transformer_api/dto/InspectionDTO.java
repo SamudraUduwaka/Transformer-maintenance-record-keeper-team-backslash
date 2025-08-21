@@ -2,7 +2,6 @@ package com.teambackslash.transformer_api.dto;
 
 import lombok.Data;
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Data
 public class InspectionDTO {
@@ -15,5 +14,5 @@ public class InspectionDTO {
     private String transformerNo;
 
     // Related images
-    private List<ImageDTO> images;
+    private ImageDTO image;
 }
