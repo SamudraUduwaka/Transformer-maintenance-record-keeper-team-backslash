@@ -8,6 +8,7 @@ import com.teambackslash.transformer_api.repository.TransformerRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,9 +39,31 @@ public class TransformerService {
         return transformerMapper.toDTO(transformer);
     }
 
-    // Save or update transformer from DTO
+    // Save transformer from DTO
     public TransformerDTO saveTransformer(TransformerDTO transformerDTO) {
         Transformer transformer = transformerMapper.toEntity(transformerDTO);
+        transformer = transformerRepository.save(transformer);
+        return transformerMapper.toDTO(transformer);
+    }
+
+    // Update transformer by ID
+    public TransformerDTO updateTransformer(String transformerNo, Map<String, Object> updates) {
+        Transformer transformer = transformerRepository.findById(transformerNo)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Transformer not found with ID: " + transformerNo
+                ));
+
+        for (Map.Entry<String, Object> entry : updates.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+
+            switch (key) {
+                case "poleNo" -> transformer.setPoleNo((Integer) value);
+                case "region" -> transformer.setRegion((String) value);
+                case "type" -> transformer.setType((String) value);
+            }
+        }
+
         transformer = transformerRepository.save(transformer);
         return transformerMapper.toDTO(transformer);
     }

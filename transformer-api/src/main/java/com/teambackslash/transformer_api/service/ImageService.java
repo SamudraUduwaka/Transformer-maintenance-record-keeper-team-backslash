@@ -8,6 +8,7 @@ import com.teambackslash.transformer_api.repository.ImageRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,9 +39,30 @@ public class ImageService {
         return imageMapper.toDTO(image);
     }
 
-    // Save or update image from DTO
+    // Save image from DTO
     public ImageDTO saveImage(ImageDTO imageDTO) {
         Image image = imageMapper.toEntity(imageDTO);
+        image = imageRepository.save(image);
+        return imageMapper.toDTO(image);
+    }
+
+    // Update image
+    public ImageDTO updateImage(Integer id, Map<String, Object> updates) {
+        Image image = imageRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Image not found with ID: " + id
+                ));
+        
+        for (Map.Entry<String, Object> entry : updates.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+
+            switch (key) {
+                case "imageUrl" -> image.setImageUrl((String) value);
+                case "type" -> image.setType((String) value);
+                case "weatherCondition" -> image.setWeatherCondition((String) value);
+            }
+        }
         image = imageRepository.save(image);
         return imageMapper.toDTO(image);
     }

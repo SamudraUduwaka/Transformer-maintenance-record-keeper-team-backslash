@@ -9,6 +9,8 @@ public class InspectionDTO {
     private LocalDateTime inspectionTime;
     private String branch;
     private String inspector;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
     // Nested: transformer reference
     private String transformerNo;

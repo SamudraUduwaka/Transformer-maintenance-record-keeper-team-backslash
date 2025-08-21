@@ -7,7 +7,9 @@ import com.teambackslash.transformer_api.mapper.InspectionMapper;
 import com.teambackslash.transformer_api.repository.InspectionRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,9 +40,29 @@ public class InspectionService {
         return inspectionMapper.toDTO(inspection);
     }
 
-    // Save or update inspection from DTO
+    // Save inspection from DTO
     public InspectionDTO saveInspection(InspectionDTO inspectionDTO) {
         Inspection inspection = inspectionMapper.toEntity(inspectionDTO);
+        inspection = inspectionRepository.save(inspection);
+        return inspectionMapper.toDTO(inspection);
+    }
+
+    // Update inspection by ID
+    public InspectionDTO updateInspection(Integer id, Map<String, Object> updates) {
+        Inspection inspection = inspectionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Inspection not found with ID: " + id
+                ));
+        for (Map.Entry<String, Object> entry : updates.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+
+            switch (key) {
+                case "inspectionTime" -> inspection.setInspectionTime((LocalDateTime) value);
+                case "branch" -> inspection.setBranch((String) value);
+                case "inspector" -> inspection.setInspector((String) value);
+            }
+        }
         inspection = inspectionRepository.save(inspection);
         return inspectionMapper.toDTO(inspection);
     }

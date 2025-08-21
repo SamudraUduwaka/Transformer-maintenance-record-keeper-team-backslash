@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/inspections")
@@ -36,9 +37,16 @@ public class InspectionController {
 
     @PutMapping("/{id}")
     public ResponseEntity<InspectionDTO> updateInspection(@PathVariable Integer id,
-                                                          @RequestBody InspectionDTO inspectionDTO) {
+            @RequestBody InspectionDTO inspectionDTO) {
         inspectionDTO.setInspectionId(id); // ensure ID consistency
         InspectionDTO updated = inspectionService.saveInspection(inspectionDTO);
+        return ResponseEntity.ok(updated);
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<InspectionDTO> patchInspection(@PathVariable Integer id,
+            @RequestBody Map<String, Object> updates) {
+        InspectionDTO updated = inspectionService.updateInspection(id, updates);
         return ResponseEntity.ok(updated);
     }
 

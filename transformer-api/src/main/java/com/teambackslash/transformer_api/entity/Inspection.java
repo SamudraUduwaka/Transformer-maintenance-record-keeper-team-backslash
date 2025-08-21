@@ -5,6 +5,8 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
 @Entity
 @Table(name = "inspection")
 @Data
@@ -28,9 +30,24 @@ public class Inspection {
     @Column(name = "inspector", nullable = false, length = 100)
     private String inspector;
 
-    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "image_id", referencedColumnName = "image_id")
+    @OneToOne(mappedBy = "inspection", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference
     private Image image;
 
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 
 }

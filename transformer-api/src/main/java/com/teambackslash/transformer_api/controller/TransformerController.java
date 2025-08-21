@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/transformers")
@@ -36,9 +37,16 @@ public class TransformerController {
 
     @PutMapping("/{transformerNo}")
     public ResponseEntity<TransformerDTO> updateTransformer(@PathVariable String transformerNo,
-                                                            @RequestBody TransformerDTO transformerDTO) {
+            @RequestBody TransformerDTO transformerDTO) {
         transformerDTO.setTransformerNo(transformerNo); // ensure ID consistency
         TransformerDTO updated = transformerService.saveTransformer(transformerDTO);
+        return ResponseEntity.ok(updated);
+    }
+    
+    @PatchMapping("/{transformerNo}")
+    public ResponseEntity<TransformerDTO> patchTransformer(@PathVariable String transformerNo,
+            @RequestBody Map<String, Object> updates) {
+        TransformerDTO updated = transformerService.updateTransformer(transformerNo, updates);
         return ResponseEntity.ok(updated);
     }
 
