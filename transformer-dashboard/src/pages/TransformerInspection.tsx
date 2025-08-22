@@ -490,7 +490,7 @@ export default function TransformerInspection() {
                             <Button
                                 variant="contained"
                                 size="small"
-                                onClick={() => navigate(`/inspections/${transformer.transformerNo}/${row.inspectionNo}`)}
+                                onClick={() => navigate(`/${transformer.transformerNo}/${row.inspectionNo}`)}
                             >
                                 View
                             </Button>

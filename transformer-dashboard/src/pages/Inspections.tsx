@@ -298,7 +298,7 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
                       <Button
                         variant="contained"
                         size="small"
-                        onClick={() => navigate(`/inspections/${encodeURIComponent(row.transformerNo)}`)}
+                        onClick={() => navigate(`/${encodeURIComponent(row.transformerNo)}/${encodeURIComponent(row.inspectionNo)}`)}
                       >
                         View
                       </Button>

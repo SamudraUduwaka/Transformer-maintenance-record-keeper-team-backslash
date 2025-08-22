@@ -11,15 +11,15 @@ function App() {
         {/* Main dashboard with Transformers + Inspections views */}
         <Route path="/" element={<Dashboard />} />
 
-        {/* Transformer-specific inspections table */}
+        {/* Transformer-specific page (all inspections for a transformer) */}
         <Route
-          path="/inspections/:transformerNo"
+          path="/:transformerNo"
           element={<TransformerInspection />}
         />
 
         {/* Single inspection detail view */}
         <Route
-          path="/inspections/:transformerNo/:inspectionNo"
+          path="/:transformerNo/:inspectionNo"
           element={<InspectionDetails />}
         />
       </Routes>
