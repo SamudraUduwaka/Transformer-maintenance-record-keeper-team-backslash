@@ -139,10 +139,15 @@ export default function InspectionDetails() {
   const [file, setFile] = React.useState<File | null>(null);
   const [preview, setPreview] = React.useState<string | null>(null);
 
-  // Uploading progress state
+  // Uploading / comparison states
   const [isUploading, setIsUploading] = React.useState(false);
   const [progress, setProgress] = React.useState(0);
+  const [showCompare, setShowCompare] = React.useState(false);
   const tickRef = React.useRef<number | null>(null);
+
+  // placeholder baseline image
+  const BASELINE_URL =
+    "https://images.unsplash.com/photo-1518773553398-650c184e0bb3?q=80&w=1200&auto=format&fit=crop";
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
@@ -152,18 +157,19 @@ export default function InspectionDetails() {
   };
 
   const handleConfirmUpload = () => {
-    // start simulated upload
     setUploadOpen(false);
     setIsUploading(true);
+    setShowCompare(false);
     setProgress(0);
     if (tickRef.current) window.clearInterval(tickRef.current);
+    // simulate upload
     tickRef.current = window.setInterval(() => {
       setProgress((p) => {
         if (p >= 100) {
           if (tickRef.current) window.clearInterval(tickRef.current);
           return 100;
         }
-        return p + 2; // speed
+        return p + 2;
       });
     }, 120);
   };
@@ -171,8 +177,19 @@ export default function InspectionDetails() {
   const handleCancelUpload = () => {
     if (tickRef.current) window.clearInterval(tickRef.current);
     setIsUploading(false);
+    setShowCompare(false);
     setProgress(0);
   };
+
+  React.useEffect(() => {
+    if (isUploading && progress >= 100) {
+      const t = setTimeout(() => {
+        setIsUploading(false);
+        setShowCompare(true);
+      }, 700);
+      return () => clearTimeout(t);
+    }
+  }, [isUploading, progress]);
 
   const handleCloseUpload = () => setUploadOpen(false);
 
@@ -332,9 +349,8 @@ export default function InspectionDetails() {
 
             {/* ===== Content area ===== */}
             {isUploading ? (
-              // Uploading screen with progress bar
               <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }}>
-                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2, textAlign: "left"}}>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2, textAlign: "left" }}>
                   Thermal Image
                 </Typography>
                 <Box
@@ -372,8 +388,113 @@ export default function InspectionDetails() {
                   </Button>
                 </Box>
               </Paper>
+            ) : showCompare ? (
+              // ===== Comparison view (no black strip) =====
+              <Paper elevation={3} sx={{ p: 2.5, borderRadius: 2 }}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                  <Typography variant="subtitle1" fontWeight={700}>
+                    Thermal Image Comparison
+                  </Typography>
+                </Stack>
+
+                <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                  {/* Baseline */}
+                  <Box
+                    sx={{
+                      position: "relative",
+                      flex: 1,
+                      borderRadius: 1,
+                      overflow: "hidden",
+                      aspectRatio: "4 / 3",
+                      p: 0,
+                      bgcolor: "transparent",
+                    }}
+                  >
+                    <img
+                      src={BASELINE_URL}
+                      alt="Baseline"
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        display: "block",
+                      }}
+                    />
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        top: 10,
+                        left: 10,
+                        px: 1,
+                        py: 0.25,
+                        borderRadius: 1.5,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        bgcolor: "rgba(17, 24, 39, 0.7)",
+                        color: "white",
+                      }}
+                    >
+                      Baseline
+                    </Box>
+                  </Box>
+
+                  {/* Current (uploaded) */}
+                  <Box
+                    sx={{
+                      position: "relative",
+                      flex: 1,
+                      borderRadius: 1,
+                      overflow: "hidden",
+                      aspectRatio: "4 / 3",
+                      p: 0,
+                      bgcolor: "transparent",
+                    }}
+                  >
+                    <img
+                      src={preview ?? BASELINE_URL}
+                      alt="Current"
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        display: "block",
+                      }}
+                    />
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        top: 10,
+                        left: 10,
+                        px: 1,
+                        py: 0.25,
+                        borderRadius: 1.5,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        bgcolor: "rgba(17, 24, 39, 0.7)",
+                        color: "white",
+                      }}
+                    >
+                      Current
+                    </Box>
+
+                    {/* Example: anomaly badge + demo boxes */}
+                    <Chip
+                      size="small"
+                      label="Anomaly Detected"
+                      color="error"
+                      sx={{ position: "absolute", top: 10, right: 10, fontWeight: 700 }}
+                    />
+                    <Box sx={{ position: "absolute", left: "55%", top: "42%", width: 120, height: 90, border: "2px solid #EF4444", borderRadius: 1 }} />
+                    <Box sx={{ position: "absolute", left: "62%", bottom: "12%", width: 180, height: 80, border: "2px solid #EF4444", borderRadius: 1 }} />
+                  </Box>
+                </Stack>
+              </Paper>
             ) : (
-              // Normal two-column layout
+              // Normal two-column layout (before upload)
               <Stack direction={{ xs: "column", lg: "row" }} spacing={2} alignItems="stretch">
                 {/* Thermal Image */}
                 <Paper elevation={3} sx={{ p: 2.5, borderRadius: 2, flex: 1 }}>
@@ -405,7 +526,7 @@ export default function InspectionDetails() {
                     sx={{ mt: 3, borderRadius: 999, py: 1.1, fontWeight: 700 }}
                     onClick={() => setUploadOpen(true)}
                   >
-                    Upload Thermal Image
+                    Upload thermal image
                   </Button>
                 </Paper>
 
@@ -439,17 +560,14 @@ export default function InspectionDetails() {
         </Box>
       </Box>
 
-      {/* ===== Upload Image Dialog (compact & clean) ===== */}
+      {/* ===== Upload Image Dialog ===== */}
       <Dialog
         open={uploadOpen}
         onClose={handleCloseUpload}
         fullWidth
         maxWidth="sm"
         PaperProps={{
-          sx: {
-            borderRadius: 1.5,
-            boxShadow: "0 10px 36px rgba(15,23,42,0.22)",
-          },
+          sx: { borderRadius: 1.5, boxShadow: "0 10px 36px rgba(15,23,42,0.22)" },
         }}
       >
         <DialogTitle sx={{ px: 3, py: 1.75 }}>
@@ -458,16 +576,7 @@ export default function InspectionDetails() {
           </Typography>
         </DialogTitle>
 
-        <DialogContent
-          dividers
-          sx={{
-            px: 3,
-            pt: 1.25,
-            pb: 1.5,
-            bgcolor: "#FBFBFE",
-            minHeight: 300,
-          }}
-        >
+        <DialogContent dividers sx={{ px: 3, pt: 1.25, pb: 1.5, bgcolor: "#FBFBFE", minHeight: 300 }}>
           <Box
             sx={{
               my: 2,
@@ -481,11 +590,7 @@ export default function InspectionDetails() {
           >
             {preview ? (
               <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.25 }}>
-                <img
-                  src={preview}
-                  alt="preview"
-                  style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 10, objectFit: "contain" }}
-                />
+                <img src={preview} alt="preview" style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 10, objectFit: "contain" }} />
                 <Typography variant="body2" color="text.secondary">
                   {file?.name}
                 </Typography>
@@ -509,12 +614,7 @@ export default function InspectionDetails() {
                 <Typography variant="body2" color="text.secondary">
                   or click the button below to browse your device
                 </Typography>
-                <Button
-                  component="label"
-                  variant="outlined"
-                  size="medium"
-                  sx={{ mt: 2, px: 4, py: 0.85, fontSize: 14, borderRadius: 999 }}
-                >
+                <Button component="label" variant="outlined" size="medium" sx={{ mt: 2, px: 4, py: 0.85, fontSize: 14, borderRadius: 999 }}>
                   Select image
                   <input type="file" accept="image/*" hidden onChange={handleFileChange} />
                 </Button>
@@ -532,13 +632,7 @@ export default function InspectionDetails() {
             size="medium"
             onClick={handleConfirmUpload}
             disabled={!file}
-            sx={{
-              px: 2.75,
-              py: 0.75,
-              fontSize: 14,
-              fontWeight: 700,
-              borderRadius: 999,
-            }}
+            sx={{ px: 2.75, py: 0.75, fontSize: 14, fontWeight: 700, borderRadius: 999 }}
           >
             Upload
           </Button>
