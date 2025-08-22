@@ -427,15 +427,21 @@ export default function TransformerInspection() {
 
             {/* ===== Table ===== */}
             <Paper elevation={3} sx={{ p: 2.5, borderRadius: 2 }}>
-              <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1.5 }}>
-                <Typography variant="h6" fontWeight={800} sx={{ flexGrow: 1 }}>
-                  Transformer Inspections
+            <Stack direction="row" alignItems="center" sx={{ mb: 1.5 }}>
+                {/* Title pinned left */}
+                <Typography variant="h6" fontWeight={800} sx={{ pl: 2 }}>
+                Transformer Inspections
                 </Typography>
+
+                {/* Spacer pushes the button to the far right */}
+                <Box sx={{ flexGrow: 1 }} />
+
+                {/* Button pinned right */}
                 <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={() => alert("Add Inspection")}
-                  sx={{
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => alert("Add Inspection")}
+                sx={{
                     borderRadius: 999,
                     px: 2.5,
                     py: 0.9,
@@ -444,14 +450,14 @@ export default function TransformerInspection() {
                     background: "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
                     boxShadow: "0 8px 18px rgba(79,70,229,0.35)",
                     "&:hover": {
-                      background: "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)",
-                      boxShadow: "0 10px 22px rgba(79,70,229,0.45)",
+                    background: "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)",
+                    boxShadow: "0 10px 22px rgba(79,70,229,0.45)",
                     },
-                  }}
+                }}
                 >
-                  Add Inspection
+                Add Inspection
                 </Button>
-              </Stack>
+            </Stack>
 
               <TableContainer>
                 <Table>
@@ -467,30 +473,35 @@ export default function TransformerInspection() {
                   </TableHead>
                   <TableBody>
                     {shown.map((row) => (
-                      <TableRow key={row.id} hover>
+                        <TableRow key={row.id} hover>
                         <TableCell width={48}>
-                          <IconButton size="small">
+                            <IconButton size="small">
                             {row.favorite ? <StarIcon color="secondary" /> : <StarBorderIcon color="disabled" />}
-                          </IconButton>
+                            </IconButton>
                         </TableCell>
                         <TableCell>
-                          <Typography fontWeight={600}>{row.inspectionNo}</Typography>
+                            <Typography fontWeight={600}>{row.inspectionNo}</Typography>
                         </TableCell>
                         <TableCell>{row.inspectedDate}</TableCell>
                         <TableCell>{row.maintenanceDate ?? "-"}</TableCell>
                         <TableCell>{statusChip(row.status)}</TableCell>
                         <TableCell align="right">
-                          <Stack direction="row" spacing={1} justifyContent="flex-end">
-                            <Button variant="contained" size="small">
-                              View
+                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            <Button
+                                variant="contained"
+                                size="small"
+                                onClick={() => navigate(`/inspections/${transformer.transformerNo}/${row.inspectionNo}`)}
+                            >
+                                View
                             </Button>
                             <IconButton>
-                              <MoreVertIcon />
+                                <MoreVertIcon />
                             </IconButton>
-                          </Stack>
+                            </Stack>
                         </TableCell>
-                      </TableRow>
+                        </TableRow>
                     ))}
+
                     {shown.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={6}>
