@@ -12,7 +12,6 @@ import {
   Drawer,
   FormControl,
   IconButton,
-  InputLabel,
   List,
   ListItem,
   ListItemButton,
@@ -27,6 +26,10 @@ import {
   Tooltip,
   Typography,
   createTheme,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import {
   Menu as MenuIcon,
@@ -131,6 +134,29 @@ export default function InspectionDetails() {
 
   const [weather, setWeather] = React.useState("Sunny");
 
+  // ---- Upload dialog state ----
+  const [uploadOpen, setUploadOpen] = React.useState(false);
+  const [file, setFile] = React.useState<File | null>(null);
+  const [preview, setPreview] = React.useState<string | null>(null);
+
+  const handleOpenUpload = () => setUploadOpen(true);
+  const handleCloseUpload = () => {
+    setUploadOpen(false);
+    setFile(null);
+    if (preview) URL.revokeObjectURL(preview);
+    setPreview(null);
+  };
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] || null;
+    setFile(f);
+    if (preview) URL.revokeObjectURL(preview);
+    setPreview(f ? URL.createObjectURL(f) : null);
+  };
+  const handleConfirmUpload = () => {
+    // TODO: send file to your backend
+    handleCloseUpload();
+  };
+
   /* Drawer */
   const drawer = (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -179,7 +205,7 @@ export default function InspectionDetails() {
           width: { sm: `calc(100% - ${drawerWidth}px)` },
         }}
       >
-        <Toolbar sx={{ minHeight: 64 /* slightly smaller */ }}>
+        <Toolbar sx={{ minHeight: 64 }}>
           <Stack direction="row" spacing={1.25} alignItems="center">
             <IconButton onClick={() => setMobileOpen(!mobileOpen)}>
               <MenuIcon />
@@ -308,8 +334,7 @@ export default function InspectionDetails() {
                     Weather Condition
                   </Typography>
                   <FormControl size="small" fullWidth sx={{ mt: 1.5 }}>
-                    
-                    <Select labelId="weather" value={weather} onChange={(e) => setWeather(e.target.value)}>
+                    <Select value={weather} onChange={(e) => setWeather(e.target.value)}>
                       <MenuItem value="Sunny">Sunny</MenuItem>
                       <MenuItem value="Cloudy">Cloudy</MenuItem>
                       <MenuItem value="Rainy">Rainy</MenuItem>
@@ -317,7 +342,20 @@ export default function InspectionDetails() {
                     </Select>
                   </FormControl>
                 </Box>
-                <Button fullWidth variant="contained" sx={{ mt: 3, borderRadius: 999, py: 1.1, fontWeight: 700 }}>Upload thermal image</Button>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  onClick={handleOpenUpload}
+                  sx={{
+                    mt: 3,
+                    borderRadius: 999,
+                    py: 1.25,
+                    fontSize: 15,
+                    fontWeight: 700,
+                  }}
+                >
+                  Upload thermal image
+                </Button>
               </Paper>
 
               {/* Progress */}
@@ -330,10 +368,24 @@ export default function InspectionDetails() {
                     <Box key={step}>
                       <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Stack direction="row" spacing={1} alignItems="center">
-                          <Box sx={{ width: 22, height: 22, borderRadius: "50%", bgcolor: "#E9EAF3", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 700, color: "#6B7280" }}>
+                          <Box
+                            sx={{
+                              width: 22,
+                              height: 22,
+                              borderRadius: "50%",
+                              bgcolor: "#E9EAF3",
+                              display: "grid",
+                              placeItems: "center",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: "#6B7280",
+                            }}
+                          >
                             {idx + 1}
                           </Box>
-                          <Typography variant="body2" fontWeight={600}>{step}</Typography>
+                          <Typography variant="body2" fontWeight={600}>
+                            {step}
+                          </Typography>
                         </Stack>
                         <Chip size="small" label="Pending" sx={{ height: 22, fontSize: 12, fontWeight: 600, color: "#F59E0B", bgcolor: "#FFF7ED" }} />
                       </Stack>
@@ -348,6 +400,113 @@ export default function InspectionDetails() {
           </Stack>
         </Box>
       </Box>
+
+      {/* ===== Upload Image Dialog (compact, symmetric) ===== */}
+        <Dialog
+        open={uploadOpen}
+        onClose={handleCloseUpload}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{
+            sx: {
+            borderRadius: 1.5,               // ~12px corners (less rounded)
+            boxShadow: "0 10px 36px rgba(15,23,42,0.22)",
+            },
+        }}
+        >
+        <DialogTitle sx={{ px: 3, py: 1.75 }}>
+            <Typography variant="h6" fontWeight={700}>
+            Upload Thermal Image
+            </Typography>
+        </DialogTitle>
+
+        <DialogContent
+            dividers
+            sx={{
+            px: 3,
+            pt: 1.25,
+            pb: 1.5,                // tighter bottom padding
+            bgcolor: "#FBFBFE",
+            minHeight: 300,         // smaller overall height
+            }}
+        >
+            <Box
+            sx={{
+                my: 2,                 // equal top & bottom spacing around drop zone
+                p: 2,
+                border: "1px dashed",
+                borderColor: "divider",
+                borderRadius: 2,       // subtler rounding for the drop zone
+                textAlign: "center",
+                bgcolor: "white",
+            }}
+            >
+            {preview ? (
+                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.25 }}>
+                <img
+                    src={preview}
+                    alt="preview"
+                    style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 10, objectFit: "contain" }}
+                />
+                <Typography variant="body2" color="text.secondary">
+                    {file?.name}
+                </Typography>
+                <Button
+                    size="medium"
+                    onClick={() => {
+                    setFile(null);
+                    if (preview) URL.revokeObjectURL(preview);
+                    setPreview(null);
+                    }}
+                    sx={{ px: 2.25, py: 0.65, fontSize: 14 }}
+                >
+                    Choose another file
+                </Button>
+                </Box>
+            ) : (
+                <>
+                <Typography variant="body1" gutterBottom fontWeight={600}>
+                    Drag & drop an image here
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                    or click the button below to browse your device
+                </Typography>
+                <Button
+                    component="label"
+                    variant="outlined"
+                    size="medium"
+                    sx={{ mt: 2, px: 6, py: 1, fontSize: 14, borderRadius: 999 }}
+                >
+                    Select image
+                    <input type="file" accept="image/*" hidden onChange={handleFileChange} />
+                </Button>
+                </>
+            )}
+            </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, py: 1.25 }}>
+            <Button onClick={handleCloseUpload} size="medium" sx={{ px: 2.25, py: 0.6, fontSize: 14 }}>
+            Cancel
+            </Button>
+            <Button
+            variant="contained"
+            size="medium"
+            onClick={handleConfirmUpload}
+            disabled={!file}
+            sx={{
+                px: 2.75,
+                py: 0.75,
+                fontSize: 14,
+                fontWeight: 700,
+                borderRadius: 999,
+            }}
+            >
+            Upload
+            </Button>
+        </DialogActions>
+        </Dialog>
+
     </ThemeProvider>
   );
 }
