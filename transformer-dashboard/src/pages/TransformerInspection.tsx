@@ -28,6 +28,12 @@ import {
   TableHead,
   TablePagination,
   TableRow,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Chip,
 } from "@mui/material";
 import {
   Menu as MenuIcon,
@@ -43,6 +49,7 @@ import {
   Place as PlaceIcon,
   Visibility as VisibilityIcon,
   DeleteOutline as DeleteOutlineIcon,
+  Close as CloseIcon,
 } from "@mui/icons-material";
 import { useParams, useNavigate } from "react-router-dom";
 
@@ -239,6 +246,25 @@ export default function TransformerInspection() {
     [allRows, page, rowsPerPage]
   );
 
+  /* ---------- Add Inspection dialog state ---------- */
+  const [addOpen, setAddOpen] = React.useState(false);
+  const [branch, setBranch] = React.useState(transformer.region || "");
+  const [tNo, setTNo] = React.useState(transformer.transformerNo || "");
+  const [date, setDate] = React.useState("");
+  const [time, setTime] = React.useState("");
+
+  const canConfirm = branch.trim() && tNo.trim() && date && time;
+
+  const handleOpenAdd = () => setAddOpen(true);
+  const handleCloseAdd = () => setAddOpen(false);
+  const handleConfirmAdd = () => {
+    // Hook up to your API here
+    setAddOpen(false);
+    // Optionally navigate to a brand new inspection (fake number for demo)
+    const newInspection = (Math.floor(10000000 + Math.random() * 89999999)).toString();
+    navigate(`/${encodeURIComponent(tNo)}/${encodeURIComponent(newInspection)}`);
+  };
+
   /* Drawer (same as Dashboard) */
   const drawer = (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -349,7 +375,7 @@ export default function TransformerInspection() {
               <Stack direction="row" alignItems="stretch" sx={{ width: "100%" }}>
                 {/* Left block */}
                 <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                  {/* Row 1: circle + title + region + kebab (kebab AFTER region) */}
+                  {/* Row 1 */}
                   <Stack direction="row" alignItems="center" spacing={1.25}>
                     <Box
                       sx={{
@@ -379,7 +405,7 @@ export default function TransformerInspection() {
                     </IconButton>
                   </Stack>
 
-                  {/* Row 2: location with red pin */}
+                  {/* Row 2: location */}
                   <Typography
                     variant="body2"
                     color="text.secondary"
@@ -398,50 +424,34 @@ export default function TransformerInspection() {
                   </Stack>
                 </Box>
 
-                {/* Right block: stretch to full height & distribute evenly */}
+                {/* Right block */}
                 <Stack
                   direction="column"
                   alignItems="flex-end"
                   justifyContent="space-between"
-                  sx={{
-                    alignSelf: "stretch",
-                    minWidth: 330,
-                    py: 0.5,
-                  }}
+                  sx={{ alignSelf: "stretch", minWidth: 330, py: 0.5 }}
                 >
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ whiteSpace: "nowrap", lineHeight: 1.25 }}
-                  >
+                  <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "nowrap", lineHeight: 1.25 }}>
                     Last Inspected Date: {transformer.lastInspectedAt ?? "-"}
                   </Typography>
 
-                  <BaselineGroup
-                    onView={() => alert("Preview baseline")}
-                    onDelete={() => alert("Delete baseline")}
-                  />
+                  <BaselineGroup onView={() => alert("Preview baseline")} onDelete={() => alert("Delete baseline")} />
                 </Stack>
               </Stack>
             </Paper>
 
             {/* ===== Table ===== */}
             <Paper elevation={3} sx={{ p: 2.5, borderRadius: 2 }}>
-            <Stack direction="row" alignItems="center" sx={{ mb: 1.5 }}>
-                {/* Title pinned left */}
+              <Stack direction="row" alignItems="center" sx={{ mb: 1.5 }}>
                 <Typography variant="h6" fontWeight={800} sx={{ pl: 2 }}>
-                Transformer Inspections
+                  Transformer Inspections
                 </Typography>
-
-                {/* Spacer pushes the button to the far right */}
                 <Box sx={{ flexGrow: 1 }} />
-
-                {/* Button pinned right */}
                 <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => alert("Add Inspection")}
-                sx={{
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={handleOpenAdd}
+                  sx={{
                     borderRadius: 999,
                     px: 2.5,
                     py: 0.9,
@@ -450,14 +460,14 @@ export default function TransformerInspection() {
                     background: "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
                     boxShadow: "0 8px 18px rgba(79,70,229,0.35)",
                     "&:hover": {
-                    background: "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)",
-                    boxShadow: "0 10px 22px rgba(79,70,229,0.45)",
+                      background: "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)",
+                      boxShadow: "0 10px 22px rgba(79,70,229,0.45)",
                     },
-                }}
+                  }}
                 >
-                Add Inspection
+                  Add Inspection
                 </Button>
-            </Stack>
+              </Stack>
 
               <TableContainer>
                 <Table>
@@ -473,33 +483,33 @@ export default function TransformerInspection() {
                   </TableHead>
                   <TableBody>
                     {shown.map((row) => (
-                        <TableRow key={row.id} hover>
+                      <TableRow key={row.id} hover>
                         <TableCell width={48}>
-                            <IconButton size="small">
+                          <IconButton size="small">
                             {row.favorite ? <StarIcon color="secondary" /> : <StarBorderIcon color="disabled" />}
-                            </IconButton>
+                          </IconButton>
                         </TableCell>
                         <TableCell>
-                            <Typography fontWeight={600}>{row.inspectionNo}</Typography>
+                          <Typography fontWeight={600}>{row.inspectionNo}</Typography>
                         </TableCell>
                         <TableCell>{row.inspectedDate}</TableCell>
                         <TableCell>{row.maintenanceDate ?? "-"}</TableCell>
                         <TableCell>{statusChip(row.status)}</TableCell>
                         <TableCell align="right">
-                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <Stack direction="row" spacing={1} justifyContent="flex-end">
                             <Button
-                                variant="contained"
-                                size="small"
-                                onClick={() => navigate(`/${transformer.transformerNo}/${row.inspectionNo}`)}
+                              variant="contained"
+                              size="small"
+                              onClick={() => navigate(`/${transformer.transformerNo}/${row.inspectionNo}`)}
                             >
-                                View
+                              View
                             </Button>
                             <IconButton>
-                                <MoreVertIcon />
+                              <MoreVertIcon />
                             </IconButton>
-                            </Stack>
+                          </Stack>
                         </TableCell>
-                        </TableRow>
+                      </TableRow>
                     ))}
 
                     {shown.length === 0 && (
@@ -531,6 +541,98 @@ export default function TransformerInspection() {
           </Stack>
         </Box>
       </Box>
+
+      {/* ---------- Add Inspection Dialog ---------- */}
+      <Dialog
+        open={addOpen}
+        onClose={handleCloseAdd}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Typography fontWeight={700} fontSize="1.25rem">Add Inspection</Typography>
+          <IconButton onClick={handleCloseAdd} size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent dividers sx={{ bgcolor: "#FBFBFE" }}>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Branch"
+              placeholder="Branch"
+              fullWidth
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+              InputProps={{ sx: { borderRadius: 2 } }}
+            />
+
+            <TextField
+              label="Transformer No"
+              placeholder="Transformer No"
+              fullWidth
+              value={tNo}
+              onChange={(e) => setTNo(e.target.value)}
+              InputProps={{ sx: { borderRadius: 2 } }}
+            />
+
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField
+                label="Date of Inspection"
+                type="date"
+                fullWidth
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                InputProps={{ sx: { borderRadius: 2 } }}
+              />
+              <TextField
+                label="Time"
+                type="time"
+                fullWidth
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                InputProps={{ sx: { borderRadius: 2 } }}
+              />
+            </Stack>
+          </Stack>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button
+            variant="contained"
+            onClick={handleConfirmAdd}
+            disabled={!canConfirm}
+            sx={{
+              mr: 1,
+              borderRadius: 999,
+              px: 3,
+              py: 1,
+              fontWeight: 700,
+              textTransform: "none",
+              background: "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
+              color: "#fff",
+              boxShadow: "0 8px 18px rgba(79,70,229,0.35)",
+              "&:hover": {
+                background: "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)",
+                boxShadow: "0 10px 22px rgba(79,70,229,0.45)",
+              },
+              "&.Mui-disabled": {
+                background: "#A5B4FC",
+                color: "#fff",
+              },
+            }}
+          >
+            Confirm
+          </Button>
+
+          <Button onClick={handleCloseAdd} sx={{ textTransform: "none" }}>
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
     </ThemeProvider>
   );
 }

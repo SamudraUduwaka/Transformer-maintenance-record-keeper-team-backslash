@@ -27,6 +27,10 @@ import {
   TableSortLabel,
   ToggleButton,
   ToggleButtonGroup,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import {
   Add as AddIcon,
@@ -34,6 +38,7 @@ import {
   Search as SearchIcon,
   Menu as MenuIcon,
   Notifications as NotificationsIcon,
+  Close as CloseIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 
@@ -122,6 +127,24 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
 
+  /* -------- New Inspection dialog state -------- */
+  const [addOpen, setAddOpen] = React.useState(false);
+  const [branch, setBranch] = React.useState("");
+  const [transformerNo, setTransformerNo] = React.useState("");
+  const [date, setDate] = React.useState(""); // yyyy-mm-dd
+  const [time, setTime] = React.useState(""); // hh:mm
+
+  const canConfirm = branch.trim() && transformerNo.trim() && date && time;
+
+  const handleOpenAdd = () => setAddOpen(true);
+  const handleCloseAdd = () => setAddOpen(false);
+  const handleConfirmAdd = () => {
+    // hook into your create API here
+    setAddOpen(false);
+    // optional: navigate to that transformer's page
+    // navigate(`/${encodeURIComponent(transformerNo)}`);
+  };
+
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
@@ -198,9 +221,9 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
       </AppBar>
 
       {/* Push page content below fixed AppBar */}
-      <Box sx={{ mt: 0 /* 72px */, width: "100%" }}>
+      <Box sx={{ mt: 0, width: "100%" }}>
         <Stack spacing={2} sx={{ width: "100%" }}>
-          {/* Header card — same structure as before */}
+          {/* Header card */}
           <Paper elevation={3} sx={{ p: 2, borderRadius: 1, width: "100%", boxSizing: "border-box" }}>
             <Stack
               direction={{ xs: "column", md: "row" }}
@@ -229,7 +252,7 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
-                onClick={() => alert("Hook this to your Add Inspection flow")}
+                onClick={handleOpenAdd}
                 sx={{
                   ml: { md: 1 },
                   borderRadius: 999,
@@ -407,6 +430,94 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
           </Paper>
         </Stack>
       </Box>
+
+      {/* ---------- New Inspection Dialog ---------- */}
+      <Dialog
+        open={addOpen}
+        onClose={handleCloseAdd}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Typography fontWeight={700} fontSize="1.25rem">New Inspection</Typography>
+          <IconButton onClick={handleCloseAdd} size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent dividers sx={{ bgcolor: "#FBFBFE" }}>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Branch"
+              placeholder="Branch"
+              fullWidth
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+            />
+
+            <TextField
+              label="Transformer No"
+              placeholder="Transformer No"
+              fullWidth
+              value={transformerNo}
+              onChange={(e) => setTransformerNo(e.target.value)}
+            />
+
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField
+                label="Date of Inspection"
+                type="date"
+                fullWidth
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                label="Time"
+                type="time"
+                fullWidth
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Stack>
+          </Stack>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button
+            variant="contained"
+            onClick={handleConfirmAdd}
+            disabled={!canConfirm}
+            sx={{
+              mr: 1,
+              borderRadius: 999,
+              px: 3,
+              py: 1,
+              fontWeight: 700,
+              textTransform: "none",
+              background: "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
+              color: "#fff",   // ✅ force white text
+              boxShadow: "0 8px 18px rgba(79,70,229,0.35)",
+              "&:hover": {
+                background: "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)",
+                boxShadow: "0 10px 22px rgba(79,70,229,0.45)",
+              },
+              "&.Mui-disabled": {
+                background: "#A5B4FC",  // optional lighter bg when disabled
+                color: "#fff",          // keep text white even when disabled
+              },
+            }}
+          >
+            Confirm
+          </Button>
+
+          <Button onClick={handleCloseAdd} sx={{ textTransform: "none" }}>
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }
