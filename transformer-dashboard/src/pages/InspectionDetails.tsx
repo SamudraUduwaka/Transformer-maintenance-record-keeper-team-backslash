@@ -8,6 +8,10 @@ import {
   Button,
   Chip,
   CssBaseline,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   Drawer,
   FormControl,
@@ -26,10 +30,6 @@ import {
   Tooltip,
   Typography,
   createTheme,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
 } from "@mui/material";
 import {
   Menu as MenuIcon,
@@ -134,28 +134,47 @@ export default function InspectionDetails() {
 
   const [weather, setWeather] = React.useState("Sunny");
 
-  // ---- Upload dialog state ----
+  // Upload dialog state
   const [uploadOpen, setUploadOpen] = React.useState(false);
   const [file, setFile] = React.useState<File | null>(null);
   const [preview, setPreview] = React.useState<string | null>(null);
 
-  const handleOpenUpload = () => setUploadOpen(true);
-  const handleCloseUpload = () => {
-    setUploadOpen(false);
-    setFile(null);
-    if (preview) URL.revokeObjectURL(preview);
-    setPreview(null);
-  };
+  // Uploading progress state
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [progress, setProgress] = React.useState(0);
+  const tickRef = React.useRef<number | null>(null);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0] || null;
-    setFile(f);
+    const f = e.target.files?.[0] ?? null;
+    setFile(f ?? null);
     if (preview) URL.revokeObjectURL(preview);
     setPreview(f ? URL.createObjectURL(f) : null);
   };
+
   const handleConfirmUpload = () => {
-    // TODO: send file to your backend
-    handleCloseUpload();
+    // start simulated upload
+    setUploadOpen(false);
+    setIsUploading(true);
+    setProgress(0);
+    if (tickRef.current) window.clearInterval(tickRef.current);
+    tickRef.current = window.setInterval(() => {
+      setProgress((p) => {
+        if (p >= 100) {
+          if (tickRef.current) window.clearInterval(tickRef.current);
+          return 100;
+        }
+        return p + 2; // speed
+      });
+    }, 120);
   };
+
+  const handleCancelUpload = () => {
+    if (tickRef.current) window.clearInterval(tickRef.current);
+    setIsUploading(false);
+    setProgress(0);
+  };
+
+  const handleCloseUpload = () => setUploadOpen(false);
 
   /* Drawer */
   const drawer = (
@@ -265,7 +284,7 @@ export default function InspectionDetails() {
             {/* ===== Header ===== */}
             <Paper elevation={3} sx={{ p: 2.25, borderRadius: 1 }}>
               <Stack direction="row" alignItems="stretch" sx={{ width: "100%" }}>
-                {/* Left block */}
+                {/* Left */}
                 <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                   <Stack direction="row" alignItems="center" spacing={1.25}>
                     <Box
@@ -298,215 +317,233 @@ export default function InspectionDetails() {
                   </Stack>
                 </Box>
 
-                {/* Right block */}
+                {/* Right */}
                 <Stack direction="column" alignItems="flex-end" justifyContent="space-between" sx={{ alignSelf: "stretch", minWidth: 350, py: 0.5 }}>
                   <Stack direction="row" spacing={1.25} alignItems="center">
                     <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
                       Last updated: {lastUpdated}
                     </Typography>
-                    <Chip
-                      label="In progress"
-                      color="success"
-                      variant="outlined"
-                      sx={{ height: 28, fontWeight: 700, borderColor: "success.light", color: "success.main" }}
-                    />
+                    <Chip label="In progress" color="success" variant="outlined" sx={{ height: 28, fontWeight: 700, borderColor: "success.light", color: "success.main" }} />
                   </Stack>
-                  <BaselineGroup onView={() => alert("Preview baseline")} onDelete={() => alert("Delete baseline")} />
+                  <BaselineGroup onView={() => {}} onDelete={() => {}} />
                 </Stack>
               </Stack>
             </Paper>
 
-            {/* ===== Side by side boxes ===== */}
-            <Stack direction={{ xs: "column", lg: "row" }} spacing={2} alignItems="stretch">
-              {/* Thermal Image */}
-              <Paper elevation={3} sx={{ p: 2.5, borderRadius: 2, flex: 1 }}>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <Typography variant="subtitle1" fontWeight={700}>
-                    Thermal Image
-                  </Typography>
-                  <Chip size="small" label="Pending" sx={{ height: 22, fontSize: 12, fontWeight: 600, color: "#F59E0B", bgcolor: "#FFF7ED" }} />
-                </Stack>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: "left" }}>
-                  Upload a thermal image of the transformer to identify potential issues.
+            {/* ===== Content area ===== */}
+            {isUploading ? (
+              // Uploading screen with progress bar
+              <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }}>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2, textAlign: "left"}}>
+                  Thermal Image
                 </Typography>
-                <Box sx={{ mt: 3 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Weather Condition
-                  </Typography>
-                  <FormControl size="small" fullWidth sx={{ mt: 1.5 }}>
-                    <Select value={weather} onChange={(e) => setWeather(e.target.value)}>
-                      <MenuItem value="Sunny">Sunny</MenuItem>
-                      <MenuItem value="Cloudy">Cloudy</MenuItem>
-                      <MenuItem value="Rainy">Rainy</MenuItem>
-                      <MenuItem value="Windy">Windy</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Box>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  onClick={handleOpenUpload}
+                <Box
                   sx={{
-                    mt: 3,
-                    borderRadius: 999,
-                    py: 1.25,
-                    fontSize: 15,
-                    fontWeight: 700,
+                    border: "1px solid",
+                    borderColor: "divider",
+                    borderRadius: 3,
+                    p: { xs: 3, sm: 6 },
+                    textAlign: "center",
+                    bgcolor: "white",
                   }}
                 >
-                  Upload thermal image
-                </Button>
-              </Paper>
+                  <Typography fontWeight={700}>Thermal image uploading.</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    Thermal image is being uploaded and Reviewed.
+                  </Typography>
 
-              {/* Progress */}
-              <Paper elevation={3} sx={{ p: 2.5, borderRadius: 2, flex: 1, minWidth: 360 }}>
-                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
-                  Progress
-                </Typography>
-                <Stack spacing={2.5}>
-                  {["Thermal Image Upload", "AI Analysis", "Thermal Image Review", "Report Generation"].map((step, idx) => (
-                    <Box key={step}>
-                      <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <Box
-                            sx={{
-                              width: 22,
-                              height: 22,
-                              borderRadius: "50%",
-                              bgcolor: "#E9EAF3",
-                              display: "grid",
-                              placeItems: "center",
-                              fontSize: 12,
-                              fontWeight: 700,
-                              color: "#6B7280",
-                            }}
-                          >
-                            {idx + 1}
-                          </Box>
-                          <Typography variant="body2" fontWeight={600}>
-                            {step}
-                          </Typography>
-                        </Stack>
-                        <Chip size="small" label="Pending" sx={{ height: 22, fontSize: 12, fontWeight: 600, color: "#F59E0B", bgcolor: "#FFF7ED" }} />
-                      </Stack>
-                      <Box sx={{ mt: 1, height: 6, borderRadius: 999, bgcolor: "#EAEAF2", overflow: "hidden" }}>
-                        <Box sx={{ width: "0%", height: "100%", bgcolor: "#4F46E5" }} />
-                      </Box>
+                  <Box sx={{ mt: 3, mx: "auto", width: { xs: "100%", sm: "70%" } }}>
+                    <Box sx={{ height: 8, borderRadius: 999, bgcolor: "#E5E7EB" }}>
+                      <Box
+                        sx={{
+                          height: "100%",
+                          width: `${progress}%`,
+                          bgcolor: "primary.main",
+                          borderRadius: 999,
+                          transition: "width 200ms linear",
+                        }}
+                      />
                     </Box>
-                  ))}
-                </Stack>
+                    <Box sx={{ mt: 0.5, textAlign: "right", color: "text.secondary", fontSize: 12 }}>{progress}%</Box>
+                  </Box>
+
+                  <Button onClick={handleCancelUpload} sx={{ mt: 3, borderRadius: 999 }}>
+                    Cancel
+                  </Button>
+                </Box>
               </Paper>
-            </Stack>
+            ) : (
+              // Normal two-column layout
+              <Stack direction={{ xs: "column", lg: "row" }} spacing={2} alignItems="stretch">
+                {/* Thermal Image */}
+                <Paper elevation={3} sx={{ p: 2.5, borderRadius: 2, flex: 1 }}>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Typography variant="subtitle1" fontWeight={700}>
+                      Thermal Image
+                    </Typography>
+                    <Chip size="small" label="Pending" sx={{ height: 22, fontSize: 12, fontWeight: 600, color: "#F59E0B", bgcolor: "#FFF7ED" }} />
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: "left" }}>
+                    Upload a thermal image of the transformer to identify potential issues.
+                  </Typography>
+                  <Box sx={{ mt: 3 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Weather Condition
+                    </Typography>
+                    <FormControl size="small" fullWidth sx={{ mt: 1.5 }}>
+                      <Select value={weather} onChange={(e) => setWeather(e.target.value)}>
+                        <MenuItem value="Sunny">Sunny</MenuItem>
+                        <MenuItem value="Cloudy">Cloudy</MenuItem>
+                        <MenuItem value="Rainy">Rainy</MenuItem>
+                        <MenuItem value="Windy">Windy</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Box>
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    sx={{ mt: 3, borderRadius: 999, py: 1.1, fontWeight: 700 }}
+                    onClick={() => setUploadOpen(true)}
+                  >
+                    Upload Thermal Image
+                  </Button>
+                </Paper>
+
+                {/* Progress steps */}
+                <Paper elevation={3} sx={{ p: 2.5, borderRadius: 2, flex: 1, minWidth: 360 }}>
+                  <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
+                    Progress
+                  </Typography>
+                  <Stack spacing={2.5}>
+                    {["Thermal Image Upload", "AI Analysis", "Thermal Image Review", "Report Generation"].map((step, idx) => (
+                      <Box key={step}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Box sx={{ width: 22, height: 22, borderRadius: "50%", bgcolor: "#E9EAF3", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 700, color: "#6B7280" }}>
+                              {idx + 1}
+                            </Box>
+                            <Typography variant="body2" fontWeight={600}>
+                              {step}
+                            </Typography>
+                          </Stack>
+                          <Chip size="small" label="Pending" sx={{ height: 22, fontSize: 12, fontWeight: 600, color: "#F59E0B", bgcolor: "#FFF7ED" }} />
+                        </Stack>
+                        <Box sx={{ mt: 1, height: 6, borderRadius: 999, bgcolor: "#EAEAF2" }} />
+                      </Box>
+                    ))}
+                  </Stack>
+                </Paper>
+              </Stack>
+            )}
           </Stack>
         </Box>
       </Box>
 
-      {/* ===== Upload Image Dialog (compact, symmetric) ===== */}
-        <Dialog
+      {/* ===== Upload Image Dialog (compact & clean) ===== */}
+      <Dialog
         open={uploadOpen}
         onClose={handleCloseUpload}
         fullWidth
         maxWidth="sm"
         PaperProps={{
-            sx: {
-            borderRadius: 1.5,               // ~12px corners (less rounded)
+          sx: {
+            borderRadius: 1.5,
             boxShadow: "0 10px 36px rgba(15,23,42,0.22)",
-            },
+          },
         }}
-        >
+      >
         <DialogTitle sx={{ px: 3, py: 1.75 }}>
-            <Typography variant="h6" fontWeight={700}>
+          <Typography variant="h6" fontWeight={700}>
             Upload Thermal Image
-            </Typography>
+          </Typography>
         </DialogTitle>
 
         <DialogContent
-            dividers
-            sx={{
+          dividers
+          sx={{
             px: 3,
             pt: 1.25,
-            pb: 1.5,                // tighter bottom padding
+            pb: 1.5,
             bgcolor: "#FBFBFE",
-            minHeight: 300,         // smaller overall height
-            }}
+            minHeight: 300,
+          }}
         >
-            <Box
+          <Box
             sx={{
-                my: 2,                 // equal top & bottom spacing around drop zone
-                p: 2,
-                border: "1px dashed",
-                borderColor: "divider",
-                borderRadius: 2,       // subtler rounding for the drop zone
-                textAlign: "center",
-                bgcolor: "white",
+              my: 2,
+              p: 2,
+              border: "1px dashed",
+              borderColor: "divider",
+              borderRadius: 2,
+              textAlign: "center",
+              bgcolor: "white",
             }}
-            >
+          >
             {preview ? (
-                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.25 }}>
+              <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.25 }}>
                 <img
-                    src={preview}
-                    alt="preview"
-                    style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 10, objectFit: "contain" }}
+                  src={preview}
+                  alt="preview"
+                  style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 10, objectFit: "contain" }}
                 />
                 <Typography variant="body2" color="text.secondary">
-                    {file?.name}
+                  {file?.name}
                 </Typography>
                 <Button
-                    size="medium"
-                    onClick={() => {
+                  size="medium"
+                  onClick={() => {
                     setFile(null);
                     if (preview) URL.revokeObjectURL(preview);
                     setPreview(null);
-                    }}
-                    sx={{ px: 2.25, py: 0.65, fontSize: 14 }}
+                  }}
+                  sx={{ px: 2.25, py: 0.65, fontSize: 14 }}
                 >
-                    Choose another file
+                  Choose another file
                 </Button>
-                </Box>
+              </Box>
             ) : (
-                <>
+              <>
                 <Typography variant="body1" gutterBottom fontWeight={600}>
-                    Drag & drop an image here
+                  Drag & drop an image here
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                    or click the button below to browse your device
+                  or click the button below to browse your device
                 </Typography>
                 <Button
-                    component="label"
-                    variant="outlined"
-                    size="medium"
-                    sx={{ mt: 2, px: 6, py: 1, fontSize: 14, borderRadius: 999 }}
+                  component="label"
+                  variant="outlined"
+                  size="medium"
+                  sx={{ mt: 2, px: 4, py: 0.85, fontSize: 14, borderRadius: 999 }}
                 >
-                    Select image
-                    <input type="file" accept="image/*" hidden onChange={handleFileChange} />
+                  Select image
+                  <input type="file" accept="image/*" hidden onChange={handleFileChange} />
                 </Button>
-                </>
+              </>
             )}
-            </Box>
+          </Box>
         </DialogContent>
 
         <DialogActions sx={{ px: 3, py: 1.25 }}>
-            <Button onClick={handleCloseUpload} size="medium" sx={{ px: 2.25, py: 0.6, fontSize: 14 }}>
+          <Button onClick={handleCloseUpload} size="medium" sx={{ px: 2.25, py: 0.6, fontSize: 14 }}>
             Cancel
-            </Button>
-            <Button
+          </Button>
+          <Button
             variant="contained"
             size="medium"
             onClick={handleConfirmUpload}
             disabled={!file}
             sx={{
-                px: 2.75,
-                py: 0.75,
-                fontSize: 14,
-                fontWeight: 700,
-                borderRadius: 999,
+              px: 2.75,
+              py: 0.75,
+              fontSize: 14,
+              fontWeight: 700,
+              borderRadius: 999,
             }}
-            >
+          >
             Upload
-            </Button>
+          </Button>
         </DialogActions>
-        </Dialog>
-
+      </Dialog>
     </ThemeProvider>
   );
 }
