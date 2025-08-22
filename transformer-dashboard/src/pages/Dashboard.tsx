@@ -13,7 +13,8 @@ import {
   Search as SearchIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bolt as BoltIcon,
   List as ListIcon, Add as AddIcon, Tune as TuneIcon, MoreVert as MoreVertIcon
 } from "@mui/icons-material";
-import Inspection from "./Inspections";
+import { useNavigate } from "react-router-dom"; // 👈 added
+import Inspections from "./Inspections";
 
 /* Types */
 type TransformerType = "Bulk" | "Distribution";
@@ -90,6 +91,9 @@ const drawerWidth = 260;
 export default function Dashboard() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [view, setView] = React.useState<"transformers" | "inspections">("transformers");
+
+  // 👇 navigation hook
+  const navigate = useNavigate();
 
   // Transformers state
   const [rows, setRows] = React.useState<Transformer[]>(makeTransformers());
@@ -172,12 +176,6 @@ export default function Dashboard() {
           <ListItemButton selected={view === "transformers"} onClick={() => setView("transformers")}>
             <ListItemIcon><ListIcon /></ListItemIcon>
             <ListItemText primary="Transformer" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
-          <ListItemButton selected={view === "inspections"} onClick={() => setView("inspections")}>
-            <ListItemIcon><ListIcon /></ListItemIcon>
-            <ListItemText primary="Inspections" />
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>
@@ -370,7 +368,14 @@ export default function Dashboard() {
                           </TableCell>
                           <TableCell align="right">
                             <Stack direction="row" spacing={1} justifyContent="flex-end">
-                              <Button variant="contained" size="small">View</Button>
+                              {/* 👇 navigate to /:transformerNo */}
+                              <Button
+                                variant="contained"
+                                size="small"
+                                onClick={() => navigate(`/${row.transformerNo}`)}
+                              >
+                                View
+                              </Button>
                               <IconButton><MoreVertIcon /></IconButton>
                             </Stack>
                           </TableCell>
@@ -398,7 +403,7 @@ export default function Dashboard() {
               </Paper>
             </Stack>
           ) : (
-            <Inspection view="inspections" onChangeView={setView} />
+            <Inspections view="inspections" onChangeView={setView} />
           )}
         </Box>
       </Box>
