@@ -15,6 +15,7 @@ import {
   Divider,
   Drawer,
   FormControl,
+  Grid,
   IconButton,
   List,
   ListItem,
@@ -41,6 +42,10 @@ import {
   Image as ImageIcon,
   Visibility as VisibilityIcon,
   DeleteOutline as DeleteOutlineIcon,
+  Cloud as CloudIcon,
+  WbSunny as SunnyIcon,
+  Thunderstorm as RainIcon,
+  Upload as UploadIcon,
 } from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -103,12 +108,13 @@ function BaselineGroup({ onView, onDelete }: { onView: () => void; onDelete: () 
         <Typography sx={{ fontWeight: 700, fontSize: 14, color: "#344054" }}>Baseline Image</Typography>
       </Box>
 
-      <IconButton size="small" sx={{ width: 28, height: 28, bgcolor: "white", border: (t) => `1px solid ${t.palette.divider}` }}>
+      <IconButton size="small" sx={{ width: 28, height: 28, bgcolor: "white", border: (t) => `1px solid ${t.palette.divider}` }} onClick={onView}>
         <VisibilityIcon fontSize="inherit" sx={{ fontSize: 16, color: "#344054" }} />
       </IconButton>
 
       <IconButton
         size="small"
+        onClick={onDelete}
         sx={{
           width: 28,
           height: 28,
@@ -123,6 +129,11 @@ function BaselineGroup({ onView, onDelete }: { onView: () => void; onDelete: () 
   );
 }
 
+/* Local types for baseline set */
+type Weather = "Sunny" | "Cloudy" | "Rainy";
+type BaselineImage = { url: string; updatedAt: string; by?: string };
+type Baselines = Partial<Record<Weather, BaselineImage>>;
+
 /* ----- Page ----- */
 export default function InspectionDetails() {
   const { transformerNo = "AZ-8801", inspectionNo = "000123589" } = useParams();
@@ -132,9 +143,9 @@ export default function InspectionDetails() {
   const inspectedAt = "Mon(21), May, 2023 12:55pm";
   const lastUpdated = "Mon(21), May, 2023 12:55pm";
 
-  const [weather, setWeather] = React.useState("Sunny");
+  const [weather, setWeather] = React.useState<Weather>("Sunny");
 
-  // Upload dialog state
+  // Upload dialog state (thermal upload)
   const [uploadOpen, setUploadOpen] = React.useState(false);
   const [file, setFile] = React.useState<File | null>(null);
   const [preview, setPreview] = React.useState<string | null>(null);
@@ -145,7 +156,7 @@ export default function InspectionDetails() {
   const [showCompare, setShowCompare] = React.useState(false);
   const tickRef = React.useRef<number | null>(null);
 
-  // placeholder baseline image
+  // placeholder baseline image for comparison
   const BASELINE_URL =
     "https://images.unsplash.com/photo-1518773553398-650c184e0bb3?q=80&w=1200&auto=format&fit=crop";
 
@@ -192,6 +203,79 @@ export default function InspectionDetails() {
   }, [isUploading, progress]);
 
   const handleCloseUpload = () => setUploadOpen(false);
+
+  /* ---------- NEW: Baseline Images state + dialogs ---------- */
+
+  // In a real app you would fetch these from your API on mount.
+  const [baselines, setBaselines] = React.useState<Baselines>({
+    // pre-populate Sunny to show "available" state example
+    Sunny: {
+      url: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1200&auto=format&fit=crop",
+      updatedAt: new Date().toISOString(),
+      by: "Olivera",
+    },
+  });
+
+  // Manage upload / view per-weather
+  const [manageWeather, setManageWeather] = React.useState<Weather | null>(null);
+  const [managePreview, setManagePreview] = React.useState<string | null>(null);
+  const [manageFile, setManageFile] = React.useState<File | null>(null);
+  const [viewer, setViewer] = React.useState<{ open: boolean; url?: string; weather?: Weather }>({ open: false });
+
+  const openUploadFor = (w: Weather) => {
+    setManageWeather(w);
+    // reset previous temp file
+    if (managePreview) URL.revokeObjectURL(managePreview);
+    setManageFile(null);
+    setManagePreview(null);
+  };
+
+  const closeUploadFor = () => {
+    setManageWeather(null);
+    if (managePreview) URL.revokeObjectURL(managePreview);
+    setManagePreview(null);
+    setManageFile(null);
+  };
+
+  const onPickBaselineFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    setManageFile(f);
+    if (managePreview) URL.revokeObjectURL(managePreview);
+    setManagePreview(f ? URL.createObjectURL(f) : null);
+  };
+
+  const confirmBaselineUpload = () => {
+    if (!manageWeather || !managePreview) return;
+    // Normally you would POST and get the CDN URL back. Here we keep the object URL.
+    setBaselines((b) => ({
+      ...b,
+      [manageWeather]: { url: managePreview, updatedAt: new Date().toISOString(), by: "You" },
+    }));
+    setManageWeather(null);
+    // do not revoke managePreview because we store it as the display URL
+  };
+
+  const deleteBaseline = (w: Weather) => {
+    if (!baselines[w]) return;
+    // Simple confirm
+    if (window.confirm(`Delete ${w} baseline image? This cannot be undone.`)) {
+      setBaselines((b) => {
+        const copy = { ...b };
+        // revoke object URL if it's one
+        try {
+          if (copy[w]?.url?.startsWith("blob:")) URL.revokeObjectURL(copy[w]!.url);
+        } catch {}
+        delete copy[w];
+        return copy;
+      });
+    }
+  };
+
+  const viewBaseline = (w: Weather) => {
+    const url = baselines[w]?.url;
+    if (!url) return;
+    setViewer({ open: true, url, weather: w });
+  };
 
   /* Drawer */
   const drawer = (
@@ -342,10 +426,138 @@ export default function InspectionDetails() {
                     </Typography>
                     <Chip label="In progress" color="success" variant="outlined" sx={{ height: 28, fontWeight: 700, borderColor: "success.light", color: "success.main" }} />
                   </Stack>
-                  <BaselineGroup onView={() => {}} onDelete={() => {}} />
+                  <BaselineGroup onView={() => viewBaseline(weather)} onDelete={() => deleteBaseline(weather)} />
                 </Stack>
               </Stack>
             </Paper>
+
+            {/* ===== Baseline Images card ===== */}
+            <Paper elevation={3} sx={{ p: 2.25, borderRadius: 1 }}>
+            <Stack
+                direction="row"
+                alignItems="center"
+                justifyContent="space-between"
+                sx={{ mb: 1 }}
+            >
+                <Stack direction="row" spacing={1} alignItems="center">
+                <ImageIcon sx={{ color: "primary.main" }} />
+                <Typography variant="subtitle1" fontWeight={800}>
+                    Baseline Images
+                </Typography>
+                </Stack>
+                <Chip
+                size="small"
+                label={`Selected Weather: ${weather}`}
+                sx={{ bgcolor: "#EEF0F6", fontWeight: 600 }}
+                />
+            </Stack>
+
+            {/* Equal spacing with fixed width */}
+            <Stack
+                direction="row"
+                spacing={2}
+                justifyContent="space-between"
+                sx={{ width: "100%" }}
+            >
+                {(["Sunny", "Cloudy", "Rainy"] as const).map((w) => {
+                const item = baselines[w];
+                const available = Boolean(item?.url);
+                const Icon =
+                    w === "Sunny" ? SunnyIcon : w === "Cloudy" ? CloudIcon : RainIcon;
+
+                return (
+                    <Paper
+                    key={w}
+                    variant="outlined"
+                    sx={{
+                        width: 240, // ✅ fixed width
+                        height: 240, // ✅ fixed height
+                        flex: 1,    // ✅ makes spacing equal across row
+                        p: 1.5,
+                        borderRadius: 1.5,
+                        borderStyle: available ? "solid" : "dashed",
+                        display: "flex",
+                        flexDirection: "column",
+                    }}
+                    >
+                    {/* Title row */}
+                    <Stack
+                    direction="row"
+                    alignItems="center"
+                    justifyContent="space-between"   // ✅ pushes children apart
+                    sx={{ mb: 1 }}
+                    >
+                    {/* Left side: Icon + label */}
+                    <Stack direction="row" spacing={1} alignItems="center">
+                        <Icon fontSize="small" />
+                        <Typography fontWeight={700}>{w}</Typography>
+                    </Stack>
+
+                    {/* Right side: status chip */}
+                    <Chip
+                        size="small"
+                        label={available ? "Available" : "Not set"}
+                        color={available ? "success" : "default"}
+                        variant="outlined"
+                    />
+                    </Stack>
+
+                    {/* Thumbnail */}
+                    <Box
+                        sx={{
+                        flexGrow: 1,
+                        borderRadius: 1.5,
+                        overflow: "hidden",
+                        bgcolor: "#F3F4F6",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        mb: 1,
+                        height: 140, // ✅ fixed thumbnail height
+                        }}
+                    >
+                        {available ? (
+                        <img
+                            src={item!.url}
+                            alt={`${w} baseline`}
+                            style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            display: "block",
+                            }}
+                        />
+                        ) : (
+                        <Stack alignItems="center" spacing={0.5} sx={{ color: "text.secondary" }}>
+                            <UploadIcon fontSize="small" />
+                            <Typography variant="caption">No image uploaded</Typography>
+                        </Stack>
+                        )}
+                    </Box>
+
+                    {/* Actions */}
+                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        {!available ? (
+                        <Button size="small" variant="contained" onClick={() => openUploadFor(w)}>
+                            Upload
+                        </Button>
+                        ) : (
+                        <>
+                            <Button size="small" variant="contained" onClick={() => viewBaseline(w, item)}>
+                            View
+                            </Button>
+                            <Button size="small" color="error" onClick={() => deleteBaseline(w)}>
+                            Delete
+                            </Button>
+                        </>
+                        )}
+                    </Stack>
+                    </Paper>
+                );
+                })}
+            </Stack>
+            </Paper>
+
 
             {/* ===== Content area ===== */}
             {isUploading ? (
@@ -389,7 +601,7 @@ export default function InspectionDetails() {
                 </Box>
               </Paper>
             ) : showCompare ? (
-              // ===== Comparison view (no black strip) =====
+              // ===== Comparison view =====
               <Paper elevation={3} sx={{ p: 2.5, borderRadius: 2 }}>
                 <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
                   <Typography variant="subtitle1" fontWeight={700}>
@@ -482,12 +694,7 @@ export default function InspectionDetails() {
                     </Box>
 
                     {/* Example: anomaly badge + demo boxes */}
-                    <Chip
-                      size="small"
-                      label="Anomaly Detected"
-                      color="error"
-                      sx={{ position: "absolute", top: 10, right: 10, fontWeight: 700 }}
-                    />
+                    <Chip size="small" label="Anomaly Detected" color="error" sx={{ position: "absolute", top: 10, right: 10, fontWeight: 700 }} />
                     <Box sx={{ position: "absolute", left: "55%", top: "42%", width: 120, height: 90, border: "2px solid #EF4444", borderRadius: 1 }} />
                     <Box sx={{ position: "absolute", left: "62%", bottom: "12%", width: 180, height: 80, border: "2px solid #EF4444", borderRadius: 1 }} />
                   </Box>
@@ -512,19 +719,14 @@ export default function InspectionDetails() {
                       Weather Condition
                     </Typography>
                     <FormControl size="small" fullWidth sx={{ mt: 1.5 }}>
-                      <Select value={weather} onChange={(e) => setWeather(e.target.value)}>
+                      <Select value={weather} onChange={(e) => setWeather(e.target.value as Weather)}>
                         <MenuItem value="Sunny">Sunny</MenuItem>
                         <MenuItem value="Cloudy">Cloudy</MenuItem>
                         <MenuItem value="Rainy">Rainy</MenuItem>
                       </Select>
                     </FormControl>
                   </Box>
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    sx={{ mt: 3, borderRadius: 999, py: 1.1, fontWeight: 700 }}
-                    onClick={() => setUploadOpen(true)}
-                  >
+                  <Button fullWidth variant="contained" sx={{ mt: 3, borderRadius: 999, py: 1.1, fontWeight: 700 }} onClick={() => setUploadOpen(true)}>
                     Upload thermal image
                   </Button>
                 </Paper>
@@ -559,7 +761,7 @@ export default function InspectionDetails() {
         </Box>
       </Box>
 
-      {/* ===== Upload Image Dialog ===== */}
+      {/* ===== Upload Thermal Image Dialog ===== */}
       <Dialog
         open={uploadOpen}
         onClose={handleCloseUpload}
@@ -626,15 +828,69 @@ export default function InspectionDetails() {
           <Button onClick={handleCloseUpload} size="medium" sx={{ px: 2.25, py: 0.6, fontSize: 14 }}>
             Cancel
           </Button>
-          <Button
-            variant="contained"
-            size="medium"
-            onClick={handleConfirmUpload}
-            disabled={!file}
-            sx={{ px: 2.75, py: 0.75, fontSize: 14, fontWeight: 700, borderRadius: 999 }}
-          >
+          <Button variant="contained" size="medium" onClick={handleConfirmUpload} disabled={!file} sx={{ px: 2.75, py: 0.75, fontSize: 14, fontWeight: 700, borderRadius: 999 }}>
             Upload
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ===== Manage Baseline Upload Dialog (per weather) ===== */}
+      <Dialog open={Boolean(manageWeather)} onClose={closeUploadFor} fullWidth maxWidth="sm">
+        <DialogTitle>
+          <Typography variant="h6" fontWeight={700}>
+            {baselines[manageWeather as Weather] ? "Replace" : "Upload"} {manageWeather ?? ""} Baseline
+          </Typography>
+        </DialogTitle>
+        <DialogContent dividers sx={{ bgcolor: "#FBFBFE" }}>
+          <Box
+            sx={{
+              my: 1,
+              p: 2,
+              border: "1px dashed",
+              borderColor: "divider",
+              borderRadius: 2,
+              textAlign: "center",
+              bgcolor: "white",
+            }}
+          >
+            {managePreview ? (
+              <img src={managePreview} alt="baseline preview" style={{ maxWidth: "100%", maxHeight: 280, borderRadius: 10, objectFit: "contain" }} />
+            ) : baselines[manageWeather as Weather]?.url ? (
+              <img src={baselines[manageWeather as Weather]!.url} alt="current baseline" style={{ maxWidth: "100%", maxHeight: 280, borderRadius: 10, objectFit: "contain" }} />
+            ) : (
+              <Typography color="text.secondary">No image selected</Typography>
+            )}
+
+            <Box sx={{ mt: 2 }}>
+              <Button component="label" variant="outlined" startIcon={<UploadIcon />}>
+                Choose image
+                <input type="file" accept="image/*" hidden onChange={onPickBaselineFile} />
+              </Button>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 1.25 }}>
+          <Button onClick={closeUploadFor}>Cancel</Button>
+          <Button variant="contained" disabled={!manageFile && !managePreview} onClick={confirmBaselineUpload}>
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ===== Baseline Viewer ===== */}
+      <Dialog open={viewer.open} onClose={() => setViewer({ open: false })} maxWidth="md" fullWidth>
+        <DialogTitle>
+          <Typography fontWeight={700}>View {viewer.weather} Baseline</Typography>
+        </DialogTitle>
+        <DialogContent dividers>
+          {viewer.url ? (
+            <img src={viewer.url} alt="baseline" style={{ width: "100%", height: "auto", display: "block", borderRadius: 8 }} />
+          ) : (
+            <Typography>No image</Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setViewer({ open: false })}>Close</Button>
         </DialogActions>
       </Dialog>
     </ThemeProvider>
