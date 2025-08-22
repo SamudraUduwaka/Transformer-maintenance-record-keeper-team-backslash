@@ -179,12 +179,6 @@ export default function Dashboard() {
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>
-          <ListItemButton selected={view === "inspections"} onClick={() => setView("inspections")}>
-            <ListItemIcon><ListIcon /></ListItemIcon>
-            <ListItemText primary="Inspections" />
-          </ListItemButton>
-        </ListItem>
-        <ListItem disablePadding>
           <ListItemButton>
             <ListItemIcon><SettingsIcon /></ListItemIcon>
             <ListItemText primary="Settings" />

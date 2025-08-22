@@ -516,7 +516,6 @@ export default function InspectionDetails() {
                         <MenuItem value="Sunny">Sunny</MenuItem>
                         <MenuItem value="Cloudy">Cloudy</MenuItem>
                         <MenuItem value="Rainy">Rainy</MenuItem>
-                        <MenuItem value="Windy">Windy</MenuItem>
                       </Select>
                     </FormControl>
                   </Box>

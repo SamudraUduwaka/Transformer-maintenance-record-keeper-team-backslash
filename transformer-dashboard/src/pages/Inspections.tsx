@@ -1,8 +1,12 @@
 import * as React from "react";
 import {
+  AppBar,
+  Avatar,
+  Badge,
   Box,
   Button,
   Chip,
+  CssBaseline,
   IconButton,
   InputAdornment,
   MenuItem,
@@ -10,6 +14,8 @@ import {
   Select,
   Stack,
   TextField,
+  Toolbar,
+  Tooltip,
   Typography,
   Table,
   TableBody,
@@ -26,6 +32,8 @@ import {
   Add as AddIcon,
   MoreVert as MoreVertIcon,
   Search as SearchIcon,
+  Menu as MenuIcon,
+  Notifications as NotificationsIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 
@@ -100,6 +108,9 @@ const statusChip = (s: InspectionStatus) => {
   return <Chip size="small" variant="outlined" color={i.color} label={i.label} />;
 };
 
+/* Match your drawer width so the fixed AppBar lines up */
+const drawerWidth = 260;
+
 export default function Inspections({ view = "inspections", onChangeView }: Props) {
   const navigate = useNavigate();
 
@@ -138,202 +149,264 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
   };
 
   return (
-    <Stack spacing={2} sx={{ width: "100%" }}>
-      {/* Header card — same structure as Dashboard's header card */}
-      <Paper elevation={3} sx={{ p: 2, borderRadius: 1, width: "100%", boxSizing: "border-box" }}>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "stretch", md: "center" }}>
+    <>
+      <CssBaseline />
+
+      {/* Top App Header */}
+      <AppBar
+        position="fixed"
+        color="inherit"
+        elevation={0}
+        sx={{
+          bgcolor: "background.paper",
+          borderBottom: (t) => `1px solid ${t.palette.divider}`,
+          ml: { sm: `${drawerWidth}px` },
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+        }}
+      >
+        <Toolbar sx={{ minHeight: 72 }}>
           <Stack direction="row" spacing={1.25} alignItems="center">
-            <Box
-              sx={{
-                bgcolor: "primary.main",
-                color: "primary.contrastText",
-                fontWeight: 700,
-                borderRadius: 2,
-                px: 1.2,
-                py: 0.4,
-                boxShadow: "0 6px 16px rgba(79,70,229,0.25)",
-              }}
-            >
-              {filtered.length}
-            </Box>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              All Inspections
+            <IconButton>
+              <MenuIcon />
+            </IconButton>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              Transformer &gt; All Inspections
             </Typography>
           </Stack>
 
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => alert("Hook this to your Add Inspection flow")}
-            sx={{
-              ml: { md: 1 },
-              borderRadius: 999,
-              px: 2.5,
-              py: 0.9,
-              fontWeight: 700,
-              textTransform: "none",
-              background: "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
-              boxShadow: "0 8px 18px rgba(79,70,229,0.35)",
-              "&:hover": {
-                background: "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)",
-                boxShadow: "0 10px 22px rgba(79,70,229,0.45)",
-              },
-            }}
-          >
-            Add Inspection
-          </Button>
-
           <Box sx={{ flexGrow: 1 }} />
-          <Paper elevation={3} sx={{ p: 0.5, borderRadius: 999 }}>
-            <ToggleButtonGroup
-              value={view}
-              exclusive
-              onChange={(_, v) => v && onChangeView?.(v)}
-              sx={{
-                "& .MuiToggleButton-root": {
-                  border: 0,
-                  textTransform: "none",
-                  px: 2.2,
-                  py: 0.8,
-                  borderRadius: 999,
-                  fontWeight: 600,
-                },
-              }}
+
+          <Tooltip title="Notifications">
+            <IconButton>
+              <Badge color="secondary" variant="dot">
+                <NotificationsIcon />
+              </Badge>
+            </IconButton>
+          </Tooltip>
+          <Stack direction="row" spacing={1.25} alignItems="center" sx={{ ml: 1 }}>
+            <Avatar src="https://i.pravatar.cc/64?img=1" sx={{ width: 36, height: 36 }} />
+            <Box sx={{ display: { xs: "none", md: "block" } }}>
+              <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
+                Olivera Queen
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                olivera@gmail.com
+              </Typography>
+            </Box>
+          </Stack>
+        </Toolbar>
+      </AppBar>
+
+      {/* Push page content below fixed AppBar */}
+      <Box sx={{ mt: 0 /* 72px */, width: "100%" }}>
+        <Stack spacing={2} sx={{ width: "100%" }}>
+          {/* Header card — same structure as before */}
+          <Paper elevation={3} sx={{ p: 2, borderRadius: 1, width: "100%", boxSizing: "border-box" }}>
+            <Stack
+              direction={{ xs: "column", md: "row" }}
+              spacing={2}
+              alignItems={{ xs: "stretch", md: "center" }}
             >
-              <ToggleButton
-                value="transformers"
+              <Stack direction="row" spacing={1.25} alignItems="center">
+                <Box
+                  sx={{
+                    bgcolor: "primary.main",
+                    color: "primary.contrastText",
+                    fontWeight: 700,
+                    borderRadius: 2,
+                    px: 1.2,
+                    py: 0.4,
+                    boxShadow: "0 6px 16px rgba(79,70,229,0.25)",
+                  }}
+                >
+                  {filtered.length}
+                </Box>
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                  All Inspections
+                </Typography>
+              </Stack>
+
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => alert("Hook this to your Add Inspection flow")}
                 sx={{
-                  bgcolor: view === "transformers" ? "primary.main" : "transparent",
-                  color: view === "transformers" ? "primary.contrastText" : "text.primary",
-                  "&:hover": { bgcolor: view === "transformers" ? "primary.dark" : "action.hover" },
+                  ml: { md: 1 },
+                  borderRadius: 999,
+                  px: 2.5,
+                  py: 0.9,
+                  fontWeight: 700,
+                  textTransform: "none",
+                  background: "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
+                  boxShadow: "0 8px 18px rgba(79,70,229,0.35)",
+                  "&:hover": {
+                    background: "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)",
+                    boxShadow: "0 10px 22px rgba(79,70,229,0.45)",
+                  },
                 }}
               >
-                Transformers
-              </ToggleButton>
-              <ToggleButton
-                value="inspections"
-                sx={{
-                  bgcolor: view === "inspections" ? "primary.main" : "transparent",
-                  color: view === "inspections" ? "primary.contrastText" : "text.primary",
-                  "&:hover": { bgcolor: view === "inspections" ? "primary.dark" : "action.hover" },
-                }}
-              >
-                Inspections
-              </ToggleButton>
-            </ToggleButtonGroup>
-          </Paper>
-        </Stack>
+                Add Inspection
+              </Button>
 
-        {/* Filters row — Reset button WITHOUT icon */}
-        <Stack direction={{ xs: "column", lg: "row" }} spacing={2} alignItems="center" sx={{ mt: 2 }}>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="Search by Transformer / Inspection No"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <Select
-            size="small"
-            value={status}
-            onChange={(e) => setStatus(e.target.value as any)}
-            sx={{ minWidth: 180 }}
-          >
-            <MenuItem value="All">All Statuses</MenuItem>
-            <MenuItem value="In Progress">In Progress</MenuItem>
-            <MenuItem value="Pending">Pending</MenuItem>
-            <MenuItem value="Completed">Completed</MenuItem>
-          </Select>
-
-          <Button onClick={resetFilters} sx={{ textTransform: "none" }}>
-            Reset Filters
-          </Button>
-        </Stack>
-      </Paper>
-
-      {/* Table */}
-      <Paper>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell sortDirection={orderBy === "transformerNo" ? order : false}>
-                  <TableSortLabel
-                    active={orderBy === "transformerNo"}
-                    direction={orderBy === "transformerNo" ? order : "asc"}
-                    onClick={() => {
-                      setOrder((o) => (o === "asc" ? "desc" : "asc"));
-                      setOrderBy("transformerNo");
+              <Box sx={{ flexGrow: 1 }} />
+              <Paper elevation={3} sx={{ p: 0.5, borderRadius: 999 }}>
+                <ToggleButtonGroup
+                  value={view}
+                  exclusive
+                  onChange={(_, v) => v && onChangeView?.(v)}
+                  sx={{
+                    "& .MuiToggleButton-root": {
+                      border: 0,
+                      textTransform: "none",
+                      px: 2.2,
+                      py: 0.8,
+                      borderRadius: 999,
+                      fontWeight: 600,
+                    },
+                  }}
+                >
+                  <ToggleButton
+                    value="transformers"
+                    sx={{
+                      bgcolor: view === "transformers" ? "primary.main" : "transparent",
+                      color: view === "transformers" ? "primary.contrastText" : "text.primary",
+                      "&:hover": { bgcolor: view === "transformers" ? "primary.dark" : "action.hover" },
                     }}
                   >
-                    Transformer No.
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell>Inspection No.</TableCell>
-                <TableCell>Inspected Date</TableCell>
-                <TableCell>Maintenance Date</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {paged.map((row) => (
-                <TableRow key={row.id} hover>
-                  <TableCell>
-                    <Typography fontWeight={600}>{row.transformerNo}</Typography>
-                  </TableCell>
-                  <TableCell>{row.inspectionNo}</TableCell>
-                  <TableCell>{row.inspectedDate}</TableCell>
-                  <TableCell>{row.maintenanceDate ?? "-"}</TableCell>
-                  <TableCell>{statusChip(row.status)}</TableCell>
-                  <TableCell align="right">
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      <Button
-                        variant="contained"
-                        size="small"
-                        onClick={() => navigate(`/${encodeURIComponent(row.transformerNo)}/${encodeURIComponent(row.inspectionNo)}`)}
+                    Transformers
+                  </ToggleButton>
+                  <ToggleButton
+                    value="inspections"
+                    sx={{
+                      bgcolor: view === "inspections" ? "primary.main" : "transparent",
+                      color: view === "inspections" ? "primary.contrastText" : "text.primary",
+                      "&:hover": { bgcolor: view === "inspections" ? "primary.dark" : "action.hover" },
+                    }}
+                  >
+                    Inspections
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              </Paper>
+            </Stack>
+
+            {/* Filters row */}
+            <Stack direction={{ xs: "column", lg: "row" }} spacing={2} alignItems="center" sx={{ mt: 2 }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Search by Transformer / Inspection No"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <Select
+                size="small"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as any)}
+                sx={{ minWidth: 180 }}
+              >
+                <MenuItem value="All">All Statuses</MenuItem>
+                <MenuItem value="In Progress">In Progress</MenuItem>
+                <MenuItem value="Pending">Pending</MenuItem>
+                <MenuItem value="Completed">Completed</MenuItem>
+              </Select>
+
+              <Button onClick={resetFilters} sx={{ textTransform: "none" }}>
+                Reset Filters
+              </Button>
+            </Stack>
+          </Paper>
+
+          {/* Table */}
+          <Paper>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sortDirection={orderBy === "transformerNo" ? order : false}>
+                      <TableSortLabel
+                        active={orderBy === "transformerNo"}
+                        direction={orderBy === "transformerNo" ? order : "asc"}
+                        onClick={() => {
+                          setOrder((o) => (o === "asc" ? "desc" : "asc"));
+                          setOrderBy("transformerNo");
+                        }}
                       >
-                        View
-                      </Button>
-                      <IconButton>
-                        <MoreVertIcon />
-                      </IconButton>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {paged.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6}>
-                    <Box sx={{ p: 4, textAlign: "center" }}>
-                      <Typography>No results</Typography>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        <TablePagination
-          component="div"
-          count={sorted.length}
-          page={page}
-          onPageChange={(_e, p) => setPage(p)}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
-          rowsPerPageOptions={[5, 10, 20, 50]}
-        />
-      </Paper>
-    </Stack>
+                        Transformer No.
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>Inspection No.</TableCell>
+                    <TableCell>Inspected Date</TableCell>
+                    <TableCell>Maintenance Date</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {paged.map((row) => (
+                    <TableRow key={row.id} hover>
+                      <TableCell>
+                        <Typography fontWeight={600}>{row.transformerNo}</Typography>
+                      </TableCell>
+                      <TableCell>{row.inspectionNo}</TableCell>
+                      <TableCell>{row.inspectedDate}</TableCell>
+                      <TableCell>{row.maintenanceDate ?? "-"}</TableCell>
+                      <TableCell>{statusChip(row.status)}</TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <Button
+                            variant="contained"
+                            size="small"
+                            onClick={() =>
+                              navigate(
+                                `/${encodeURIComponent(row.transformerNo)}/${encodeURIComponent(
+                                  row.inspectionNo
+                                )}`
+                              )
+                            }
+                          >
+                            View
+                          </Button>
+                          <IconButton>
+                            <MoreVertIcon />
+                          </IconButton>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {paged.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6}>
+                        <Box sx={{ p: 4, textAlign: "center" }}>
+                          <Typography>No results</Typography>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <TablePagination
+              component="div"
+              count={sorted.length}
+              page={page}
+              onPageChange={(_e, p) => setPage(p)}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPage(parseInt(e.target.value, 10));
+                setPage(0);
+              }}
+              rowsPerPageOptions={[5, 10, 20, 50]}
+            />
+          </Paper>
+        </Stack>
+      </Box>
+    </>
   );
 }
