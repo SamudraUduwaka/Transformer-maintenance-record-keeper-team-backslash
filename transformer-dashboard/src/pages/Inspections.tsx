@@ -1,10 +1,39 @@
 import * as React from "react";
 import {
-  Box, Button, Chip, IconButton, InputAdornment, MenuItem, Paper, Select, Stack, TextField,
-  Typography, Table, TableBody, TableCell, TableContainer, TableHead, TablePagination,
-  TableRow, TableSortLabel, ToggleButton, ToggleButtonGroup
+  Box,
+  Button,
+  Chip,
+  IconButton,
+  InputAdornment,
+  MenuItem,
+  Paper,
+  Select,
+  Stack,
+  TextField,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TablePagination,
+  TableRow,
+  TableSortLabel,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
-import { Add as AddIcon, MoreVert as MoreVertIcon, Search as SearchIcon, Tune as TuneIcon } from "@mui/icons-material";
+import {
+  Add as AddIcon,
+  MoreVert as MoreVertIcon,
+  Search as SearchIcon,
+} from "@mui/icons-material";
+import { useNavigate } from "react-router-dom";
+
+/* Props controlled by Dashboard */
+type Props = {
+  view?: "transformers" | "inspections";
+  onChangeView?: (v: "transformers" | "inspections") => void;
+};
 
 /* Types */
 type InspectionStatus = "In Progress" | "Pending" | "Completed";
@@ -17,11 +46,6 @@ type InspectionRow = {
   status: InspectionStatus;
 };
 
-type Props = {
-  view?: "transformers" | "inspections";
-  onChangeView?: (v: "transformers" | "inspections") => void;
-};
-
 /* Mock */
 const makeInspections = (): InspectionRow[] => {
   const statuses: InspectionStatus[] = ["In Progress", "Pending", "Completed"];
@@ -32,7 +56,8 @@ const makeInspections = (): InspectionRow[] => {
       transformerNo: `AZ-${(8800 + i).toString()}`,
       inspectionNo: (123500 + i).toString().padStart(8, "0"),
       inspectedDate: new Date(2025, 6, (i % 28) + 1, 19, 12).toLocaleString(),
-      maintenanceDate: i % 3 === 0 ? "-" : new Date(2025, 6, ((i + 3) % 28) + 1, 19, 12).toLocaleString(),
+      maintenanceDate:
+        i % 3 === 0 ? "-" : new Date(2025, 6, ((i + 3) % 28) + 1, 19, 12).toLocaleString(),
       status: statuses[i % statuses.length],
     });
   }
@@ -64,22 +89,23 @@ function stableSort<T>(array: readonly T[], comparator: (a: T, b: T) => number) 
   return stabilized.map((el) => el[0]);
 }
 
+/* Status chip */
 const statusChip = (s: InspectionStatus) => {
   const map: Record<InspectionStatus, { color: "success" | "warning" | "info"; label: string }> = {
-    "Completed": { color: "success", label: "Completed" },
-    "Pending": { color: "warning", label: "Pending" },
+    Completed: { color: "success", label: "Completed" },
+    Pending: { color: "warning", label: "Pending" },
     "In Progress": { color: "info", label: "In Progress" },
   };
   const i = map[s];
   return <Chip size="small" variant="outlined" color={i.color} label={i.label} />;
 };
 
-export default function Inspection({ view = "inspections", onChangeView }: Props) {
-  const [rows] = React.useState<InspectionRow[]>(makeInspections());
+export default function Inspections({ view = "inspections", onChangeView }: Props) {
+  const navigate = useNavigate();
 
+  const [rows] = React.useState<InspectionRow[]>(makeInspections());
   const [search, setSearch] = React.useState("");
   const [status, setStatus] = React.useState<InspectionStatus | "All">("All");
-
   const [order, setOrder] = React.useState<Order>("asc");
   const [orderBy, setOrderBy] = React.useState<keyof InspectionRow>("transformerNo");
   const [page, setPage] = React.useState(0);
@@ -88,27 +114,51 @@ export default function Inspection({ view = "inspections", onChangeView }: Props
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
-      const m1 = !q || r.transformerNo.toLowerCase().includes(q) || r.inspectionNo.toLowerCase().includes(q);
+      const m1 =
+        !q ||
+        r.transformerNo.toLowerCase().includes(q) ||
+        r.inspectionNo.toLowerCase().includes(q);
       const m2 = status === "All" || r.status === status;
       return m1 && m2;
     });
   }, [rows, search, status]);
 
-  const sorted = React.useMemo(() => stableSort(filtered, getComparator(order, orderBy)), [filtered, order, orderBy]);
-  const paged = React.useMemo(() => sorted.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage), [sorted, page, rowsPerPage]);
+  const sorted = React.useMemo(
+    () => stableSort(filtered, getComparator(order, orderBy)),
+    [filtered, order, orderBy]
+  );
+  const paged = React.useMemo(
+    () => sorted.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
+    [sorted, page, rowsPerPage]
+  );
 
-  const resetFilters = () => { setSearch(""); setStatus("All"); };
+  const resetFilters = () => {
+    setSearch("");
+    setStatus("All");
+  };
 
   return (
-    <Stack spacing={2}>
-      {/* Section header card */}
-      <Paper elevation={3} sx={{ p: 2, borderRadius: 3 }}>
+    <Stack spacing={2} sx={{ width: "100%" }}>
+      {/* Header card — same structure as Dashboard's header card */}
+      <Paper elevation={3} sx={{ p: 2, borderRadius: 1, width: "100%", boxSizing: "border-box" }}>
         <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "stretch", md: "center" }}>
           <Stack direction="row" spacing={1.25} alignItems="center">
-            <Box sx={{ bgcolor: "primary.main", color: "primary.contrastText", fontWeight: 700, borderRadius: 2, px: 1.2, py: 0.4, boxShadow: "0 6px 16px rgba(79,70,229,0.25)" }}>
+            <Box
+              sx={{
+                bgcolor: "primary.main",
+                color: "primary.contrastText",
+                fontWeight: 700,
+                borderRadius: 2,
+                px: 1.2,
+                py: 0.4,
+                boxShadow: "0 6px 16px rgba(79,70,229,0.25)",
+              }}
+            >
               {filtered.length}
             </Box>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>All Inspections</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              All Inspections
+            </Typography>
           </Stack>
 
           <Button
@@ -124,7 +174,10 @@ export default function Inspection({ view = "inspections", onChangeView }: Props
               textTransform: "none",
               background: "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
               boxShadow: "0 8px 18px rgba(79,70,229,0.35)",
-              "&:hover": { background: "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)", boxShadow: "0 10px 22px rgba(79,70,229,0.45)" },
+              "&:hover": {
+                background: "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)",
+                boxShadow: "0 10px 22px rgba(79,70,229,0.45)",
+              },
             }}
           >
             Add Inspection
@@ -136,17 +189,34 @@ export default function Inspection({ view = "inspections", onChangeView }: Props
               value={view}
               exclusive
               onChange={(_, v) => v && onChangeView?.(v)}
-              sx={{ "& .MuiToggleButton-root": { border: 0, textTransform: "none", px: 2.2, py: 0.8, borderRadius: 999, fontWeight: 600 } }}
+              sx={{
+                "& .MuiToggleButton-root": {
+                  border: 0,
+                  textTransform: "none",
+                  px: 2.2,
+                  py: 0.8,
+                  borderRadius: 999,
+                  fontWeight: 600,
+                },
+              }}
             >
               <ToggleButton
                 value="transformers"
-                sx={{ bgcolor: view === "transformers" ? "primary.main" : "transparent", color: view === "transformers" ? "primary.contrastText" : "text.primary", "&:hover": { bgcolor: view === "transformers" ? "primary.dark" : "action.hover" } }}
+                sx={{
+                  bgcolor: view === "transformers" ? "primary.main" : "transparent",
+                  color: view === "transformers" ? "primary.contrastText" : "text.primary",
+                  "&:hover": { bgcolor: view === "transformers" ? "primary.dark" : "action.hover" },
+                }}
               >
                 Transformers
               </ToggleButton>
               <ToggleButton
                 value="inspections"
-                sx={{ bgcolor: view === "inspections" ? "primary.main" : "transparent", color: view === "inspections" ? "primary.contrastText" : "text.primary", "&:hover": { bgcolor: view === "inspections" ? "primary.dark" : "action.hover" } }}
+                sx={{
+                  bgcolor: view === "inspections" ? "primary.main" : "transparent",
+                  color: view === "inspections" ? "primary.contrastText" : "text.primary",
+                  "&:hover": { bgcolor: view === "inspections" ? "primary.dark" : "action.hover" },
+                }}
               >
                 Inspections
               </ToggleButton>
@@ -154,20 +224,37 @@ export default function Inspection({ view = "inspections", onChangeView }: Props
           </Paper>
         </Stack>
 
-        {/* Filters row */}
+        {/* Filters row — Reset button WITHOUT icon */}
         <Stack direction={{ xs: "column", lg: "row" }} spacing={2} alignItems="center" sx={{ mt: 2 }}>
           <TextField
-            fullWidth size="small" placeholder="Search by Transformer / Inspection No" value={search}
+            fullWidth
+            size="small"
+            placeholder="Search by Transformer / Inspection No"
+            value={search}
             onChange={(e) => setSearch(e.target.value)}
-            InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon /></InputAdornment>) }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
           />
-          <Select size="small" value={status} onChange={(e) => setStatus(e.target.value as any)} sx={{ minWidth: 180 }}>
+          <Select
+            size="small"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as any)}
+            sx={{ minWidth: 180 }}
+          >
             <MenuItem value="All">All Statuses</MenuItem>
             <MenuItem value="In Progress">In Progress</MenuItem>
             <MenuItem value="Pending">Pending</MenuItem>
             <MenuItem value="Completed">Completed</MenuItem>
           </Select>
-          <Chip icon={<TuneIcon />} label="Reset Filters" onClick={resetFilters} variant="outlined" />
+
+          <Button onClick={resetFilters} sx={{ textTransform: "none" }}>
+            Reset Filters
+          </Button>
         </Stack>
       </Paper>
 
@@ -181,7 +268,10 @@ export default function Inspection({ view = "inspections", onChangeView }: Props
                   <TableSortLabel
                     active={orderBy === "transformerNo"}
                     direction={orderBy === "transformerNo" ? order : "asc"}
-                    onClick={() => { setOrder((o) => (o === "asc" ? "desc" : "asc")); setOrderBy("transformerNo"); }}
+                    onClick={() => {
+                      setOrder((o) => (o === "asc" ? "desc" : "asc"));
+                      setOrderBy("transformerNo");
+                    }}
                   >
                     Transformer No.
                   </TableSortLabel>
@@ -196,15 +286,25 @@ export default function Inspection({ view = "inspections", onChangeView }: Props
             <TableBody>
               {paged.map((row) => (
                 <TableRow key={row.id} hover>
-                  <TableCell><Typography fontWeight={600}>{row.transformerNo}</Typography></TableCell>
+                  <TableCell>
+                    <Typography fontWeight={600}>{row.transformerNo}</Typography>
+                  </TableCell>
                   <TableCell>{row.inspectionNo}</TableCell>
                   <TableCell>{row.inspectedDate}</TableCell>
                   <TableCell>{row.maintenanceDate ?? "-"}</TableCell>
                   <TableCell>{statusChip(row.status)}</TableCell>
                   <TableCell align="right">
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      <Button variant="contained" size="small">View</Button>
-                      <IconButton><MoreVertIcon /></IconButton>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        onClick={() => navigate(`/inspections/${encodeURIComponent(row.transformerNo)}`)}
+                      >
+                        View
+                      </Button>
+                      <IconButton>
+                        <MoreVertIcon />
+                      </IconButton>
                     </Stack>
                   </TableCell>
                 </TableRow>
@@ -212,7 +312,9 @@ export default function Inspection({ view = "inspections", onChangeView }: Props
               {paged.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6}>
-                    <Box sx={{ p: 4, textAlign: "center" }}><Typography>No results</Typography></Box>
+                    <Box sx={{ p: 4, textAlign: "center" }}>
+                      <Typography>No results</Typography>
+                    </Box>
                   </TableCell>
                 </TableRow>
               )}
@@ -225,7 +327,10 @@ export default function Inspection({ view = "inspections", onChangeView }: Props
           page={page}
           onPageChange={(_e, p) => setPage(p)}
           rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
           rowsPerPageOptions={[5, 10, 20, 50]}
         />
       </Paper>

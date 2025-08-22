@@ -13,7 +13,7 @@ import {
   Search as SearchIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bolt as BoltIcon,
   List as ListIcon, Add as AddIcon, Tune as TuneIcon, MoreVert as MoreVertIcon
 } from "@mui/icons-material";
-import Inspection from "./Inspections";
+import Inspections from "./Inspections";
 
 /* Types */
 type TransformerType = "Bulk" | "Distribution";
@@ -398,7 +398,7 @@ export default function Dashboard() {
               </Paper>
             </Stack>
           ) : (
-            <Inspection view="inspections" onChangeView={setView} />
+            <Inspections view="inspections" onChangeView={setView} />
           )}
         </Box>
       </Box>
