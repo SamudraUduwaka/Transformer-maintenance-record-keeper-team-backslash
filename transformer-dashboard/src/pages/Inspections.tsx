@@ -55,7 +55,7 @@ type InspectionRow = {
   transformerNo: string;
   inspectionNo: string;
   inspectedDate: string;
-  maintenanceDate?: string;
+  maintenanceDate: string; // always string, never undefined
   status: InspectionStatus;
 };
 
@@ -84,7 +84,7 @@ function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
   if (b[orderBy] > a[orderBy]) return 1;
   return 0;
 }
-function getComparator<Key extends keyof any>(
+function getComparator<Key extends PropertyKey>(
   order: Order,
   orderBy: Key
 ): (a: { [key in Key]: number | string }, b: { [key in Key]: number | string }) => number {
@@ -331,7 +331,7 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
               <Select
                 size="small"
                 value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
+                onChange={(e) => setStatus(e.target.value as InspectionStatus | "All")}
                 sx={{ minWidth: 180 }}
               >
                 <MenuItem value="All">All Statuses</MenuItem>
@@ -379,7 +379,7 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
                       </TableCell>
                       <TableCell>{row.inspectionNo}</TableCell>
                       <TableCell>{row.inspectedDate}</TableCell>
-                      <TableCell>{row.maintenanceDate ?? "-"}</TableCell>
+                      <TableCell>{row.maintenanceDate}</TableCell>
                       <TableCell>{statusChip(row.status)}</TableCell>
                       <TableCell align="right">
                         <Stack direction="row" spacing={1} justifyContent="flex-end">

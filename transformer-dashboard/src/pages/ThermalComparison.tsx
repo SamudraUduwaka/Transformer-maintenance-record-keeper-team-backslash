@@ -243,7 +243,7 @@ export default function ThermalComparison() {
                     </Typography>
                     <Chip label="Inspection in progress" color="success" variant="outlined" sx={{ height: 28, fontWeight: 700, borderColor: "success.light", color: "success.main" }} />
                   </Stack>
-                  {/* baseline pill (as shown in screenshot) */}
+                  {/* baseline pill */}
                   <Box
                     sx={{
                       display: "inline-flex",

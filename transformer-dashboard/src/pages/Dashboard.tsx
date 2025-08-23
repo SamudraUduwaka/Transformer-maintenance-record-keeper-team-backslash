@@ -11,9 +11,9 @@ import {
 import {
   Menu as MenuIcon, Notifications as NotificationsIcon, Settings as SettingsIcon,
   Search as SearchIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bolt as BoltIcon,
-  List as ListIcon, Add as AddIcon, Tune as TuneIcon, MoreVert as MoreVertIcon
+  List as ListIcon, Add as AddIcon, MoreVert as MoreVertIcon
 } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom"; // 👈 added
+import { useNavigate } from "react-router-dom";
 import Inspections from "./Inspections";
 
 /* Types */
@@ -53,10 +53,7 @@ function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
   if (b[orderBy] > a[orderBy]) return 1;
   return 0;
 }
-function getComparator<Key extends keyof any>(
-  order: Order,
-  orderBy: Key
-): (a: { [key in Key]: number | string }, b: { [key in Key]: number | string }) => number {
+function getComparator<T>(order: Order, orderBy: keyof T): (a: T, b: T) => number {
   return order === "desc"
     ? (a, b) => descendingComparator(a, b, orderBy)
     : (a, b) => -descendingComparator(a, b, orderBy);
@@ -92,7 +89,6 @@ export default function Dashboard() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [view, setView] = React.useState<"transformers" | "inspections">("transformers");
 
-  // 👇 navigation hook
   const navigate = useNavigate();
 
   // Transformers state
@@ -140,7 +136,9 @@ export default function Dashboard() {
   const resetFilters = () => { setSearch(""); setRegion("All"); setTtype("All"); setOnlyFav(false); };
   const openAddDialog = () => setOpenAdd(true);
   const closeAddDialog = () => { setOpenAdd(false); setErrors({}); };
-  const updateField = (k: keyof typeof form) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const updateField = (k: keyof typeof form) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { value: unknown } }
+  ) => setForm((f) => ({ ...f, [k]: (e.target as HTMLInputElement | HTMLTextAreaElement | { value: unknown }).value }));
   const confirmAdd = () => {
     const newErrors = {
       region: !form.region,
@@ -316,7 +314,7 @@ export default function Dashboard() {
                     <MenuItem value="All">All Regions</MenuItem>
                     {REGIONS.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
                   </Select>
-                  <Select size="small" value={ttype} onChange={(e) => setTtype(e.target.value as any)} sx={{ minWidth: 180 }}>
+                  <Select size="small" value={ttype} onChange={(e) => setTtype(e.target.value as TransformerType | "All")} sx={{ minWidth: 180 }}>
                     <MenuItem value="All">All Types</MenuItem>
                     {TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
                   </Select>
