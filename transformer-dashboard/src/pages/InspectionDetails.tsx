@@ -83,7 +83,7 @@ async function saveImageMetadata(body: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error("Failed to save image metadata");
+  if (!res.ok) throw new Error(res.statusText || "Failed to save image metadata");
   return res.json();
 }
 
@@ -168,7 +168,8 @@ export default function InspectionDetails() {
   const { transformerNo = "AZ-8801", inspectionNo = "000123589" } = useParams();
 
   // Adjust this if your route param isn't the DB primary key.
-  const inspectionId = Number(inspectionNo);
+  //const inspectionId = Number(inspectionNo);
+  const inspectionId = 1; // hardcoded for now
 
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -280,11 +281,12 @@ export default function InspectionDetails() {
     const t = setTimeout(() => {
       navigate(`/${transformerNo}/${inspectionNo}/comparison`, {
         replace: true,
+        state: { weather },
       });
     }, 650);
 
     return () => clearTimeout(t);
-  }, [isUploading, progress, transformerNo, inspectionNo, navigate]);
+  }, [isUploading, progress, transformerNo, inspectionNo, navigate, weather]);
 
   React.useEffect(() => {
     return () => {
