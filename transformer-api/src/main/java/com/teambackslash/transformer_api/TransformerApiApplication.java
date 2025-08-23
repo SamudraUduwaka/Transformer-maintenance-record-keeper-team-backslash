@@ -6,8 +6,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class TransformerApiApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(TransformerApiApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(TransformerApiApplication.class, args);
+    }
 
 }

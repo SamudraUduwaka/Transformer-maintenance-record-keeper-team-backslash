@@ -460,6 +460,7 @@ import {
 import { useNavigate } from "react-router-dom"; 
 import Inspections from "./Inspections"; 
 
+
 /* Types */
 type TransformerType = "Bulk" | "Distribution";
 
@@ -540,11 +541,13 @@ function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
   return 0;
 }
 
+
 function getComparator<Key extends keyof any>(
   order: Order,
   orderBy: Key
 ): (a: { [key in Key]: number | string }, b: { [key in Key]: number | string }) => number {
   return order === "desc" ? (a, b) => descendingComparator(a, b, orderBy) : (a, b) => -descendingComparator(a, b, orderBy);
+
 }
 
 function stableSort<T>(array: readonly T[], comparator: (a: T, b: T) => number) {
@@ -584,6 +587,7 @@ const drawerWidth = 260;
 export default function Dashboard() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [view, setView] = React.useState<"transformers" | "inspections">("transformers");
+
   const navigate = useNavigate();
 
   // Transformers state
@@ -668,6 +672,7 @@ export default function Dashboard() {
 
   const openAddDialog = () => setOpenAdd(true);
 
+
   const closeAddDialog = () => {
     setOpenAdd(false);
     setErrors({});
@@ -683,6 +688,7 @@ export default function Dashboard() {
   const updateField = (k: keyof typeof form) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const confirmAdd = async () => {
+
     const newErrors = {
       region: !form.region,
       transformerNo: !form.transformerNo,
@@ -890,7 +896,7 @@ export default function Dashboard() {
                     <MenuItem value="All">All Regions</MenuItem>
                     {REGIONS.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
                   </Select>
-                  <Select size="small" value={ttype} onChange={(e) => setTtype(e.target.value as any)} sx={{ minWidth: 180 }}>
+                  <Select size="small" value={ttype} onChange={(e) => setTtype(e.target.value as TransformerType | "All")} sx={{ minWidth: 180 }}>
                     <MenuItem value="All">All Types</MenuItem>
                     {TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
                   </Select>

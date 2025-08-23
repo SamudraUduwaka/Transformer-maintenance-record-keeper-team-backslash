@@ -1,4 +1,3 @@
-// src/pages/InspectionDetails.tsx
 import * as React from "react";
 import {
   AppBar, Avatar, Badge, Box, Button, Chip, CssBaseline, Dialog, DialogActions, DialogContent,
@@ -8,8 +7,8 @@ import {
 } from "@mui/material";
 import {
   Menu as MenuIcon, Notifications as NotificationsIcon, Settings as SettingsIcon, Bolt as BoltIcon,
-  List as ListIcon, MoreVert as MoreVertIcon, Image as ImageIcon, Visibility as VisibilityIcon,
-  DeleteOutline as DeleteOutlineIcon, Cloud as CloudIcon, WbSunny as SunnyIcon,
+  List as ListIcon, MoreVert as MoreVertIcon, Image as ImageIcon,
+  Cloud as CloudIcon, WbSunny as SunnyIcon,
   Thunderstorm as RainIcon, Upload as UploadIcon,
 } from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
@@ -43,22 +42,22 @@ function StatPill({ top, bottom }: { top: string | number; bottom: string }) {
   );
 }
 
-function BaselineGroup({ onView, onDelete }: { onView: () => void; onDelete: () => void }) {
-  return (
-    <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.75, bgcolor: "#EEF0F6", borderRadius: 3, px: 1, py: 0.75 }}>
-      <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}>
-        <ImageIcon sx={{ fontSize: 18, color: "#667085" }} />
-        <Typography sx={{ fontWeight: 700, fontSize: 14, color: "#344054" }}>Baseline Image</Typography>
-      </Box>
-      <IconButton size="small" sx={{ width: 28, height: 28, bgcolor: "white", border: (t) => `1px solid ${t.palette.divider}` }} onClick={onView}>
-        <VisibilityIcon fontSize="inherit" sx={{ fontSize: 16, color: "#344054" }} />
-      </IconButton>
-      <IconButton size="small" onClick={onDelete} sx={{ width: 28, height: 28, bgcolor: "white", border: (t) => `1px solid ${t.palette.divider}`, color: "error.main" }}>
-        <DeleteOutlineIcon fontSize="inherit" sx={{ fontSize: 16 }} />
-      </IconButton>
-    </Box>
-  );
-}
+// function BaselineGroup({ onView, onDelete }: { onView: () => void; onDelete: () => void }) {
+//   return (
+//     <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.75, bgcolor: "#EEF0F6", borderRadius: 3, px: 1, py: 0.75 }}>
+//       <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}>
+//         <ImageIcon sx={{ fontSize: 18, color: "#667085" }} />
+//         <Typography sx={{ fontWeight: 700, fontSize: 14, color: "#344054" }}>Baseline Image</Typography>
+//       </Box>
+//       <IconButton size="small" sx={{ width: 28, height: 28, bgcolor: "white", border: (t) => `1px solid ${t.palette.divider}` }} onClick={onView}>
+//         <VisibilityIcon fontSize="inherit" sx={{ fontSize: 16, color: "#344054" }} />
+//       </IconButton>
+//       <IconButton size="small" onClick={onDelete} sx={{ width: 28, height: 28, bgcolor: "white", border: (t) => `1px solid ${t.palette.divider}`, color: "error.main" }}>
+//         <DeleteOutlineIcon fontSize="inherit" sx={{ fontSize: 16 }} />
+//       </IconButton>
+//     </Box>
+//   );
+// }
 
 /* Local types */
 type Weather = "Sunny" | "Cloudy" | "Rainy";
@@ -131,7 +130,7 @@ export default function InspectionDetails() {
 
   const handleConfirmUpload = () => {
     setUploadOpen(false);
-    startUploadProgress(); // ⬅️ show overlay and begin progress
+    startUploadProgress(); // show overlay and begin progress
   };
   const handleCloseUpload = () => setUploadOpen(false);
 
@@ -187,7 +186,9 @@ export default function InspectionDetails() {
         const copy = { ...b };
         try {
           if (copy[w]?.url?.startsWith("blob:")) URL.revokeObjectURL(copy[w]!.url);
-        } catch {}
+        } catch {
+          // Intentionally left blank: ignore errors when revoking object URL
+        }
         delete copy[w];
         return copy;
       });
