@@ -1060,7 +1060,6 @@ import {
 import { useNavigate } from "react-router-dom"; 
 import Inspections from "./Inspections"; 
 
-
 /* Types */
 type TransformerType = "Bulk" | "Distribution";
 
@@ -1141,13 +1140,11 @@ function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
   return 0;
 }
 
-
 function getComparator<Key extends keyof any>(
   order: Order,
   orderBy: Key
 ): (a: { [key in Key]: number | string }, b: { [key in Key]: number | string }) => number {
   return order === "desc" ? (a, b) => descendingComparator(a, b, orderBy) : (a, b) => -descendingComparator(a, b, orderBy);
-
 }
 
 function stableSort<T>(array: readonly T[], comparator: (a: T, b: T) => number) {
@@ -1187,7 +1184,6 @@ const drawerWidth = 260;
 export default function Dashboard() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [view, setView] = React.useState<"transformers" | "inspections">("transformers");
-
   const navigate = useNavigate();
 
   // Transformers state
@@ -1285,11 +1281,49 @@ export default function Dashboard() {
     setOnlyFav(false);
   };
 
-  const openAddDialog = () => setOpenAdd(true);
+  // Action Menu handlers
+  const handleOpenActionMenu = (event: React.MouseEvent<HTMLElement>, transformer: Transformer) => {
+    event.stopPropagation();
+    setAnchorEl(event.currentTarget);
+    setSelectedTransformer(transformer);
+  };
 
+  const handleCloseActionMenu = () => {
+    setAnchorEl(null);
+    setSelectedTransformer(null);
+  };
 
-  const closeAddDialog = () => {
-    setOpenAdd(false);
+  // Dialog handlers
+  const openAddDialog = () => {
+    setEditingTransformer(null);
+    setForm({
+      region: "",
+      transformerNo: "",
+      poleNo: "",
+      type: "",
+      location: "",
+    });
+    setErrors({});
+    setOpenDialog(true);
+  };
+
+  const openEditDialog = (transformer: Transformer) => {
+    setEditingTransformer(transformer);
+    setForm({
+      region: transformer.region,
+      transformerNo: transformer.transformerNo,
+      poleNo: transformer.poleNo,
+      type: transformer.type,
+      location: transformer.location || "",
+    });
+    setErrors({});
+    setOpenDialog(true);
+    handleCloseActionMenu();
+  };
+
+  const closeDialog = () => {
+    setOpenDialog(false);
+    setEditingTransformer(null);
     setErrors({});
     setForm({
       region: "",
@@ -1303,8 +1337,7 @@ export default function Dashboard() {
   const updateField = (k: keyof typeof form) => (e: any) => 
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  const confirmAdd = async () => {
-
+  const confirmSave = async () => {
     const newErrors = {
       region: !form.region,
       transformerNo: !form.transformerNo,
@@ -1552,7 +1585,7 @@ export default function Dashboard() {
                     <MenuItem value="All">All Regions</MenuItem>
                     {REGIONS.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
                   </Select>
-                  <Select size="small" value={ttype} onChange={(e) => setTtype(e.target.value as TransformerType | "All")} sx={{ minWidth: 180 }}>
+                  <Select size="small" value={ttype} onChange={(e) => setTtype(e.target.value as any)} sx={{ minWidth: 180 }}>
                     <MenuItem value="All">All Types</MenuItem>
                     {TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
                   </Select>
