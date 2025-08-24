@@ -9,9 +9,11 @@ import org.mapstruct.Mapping;
 public interface ImageMapper {
 
     @Mapping(source = "inspection.inspectionId", target = "inspectionId")
+    @Mapping(source = "transformer.transformerNo", target = "transformerNo")
     ImageDTO toDTO(Image image);
 
     @Mapping(source = "inspectionId", target = "inspection.inspectionId")
+    @Mapping(source = "transformerNo", target = "transformer.transformerNo")
     Image toEntity(ImageDTO dto);
 }
 

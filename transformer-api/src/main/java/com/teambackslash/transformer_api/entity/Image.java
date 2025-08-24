@@ -21,6 +21,10 @@ public class Image {
     @JsonBackReference
     private Inspection inspection;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "transformer_no", nullable = false)
+    private Transformer transformer;
+
     @Column(name = "image_url", nullable = false, length = 200)
     private String imageUrl;
 

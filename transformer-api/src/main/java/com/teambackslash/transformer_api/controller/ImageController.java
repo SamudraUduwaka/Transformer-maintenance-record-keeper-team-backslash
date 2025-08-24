@@ -55,4 +55,15 @@ public class ImageController {
         imageService.deleteImage(id);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/baseline")
+    public ResponseEntity<ImageDTO> getBaselineImage(
+            @RequestParam String transformerNo,
+            @RequestParam String weatherCondition) {
+        ImageDTO imageDTO = imageService.getBaselineImage(transformerNo, weatherCondition);
+        if (imageDTO == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(imageDTO);
+    }
 }

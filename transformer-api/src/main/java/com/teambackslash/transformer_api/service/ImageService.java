@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -75,5 +76,11 @@ public class ImageService {
             );
         }
         imageRepository.deleteById(id);
+    }
+
+    public ImageDTO getBaselineImage(String transformerNo, String weatherCondition) {
+        Optional<Image> imageOpt = imageRepository.findFirstByTransformer_TransformerNoAndTypeAndWeatherCondition(
+            transformerNo, "baseline", weatherCondition);
+        return imageOpt.map(imageMapper::toDTO).orElse(null);
     }
 }
