@@ -37,16 +37,17 @@ import {
   Bolt as BoltIcon,
   List as ListIcon,
   MoreVert as MoreVertIcon,
-  Image as ImageIcon,
   Cloud as CloudIcon,
   WbSunny as SunnyIcon,
   Thunderstorm as RainIcon,
   Upload as UploadIcon,
+  Visibility as VisibilityIcon,
+  DeleteOutline as DeleteOutlineIcon,
 } from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
 
 /* API Service */
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = "http://localhost:8080/api";
 
 // ==== Cloudinary (UNSIGNED) helpers ====
 
@@ -77,16 +78,37 @@ async function saveImageMetadata(body: {
   type: string; // "thermal" | "baseline"
   weatherCondition: string; // "Sunny" | "Cloudy" | "Rainy"
   inspectionId: number;
+  transformerNo: string;
 }) {
   const res = await fetch(`${API_BASE_URL}/images`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(res.statusText || "Failed to save image metadata");
+  if (!res.ok)
+    throw new Error(res.statusText || "Failed to save image metadata");
   return res.json();
 }
 
+async function fetchBaselineImage(transformerNo: string, weather: Weather) {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/images/baseline?transformerNo=${encodeURIComponent(
+        transformerNo
+      )}&weatherCondition=${encodeURIComponent(weather)}`
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      url: data.imageUrl,
+      updatedAt: data.updatedAt || new Date().toISOString(),
+      by: data.uploadedBy || "Unknown",
+    };
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+}
 /* ----- Theme ----- */
 const theme = createTheme({
   palette: {
@@ -141,23 +163,6 @@ function StatPill({ top, bottom }: { top: string | number; bottom: string }) {
   );
 }
 
-// function BaselineGroup({ onView, onDelete }: { onView: () => void; onDelete: () => void }) {
-//   return (
-//     <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.75, bgcolor: "#EEF0F6", borderRadius: 3, px: 1, py: 0.75 }}>
-//       <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}>
-//         <ImageIcon sx={{ fontSize: 18, color: "#667085" }} />
-//         <Typography sx={{ fontWeight: 700, fontSize: 14, color: "#344054" }}>Baseline Image</Typography>
-//       </Box>
-//       <IconButton size="small" sx={{ width: 28, height: 28, bgcolor: "white", border: (t) => `1px solid ${t.palette.divider}` }} onClick={onView}>
-//         <VisibilityIcon fontSize="inherit" sx={{ fontSize: 16, color: "#344054" }} />
-//       </IconButton>
-//       <IconButton size="small" onClick={onDelete} sx={{ width: 28, height: 28, bgcolor: "white", border: (t) => `1px solid ${t.palette.divider}`, color: "error.main" }}>
-//         <DeleteOutlineIcon fontSize="inherit" sx={{ fontSize: 16 }} />
-//       </IconButton>
-//     </Box>
-//   );
-// }
-
 /* Local types */
 type Weather = "Sunny" | "Cloudy" | "Rainy";
 type BaselineImage = { url: string; updatedAt: string; by?: string };
@@ -168,8 +173,7 @@ export default function InspectionDetails() {
   const { transformerNo = "AZ-8801", inspectionNo = "000123589" } = useParams();
 
   // Adjust this if your route param isn't the DB primary key.
-  //const inspectionId = Number(inspectionNo);
-  const inspectionId = 1; // hardcoded for now
+  const inspectionId = Number(inspectionNo);
 
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -197,6 +201,19 @@ export default function InspectionDetails() {
     },
   });
 
+  const [inspectionDetails, setInspectionDetails] = React.useState({
+    poleNo: "",
+    branch: "",
+    inspectedBy: "",
+    image: {
+      url: "",
+      type: "",
+      weatherCondition: "",
+    },
+  });
+
+  const [inspection, setInspection] = React.useState<any | null>(null);
+
   // Manage per-weather baseline dialogs
   const [manageWeather, setManageWeather] = React.useState<Weather | null>(
     null
@@ -208,6 +225,12 @@ export default function InspectionDetails() {
     url?: string;
     weather?: Weather;
   }>({ open: false });
+
+  const [baselineImage, setBaselineImage] = React.useState<{
+    url: string;
+    updatedAt: string;
+    by?: string;
+  } | null>(null);
 
   /* ---------- Thermal upload handlers ---------- */
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -238,11 +261,6 @@ export default function InspectionDetails() {
     setProgress(0);
   };
 
-  // const handleConfirmUpload = () => {
-  //   setUploadOpen(false);
-  //   startUploadProgress(); // show overlay and begin progress
-  // };
-
   const handleConfirmUpload = async () => {
     if (!file) return;
     setUploadOpen(false);
@@ -258,6 +276,7 @@ export default function InspectionDetails() {
         type: "thermal",
         weatherCondition: weather,
         inspectionId,
+        transformerNo,
       });
 
       // 3) Cleanup local preview/file
@@ -274,20 +293,79 @@ export default function InspectionDetails() {
 
   const handleCloseUpload = () => setUploadOpen(false);
 
-  // When progress finishes, go to comparison page
+  React.useEffect(() => {
+    if (inspectionDetails.image && inspectionDetails.image.weatherCondition) {
+      setWeather(inspectionDetails.image.weatherCondition as Weather);
+    }
+  }, [inspectionDetails.image]);
+
+  React.useEffect(() => {
+    async function getInspection() {
+      if (!inspectionNo) return;
+      try {
+        const res = await fetch(`${API_BASE_URL}/inspections/${inspectionNo}`);
+        if (!res.ok) throw new Error("Failed to fetch inspection");
+        const data = await res.json();
+        setInspection(data);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    getInspection();
+  }, [inspectionNo]);
+
+  React.useEffect(() => {
+    async function getBaselineImage() {
+      if (!transformerNo || !weather) return;
+      const image = await fetchBaselineImage(transformerNo, weather);
+      setBaselineImage(image);
+    }
+    getBaselineImage();
+  }, [transformerNo, weather]);
+
+  // Fetch transformer details by transformerNo
+  React.useEffect(() => {
+    async function fetchInspectionDetails() {
+      if (!transformerNo) return;
+      try {
+        const res1 = await fetch(
+          `${API_BASE_URL}/transformers/${encodeURIComponent(transformerNo)}`
+        );
+        if (!res1.ok) throw new Error("Failed to fetch transformer details");
+        const transformerData = await res1.json();
+        const res2 = await fetch(
+          `${API_BASE_URL}/inspections/${encodeURIComponent(inspectionNo)}`
+        );
+        if (!res2.ok) throw new Error("Failed to fetch inspection details");
+        const inspectionData = await res2.json();
+        setInspectionDetails({
+          poleNo: transformerData.poleNo,
+          branch: inspectionData.branch,
+          inspectedBy: inspectionData.inspector,
+          image: inspectionData.image || {
+            url: "",
+            type: "",
+            weatherCondition: "",
+          },
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    fetchInspectionDetails();
+  }, [transformerNo]);
+
+  // When progress finishes, refresh and stay on this page
   React.useEffect(() => {
     if (!isUploading || progress < 100) return;
 
     const t = setTimeout(() => {
-      navigate(`/${transformerNo}/${inspectionNo}/comparison`, {
-        replace: true,
-        state: { weather },
-      });
+      // Refresh the page to show the newly uploaded image
+      window.location.reload();
     }, 650);
 
     return () => clearTimeout(t);
-  }, [isUploading, progress, transformerNo, inspectionNo, navigate, weather]);
-
+  }, [isUploading, progress]);
   React.useEffect(() => {
     return () => {
       if (tickRef.current) window.clearInterval(tickRef.current);
@@ -334,6 +412,7 @@ export default function InspectionDetails() {
         type: "baseline",
         weatherCondition: manageWeather,
         inspectionId,
+        transformerNo,
       });
 
       // 3) Reflect actual Cloudinary URL in UI
@@ -375,7 +454,7 @@ export default function InspectionDetails() {
     }
   };
   const viewBaseline = (w: Weather) => {
-    const url = baselines[w]?.url;
+    const url = baselineImage?.url; // Changed from baselines[w]?.url to baselineImage?.url
     if (!url) return;
     setViewer({ open: true, url, weather: w });
   };
@@ -515,7 +594,10 @@ export default function InspectionDetails() {
         >
           <Stack spacing={2}>
             {/* ===== Header ===== */}
-            <Paper elevation={3} sx={{ p: 2.25, borderRadius: 1 }}>
+            <Paper
+              elevation={3}
+              sx={{ p: 2.25, borderRadius: 1, position: "relative" }}
+            >
               <Stack
                 direction="row"
                 alignItems="stretch"
@@ -550,13 +632,51 @@ export default function InspectionDetails() {
                       <MoreVertIcon fontSize="small" />
                     </IconButton>
                   </Stack>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ mt: 0.5, display: "block", textAlign: "left" }}
-                  >
-                    {inspectedAt}
-                  </Typography>
+
+                  {/* Updated section with both inspection date and last updated */}
+                  <Stack direction="row" spacing={3} sx={{ mt: 0.5 }}>
+                    <Box>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{
+                          display: "block",
+                          textAlign: "left",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Inspected At
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        color="text.primary"
+                        sx={{ display: "block", textAlign: "left" }}
+                      >
+                        {inspectedAt}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{
+                          display: "block",
+                          textAlign: "left",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Last Updated
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        color="text.primary"
+                        sx={{ display: "block", textAlign: "left" }}
+                      >
+                        {lastUpdated}
+                      </Typography>
+                    </Box>
+                  </Stack>
+
                   <Stack
                     direction="row"
                     spacing={1}
@@ -565,13 +685,16 @@ export default function InspectionDetails() {
                     useFlexGap
                   >
                     <StatPill top={transformerNo} bottom="Transformer No" />
-                    <StatPill top="EN-122-A" bottom="Pole No" />
-                    <StatPill top="Nugegoda" bottom="Branch" />
-                    <StatPill top="A-110" bottom="Inspected By" />
+                    <StatPill top={inspectionDetails.poleNo} bottom="Pole No" />
+                    <StatPill top={inspectionDetails.branch} bottom="Branch" />
+                    <StatPill
+                      top={inspectionDetails.inspectedBy}
+                      bottom="Inspected By"
+                    />
                   </Stack>
                 </Box>
 
-                {/* Right */}
+                {/* Right - Remove the last updated from here since it's now on the left */}
                 <Stack
                   direction="column"
                   alignItems="flex-end"
@@ -597,19 +720,166 @@ export default function InspectionDetails() {
                       }}
                     />
                   </Box>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ whiteSpace: "nowrap" }}
-                  >
-                    Last updated: {lastUpdated}
-                  </Typography>
                 </Stack>
               </Stack>
+
+              {/* Baseline Image Small Card - Bottom Right Corner (inline style) */}
+              <Box
+                sx={{
+                  position: "absolute",
+                  bottom: 16,
+                  right: 16,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 0.75,
+                  bgcolor: "#EEF0F6",
+                  borderRadius: 3,
+                  px: 1,
+                  py: 0.75,
+                }}
+              >
+                {baselineImage ? (
+                  <>
+                    <Box
+                      sx={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 0.75,
+                      }}
+                    >
+                      {weather === "Sunny" && (
+                        <SunnyIcon sx={{ fontSize: 16 }} />
+                      )}
+                      {weather === "Cloudy" && (
+                        <CloudIcon sx={{ fontSize: 16 }} />
+                      )}
+                      {weather === "Rainy" && (
+                        <RainIcon sx={{ fontSize: 16 }} />
+                      )}
+                      <Typography
+                        sx={{ fontWeight: 700, fontSize: 14, color: "#344054" }}
+                      >
+                        Baseline Image
+                      </Typography>
+                    </Box>
+
+                    <IconButton
+                      onClick={() => viewBaseline(weather)}
+                      size="small"
+                      sx={{
+                        width: 28,
+                        height: 28,
+                        bgcolor: "white",
+                        border: (t) => `1px solid ${t.palette.divider}`,
+                      }}
+                    >
+                      <VisibilityIcon
+                        fontSize="inherit"
+                        sx={{ fontSize: 16, color: "#344054" }}
+                      />
+                    </IconButton>
+
+                    <IconButton
+                      onClick={() => deleteBaseline(weather)}
+                      size="small"
+                      sx={{
+                        width: 28,
+                        height: 28,
+                        bgcolor: "white",
+                        border: (t) => `1px solid ${t.palette.divider}`,
+                        color: "error.main",
+                      }}
+                    >
+                      <DeleteOutlineIcon
+                        fontSize="inherit"
+                        sx={{ fontSize: 16 }}
+                      />
+                    </IconButton>
+                  </>
+                ) : (
+                  <Button
+                    onClick={() => openUploadFor(weather)}
+                    variant="contained"
+                    size="small"
+                    sx={{
+                      px: 2,
+                      py: 0.75,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      borderRadius: 2,
+                    }}
+                  >
+                    Upload Baseline Image
+                  </Button>
+                )}
+              </Box>
             </Paper>
 
-            {/* ===== CONTENT AREA ===== */}
-            {isUploading ? (
+            {inspection?.image ? (
+              /* ===== Baseline + Thermal (if exists) ===== */
+              inspection.image.type === "thermal" ? (
+                // Thermal + Baseline side by side
+                <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+                  <Paper sx={{ p: 2.5, flex: 1 }}>
+                    <Typography variant="subtitle1" fontWeight={700}>
+                      Thermal Image ({weather})
+                    </Typography>
+                    <Box mt={2}>
+                      {inspection.image ? (
+                        <img
+                          src={inspection.image.imageUrl}
+                          alt="Thermal"
+                          style={{ width: "100%", borderRadius: 12 }}
+                        />
+                      ) : (
+                        <Typography color="text.secondary">
+                          No thermal image available
+                        </Typography>
+                      )}
+                    </Box>
+                  </Paper>
+
+                  <Paper sx={{ p: 2.5, flex: 1 }}>
+                    <Typography variant="subtitle1" fontWeight={700}>
+                      Baseline Image ({weather})
+                    </Typography>
+                    <Box mt={2}>
+                      {baselineImage?.url ? (
+                        <img
+                          src={baselineImage.url}
+                          alt="Baseline"
+                          style={{ width: "100%", borderRadius: 12 }}
+                        />
+                      ) : (
+                        <Typography color="text.secondary">
+                          No baseline image available
+                        </Typography>
+                      )}
+                    </Box>
+                  </Paper>
+                </Stack>
+              ) : (
+                // Baseline only
+                <Paper sx={{ p: 2.5 }}>
+                  <Typography variant="subtitle1" fontWeight={700}>
+                    Baseline Image ({weather})
+                  </Typography>
+                  <Box mt={2}>
+                    {inspection.image.imageUrl ? (
+                      <img
+                        src={inspection.image.imageUrl}
+                        alt="Baseline"
+                        style={{ width: "100%", borderRadius: 12 }}
+                      />
+                    ) : (
+                      <Typography color="text.secondary">
+                        No baseline image available
+                      </Typography>
+                    )}
+                  </Box>
+                </Paper>
+              )
+            ) : isUploading ? (
               /* -------- FULL-WIDTH PROGRESS OVERLAY (replaces Baseline + Thermal + Progress) -------- */
               <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }}>
                 <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
@@ -672,156 +942,6 @@ export default function InspectionDetails() {
               </Paper>
             ) : (
               <>
-                {/* ===== Baseline Images card ===== */}
-                <Paper elevation={3} sx={{ p: 2.25, borderRadius: 1 }}>
-                  <Stack
-                    direction="row"
-                    alignItems="center"
-                    justifyContent="space-between"
-                    sx={{ mb: 1 }}
-                  >
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <ImageIcon sx={{ color: "primary.main" }} />
-                      <Typography variant="subtitle1" fontWeight={800}>
-                        Baseline Images
-                      </Typography>
-                    </Stack>
-                    <Chip
-                      size="small"
-                      label={`Selected Weather: ${weather}`}
-                      sx={{ bgcolor: "#EEF0F6", fontWeight: 600 }}
-                    />
-                  </Stack>
-
-                  <Stack
-                    direction="row"
-                    spacing={2}
-                    justifyContent="space-between"
-                    sx={{ width: "100%" }}
-                  >
-                    {(["Sunny", "Cloudy", "Rainy"] as const).map((w) => {
-                      const item = baselines[w];
-                      const available = Boolean(item?.url);
-                      const Icon =
-                        w === "Sunny"
-                          ? SunnyIcon
-                          : w === "Cloudy"
-                          ? CloudIcon
-                          : RainIcon;
-
-                      return (
-                        <Paper
-                          key={w}
-                          variant="outlined"
-                          sx={{
-                            width: 240,
-                            height: 240,
-                            flex: 1,
-                            p: 1.5,
-                            borderRadius: 1.5,
-                            borderStyle: available ? "solid" : "dashed",
-                            display: "flex",
-                            flexDirection: "column",
-                          }}
-                        >
-                          <Stack
-                            direction="row"
-                            alignItems="center"
-                            justifyContent="space-between"
-                            sx={{ mb: 1 }}
-                          >
-                            <Stack
-                              direction="row"
-                              spacing={1}
-                              alignItems="center"
-                            >
-                              <Icon fontSize="small" />
-                              <Typography fontWeight={700}>{w}</Typography>
-                            </Stack>
-                            <Chip
-                              size="small"
-                              label={available ? "Available" : "Not set"}
-                              color={available ? "success" : "default"}
-                              variant="outlined"
-                            />
-                          </Stack>
-
-                          <Box
-                            sx={{
-                              flexGrow: 1,
-                              borderRadius: 1.5,
-                              overflow: "hidden",
-                              bgcolor: "#F3F4F6",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              mb: 1,
-                              height: 140,
-                            }}
-                          >
-                            {available ? (
-                              <img
-                                src={item!.url}
-                                alt={`${w} baseline`}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                  display: "block",
-                                }}
-                              />
-                            ) : (
-                              <Stack
-                                alignItems="center"
-                                spacing={0.5}
-                                sx={{ color: "text.secondary" }}
-                              >
-                                <UploadIcon fontSize="small" />
-                                <Typography variant="caption">
-                                  No image uploaded
-                                </Typography>
-                              </Stack>
-                            )}
-                          </Box>
-
-                          <Stack
-                            direction="row"
-                            spacing={1}
-                            justifyContent="flex-end"
-                          >
-                            {!available ? (
-                              <Button
-                                size="small"
-                                variant="contained"
-                                onClick={() => openUploadFor(w)}
-                              >
-                                Upload
-                              </Button>
-                            ) : (
-                              <>
-                                <Button
-                                  size="small"
-                                  variant="contained"
-                                  onClick={() => viewBaseline(w)}
-                                >
-                                  View
-                                </Button>
-                                <Button
-                                  size="small"
-                                  color="error"
-                                  onClick={() => deleteBaseline(w)}
-                                >
-                                  Delete
-                                </Button>
-                              </>
-                            )}
-                          </Stack>
-                        </Paper>
-                      );
-                    })}
-                  </Stack>
-                </Paper>
-
                 {/* ===== Thermal Image card + Progress steps (normal view) ===== */}
                 <Stack
                   direction={{ xs: "column", lg: "row" }}
@@ -884,7 +1004,7 @@ export default function InspectionDetails() {
                         fontWeight: 700,
                       }}
                       onClick={() => setUploadOpen(true)}
-                      disabled={!baselines[weather]?.url} // only enabled when baseline exists for selected weather
+                      disabled={!baselineImage} // only enabled when baseline exists for selected weather
                     >
                       Upload Thermal Image
                     </Button>
