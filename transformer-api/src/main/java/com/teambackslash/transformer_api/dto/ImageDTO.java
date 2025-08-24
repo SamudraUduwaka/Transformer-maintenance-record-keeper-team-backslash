@@ -14,4 +14,6 @@ public class ImageDTO {
 
     // Parent reference
     private Integer inspectionId;
+    private String transformerNo;
+    
 }
