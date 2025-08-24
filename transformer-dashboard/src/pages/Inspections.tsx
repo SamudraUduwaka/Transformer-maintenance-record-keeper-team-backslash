@@ -475,7 +475,7 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
 
   return (
     <>
-      <CssBaseline />
+       {/* <CssBaseline /> */}
 
       {/* Show error if any */}
       {error && (

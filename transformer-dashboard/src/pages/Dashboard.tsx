@@ -7,17 +7,18 @@ import {
   TableContainer, TableHead, TablePagination, TableRow, TableSortLabel, 
   Switch, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, 
   InputLabel, ToggleButton, ToggleButtonGroup, Snackbar, Alert, CircularProgress,
-  Menu, ListItemAvatar
+  Menu
 } from "@mui/material"; 
 import { 
   Menu as MenuIcon, Notifications as NotificationsIcon, 
   Settings as SettingsIcon, Search as SearchIcon, Star as StarIcon, 
   StarBorder as StarBorderIcon, Bolt as BoltIcon, List as ListIcon, 
-  Add as AddIcon, Tune as TuneIcon, MoreVert as MoreVertIcon,
+  Add as AddIcon, MoreVert as MoreVertIcon,
   Edit as EditIcon, Delete as DeleteIcon, Warning as WarningIcon
 } from "@mui/icons-material"; 
 import { useNavigate } from "react-router-dom"; 
 import Inspections from "./Inspections"; 
+import "../styles/Dashboard.css";
 
 /* Types */
 type TransformerType = "Bulk" | "Distribution";
@@ -116,27 +117,27 @@ function stableSort<T>(array: readonly T[], comparator: (a: T, b: T) => number) 
   return stabilized.map((el) => el[0]);
 }
 
-/* Theme */
-const theme = createTheme({
-  palette: {
-    mode: "light",
-    primary: { main: "#4F46E5" },
-    secondary: { main: "#7C3AED" },
-    background: { default: "#F7F7FB" },
-  },
-  shape: { borderRadius: 16 },
-  components: {
-    MuiPaper: {
-      defaultProps: { elevation: 0 },
-      styleOverrides: { root: { borderRadius: 16 } }
-    },
-    MuiButton: {
-      styleOverrides: {
-        root: { textTransform: "none", borderRadius: 14, fontWeight: 600 }
-      },
-    },
-  },
-});
+// /* Theme */
+// const theme = createTheme({
+//   palette: {
+//     mode: "light",
+//     primary: { main: "#4F46E5" },
+//     secondary: { main: "#7C3AED" },
+//     background: { default: "#F7F7FB" },
+//   },
+//   shape: { borderRadius: 16 },
+//   components: {
+//     MuiPaper: {
+//       defaultProps: { elevation: 0 },
+//       styleOverrides: { root: { borderRadius: 16 } }
+//     },
+//     MuiButton: {
+//       styleOverrides: {
+//         root: { textTransform: "none", borderRadius: 14, fontWeight: 600 }
+//       },
+//     },
+//   },
+// });
 
 const drawerWidth = 260;
 
@@ -426,9 +427,9 @@ export default function Dashboard() {
   );
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      
+    // <ThemeProvider theme={theme}>
+    //   <CssBaseline />
+      <>
       {/* Top App Header */}
       <AppBar position="fixed" color="inherit" elevation={0} sx={{ 
         bgcolor: "background.paper", 
@@ -877,6 +878,7 @@ export default function Dashboard() {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </ThemeProvider>
+      </>
+    // </ThemeProvider>
   );
 }
