@@ -186,7 +186,20 @@ export default function InspectionDetails() {
     },
   });
 
-  const [inspection, setInspection] = React.useState<any | null>(null);
+  type InspectionImage = {
+    imageUrl: string;
+    type: string;
+    weatherCondition: string;
+  };
+
+  type Inspection = {
+    image?: InspectionImage;
+    branch?: string;
+    inspector?: string;
+    // Add other fields as needed
+  };
+
+  const [inspection, setInspection] = React.useState<Inspection | null>(null);
 
   // Manage per-weather baseline dialogs
   const [manageWeather, setManageWeather] = React.useState<Weather | null>(
@@ -327,7 +340,7 @@ export default function InspectionDetails() {
       }
     }
     fetchInspectionDetails();
-  }, [transformerNo]);
+  }, [transformerNo, inspectionNo]);
 
   // When progress finishes, refresh and stay on this page
   React.useEffect(() => {

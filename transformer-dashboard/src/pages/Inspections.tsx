@@ -251,7 +251,7 @@ export default function Inspections({
   const navigate = useNavigate();
 
   // State
-  const [inspections, setInspections] = React.useState<InspectionDTO[]>([]);
+  //const [inspections, setInspections] = React.useState<InspectionDTO[]>([]);
   const [rows, setRows] = React.useState<InspectionRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -309,7 +309,7 @@ export default function Inspections({
       setLoading(true);
       setError(null);
       const data = await inspectionService.getAllInspections();
-      setInspections(data);
+      //setInspections(data);
       setRows(data.map(convertDTOToRow));
     } catch (err) {
       console.error("Failed to load inspections:", err);

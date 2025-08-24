@@ -93,11 +93,11 @@ type InspectionRow = {
 
 /* ================= Tiny inline HTTP helper ================= */
 const API_BASE =
-  (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8080/api";
+  (import.meta.env as { VITE_API_BASE_URL?: string }).VITE_API_BASE_URL ?? "http://localhost:8080/api";
 
 async function http<T>(
   path: string,
-  init?: RequestInit & { json?: any }
+  init?: RequestInit & { json?: unknown }
 ): Promise<T> {
   const headers = new Headers(init?.headers || {});
   if (init?.json !== undefined) headers.set("Content-Type", "application/json");
@@ -294,8 +294,8 @@ export default function TransformerInspection() {
         // prefill add dialog defaults
         setBranch(t.region || "");
         setTNo(t.transformerNo || transformerNo);
-      } catch (e: any) {
-        setError(e?.message || "Failed to load data");
+      } catch {
+        setError("Failed to load data");
       } finally {
         setLoading(false);
       }
@@ -325,8 +325,8 @@ export default function TransformerInspection() {
       setRows((prev) => [dtoToRow(created), ...prev]);
       setAddOpen(false);
       navigate(`/${encodeURIComponent(tNo)}/${pad8(created.inspectionId)}`);
-    } catch (e: any) {
-      setError(e?.message || "Failed to create inspection");
+    } catch {
+      setError("Failed to create inspection");
     }
   };
 
@@ -390,8 +390,8 @@ export default function TransformerInspection() {
         prev.map((r) => (r.id === editId ? dtoToRow(updated) : r))
       );
       handleCloseEdit();
-    } catch (e: any) {
-      setError(e?.message || "Failed to update inspection");
+    } catch {
+      setError("Failed to update inspection");
     }
   };
 
@@ -420,8 +420,8 @@ export default function TransformerInspection() {
       });
 
       handleCloseDelete();
-    } catch (e: any) {
-      setError(e?.message || "Failed to delete inspection");
+    } catch {
+      setError("Failed to delete inspection");
     }
   };
 

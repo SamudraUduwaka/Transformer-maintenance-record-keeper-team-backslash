@@ -62,7 +62,6 @@ import {
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Inspections from "./Inspections";
-import "../styles/Dashboard.css";
 
 /* Types */
 type TransformerType = "Bulk" | "Distribution";
@@ -163,13 +162,10 @@ function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
   return 0;
 }
 
-function getComparator<Key extends keyof any>(
+function getComparator<T>(
   order: Order,
-  orderBy: Key
-): (
-  a: { [key in Key]: number | string },
-  b: { [key in Key]: number | string }
-) => number {
+  orderBy: keyof T
+): (a: T, b: T) => number {
   return order === "desc"
     ? (a, b) => descendingComparator(a, b, orderBy)
     : (a, b) => -descendingComparator(a, b, orderBy);
@@ -192,9 +188,7 @@ const drawerWidth = 260;
 
 export default function Dashboard() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
-  const [view, setView] = React.useState<"transformers" | "inspections">(
-    "transformers"
-  );
+  const [view, setView] = React.useState<"transformers" | "inspections">("transformers");
   const navigate = useNavigate();
 
   // Transformers state
@@ -241,25 +235,23 @@ export default function Dashboard() {
     React.useState<Transformer | null>(null);
 
   // Fetch transformers on component mount
-  React.useEffect(() => {
-    fetchTransformers();
-  }, []);
-
-  const fetchTransformers = async () => {
+  const fetchTransformers = React.useCallback(async () => {
     try {
       setLoading(true);
       const data = await transformersAPI.getAll();
       setRows(data);
       setError(null);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch transformers"
-      );
+    } catch {
+      setError("Failed to fetch transformers");
       showSnackbar("Failed to fetch transformers", "error");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  React.useEffect(() => {
+    fetchTransformers();
+  }, [fetchTransformers]);
 
   const showSnackbar = (
     message: string,
@@ -366,8 +358,15 @@ export default function Dashboard() {
     });
   };
 
-  const updateField = (k: keyof typeof form) => (e: any) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+  const updateField =
+    (k: keyof typeof form) =>
+    (
+      e:
+        | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+        | React.ChangeEvent<{ value: unknown }>
+        | { target: { value: unknown } }
+    ) =>
+      setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const confirmSave = async () => {
     const newErrors = {
@@ -454,7 +453,7 @@ export default function Dashboard() {
       );
       showSnackbar("Transformer deleted successfully");
       closeDeleteDialog();
-    } catch (err) {
+    } catch {
       showSnackbar("Failed to delete transformer", "error");
     }
   };
@@ -477,7 +476,7 @@ export default function Dashboard() {
           ? "Added to favorites"
           : "Removed from favorites"
       );
-    } catch (err) {
+    } catch {
       showSnackbar("Failed to update favorite status", "error");
     }
   };
@@ -674,7 +673,9 @@ export default function Dashboard() {
                     <ToggleButtonGroup
                       value={view}
                       exclusive
-                      onChange={(_, v) => v && setView(v)}
+                      onChange={(_, v) => {
+                        if (v === "transformers" || v === "inspections") setView(v);
+                      }}
                       sx={{
                         "& .MuiToggleButton-root": {
                           border: 0,
@@ -709,22 +710,6 @@ export default function Dashboard() {
                       </ToggleButton>
                       <ToggleButton
                         value="inspections"
-                        sx={{
-                          bgcolor:
-                            view === "inspections"
-                              ? "primary.main"
-                              : "transparent",
-                          color:
-                            view === "inspections"
-                              ? "primary.contrastText"
-                              : "text.primary",
-                          "&:hover": {
-                            bgcolor:
-                              view === "inspections"
-                                ? "primary.dark"
-                                : "action.hover",
-                          },
-                        }}
                       >
                         Inspections
                       </ToggleButton>
@@ -769,7 +754,7 @@ export default function Dashboard() {
                   <Select
                     size="small"
                     value={ttype}
-                    onChange={(e) => setTtype(e.target.value as any)}
+                    onChange={(e) => setTtype(e.target.value as TransformerType | "All")}
                     sx={{ minWidth: 180 }}
                   >
                     <MenuItem value="All">All Types</MenuItem>
@@ -1029,7 +1014,7 @@ export default function Dashboard() {
                 errors.transformerNo ? "Transformer number is required" : ""
               }
               fullWidth
-              disabled={!!editingTransformer} // Disable editing transformer number for existing records
+              disabled={!!editingTransformer} /* Disable editing transformer number for existing records */
             />
 
             <TextField
