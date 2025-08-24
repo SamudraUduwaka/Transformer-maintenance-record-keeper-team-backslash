@@ -45,7 +45,6 @@ import {
   Close as CloseIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 
@@ -81,84 +80,92 @@ type InspectionRow = {
 };
 
 /* API Service */
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = "http://localhost:8080/api";
 
 const inspectionService = {
   async getAllInspections(): Promise<InspectionDTO[]> {
     const response = await fetch(`${API_BASE_URL}/inspections`, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
-      credentials: 'include',
+      credentials: "include",
     });
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     return response.json();
   },
 
-  async createInspection(inspectionData: Partial<InspectionDTO>): Promise<InspectionDTO> {
+  async createInspection(
+    inspectionData: Partial<InspectionDTO>
+  ): Promise<InspectionDTO> {
     // Format the date for backend (remove milliseconds and timezone)
     const formattedData = {
       ...inspectionData,
-      inspectionTime: inspectionData.inspectionTime ? 
-        new Date(inspectionData.inspectionTime).toISOString().split('.')[0] : ''
+      inspectionTime: inspectionData.inspectionTime
+        ? new Date(inspectionData.inspectionTime).toISOString().split(".")[0]
+        : "",
     };
 
     const response = await fetch(`${API_BASE_URL}/inspections`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
-      credentials: 'include',
+      credentials: "include",
       body: JSON.stringify(formattedData),
     });
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     return response.json();
   },
 
-  async updateInspection(id: number, updates: Partial<InspectionDTO>): Promise<InspectionDTO> {
+  async updateInspection(
+    id: number,
+    updates: Partial<InspectionDTO>
+  ): Promise<InspectionDTO> {
     // Format the date for backend if it's being updated
     if (updates.inspectionTime) {
-      updates.inspectionTime = new Date(updates.inspectionTime).toISOString().split('.')[0];
+      updates.inspectionTime = new Date(updates.inspectionTime)
+        .toISOString()
+        .split(".")[0];
     }
 
     const response = await fetch(`${API_BASE_URL}/inspections/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
-      credentials: 'include',
+      credentials: "include",
       body: JSON.stringify(updates),
     });
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     return response.json();
   },
 
   async deleteInspection(id: number): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/inspections/${id}`, {
-      method: 'DELETE',
+      method: "DELETE",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
-      credentials: 'include',
+      credentials: "include",
     });
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-  }
+  },
 };
 
 /* Helper to convert DTO to display row */
@@ -166,12 +173,13 @@ const convertDTOToRow = (dto: InspectionDTO): InspectionRow => {
   // Generate random status for display purposes since backend doesn't have status field
   const statuses: InspectionStatus[] = ["In Progress", "Pending", "Completed"];
   const status = statuses[dto.inspectionId % statuses.length];
-  
+
   // Format dates
   const inspectedDate = new Date(dto.inspectionTime).toLocaleString();
-  const maintenanceDate = dto.updatedAt !== dto.createdAt 
-    ? new Date(dto.updatedAt).toLocaleString()
-    : "Not yet";
+  const maintenanceDate =
+    dto.updatedAt !== dto.createdAt
+      ? new Date(dto.updatedAt).toLocaleString()
+      : "Not yet";
 
   return {
     id: dto.inspectionId,
@@ -196,12 +204,18 @@ function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
 function getComparator<Key extends PropertyKey>(
   order: Order,
   orderBy: Key
-): (a: { [key in Key]: number | string }, b: { [key in Key]: number | string }) => number {
+): (
+  a: { [key in Key]: number | string },
+  b: { [key in Key]: number | string }
+) => number {
   return order === "desc"
     ? (a, b) => descendingComparator(a, b, orderBy)
     : (a, b) => -descendingComparator(a, b, orderBy);
 }
-function stableSort<T>(array: readonly T[], comparator: (a: T, b: T) => number) {
+function stableSort<T>(
+  array: readonly T[],
+  comparator: (a: T, b: T) => number
+) {
   const stabilized = array.map((el, idx) => [el, idx] as const);
   stabilized.sort((a, b) => {
     const order = comparator(a[0], b[0]);
@@ -213,19 +227,27 @@ function stableSort<T>(array: readonly T[], comparator: (a: T, b: T) => number) 
 
 /* Status chip */
 const statusChip = (s: InspectionStatus) => {
-  const map: Record<InspectionStatus, { color: "success" | "warning" | "info"; label: string }> = {
+  const map: Record<
+    InspectionStatus,
+    { color: "success" | "warning" | "info"; label: string }
+  > = {
     Completed: { color: "success", label: "Completed" },
     Pending: { color: "warning", label: "Pending" },
     "In Progress": { color: "info", label: "In Progress" },
   };
   const i = map[s];
-  return <Chip size="small" variant="outlined" color={i.color} label={i.label} />;
+  return (
+    <Chip size="small" variant="outlined" color={i.color} label={i.label} />
+  );
 };
 
 /* Match your drawer width so the fixed AppBar lines up */
 const drawerWidth = 260;
 
-export default function Inspections({ view = "inspections", onChangeView }: Props) {
+export default function Inspections({
+  view = "inspections",
+  onChangeView,
+}: Props) {
   const navigate = useNavigate();
 
   // State
@@ -233,11 +255,12 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
   const [rows, setRows] = React.useState<InspectionRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  
+
   const [search, setSearch] = React.useState("");
   const [status, setStatus] = React.useState<InspectionStatus | "All">("All");
   const [order, setOrder] = React.useState<Order>("asc");
-  const [orderBy, setOrderBy] = React.useState<keyof InspectionRow>("transformerNo");
+  const [orderBy, setOrderBy] =
+    React.useState<keyof InspectionRow>("transformerNo");
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
 
@@ -258,7 +281,8 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
   const [editDate, setEditDate] = React.useState("");
   const [editTime, setEditTime] = React.useState("");
   const [editInspector, setEditInspector] = React.useState("");
-  const [editStatus, setEditStatus] = React.useState<InspectionStatus>("Pending");
+  const [editStatus, setEditStatus] =
+    React.useState<InspectionStatus>("Pending");
   const [saving, setSaving] = React.useState(false);
 
   /* -------- Delete state -------- */
@@ -270,8 +294,14 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
   const [menuAnchor, setMenuAnchor] = React.useState<null | HTMLElement>(null);
   const [menuRowId, setMenuRowId] = React.useState<number | null>(null);
 
-  const canConfirm = branch.trim() && transformerNo.trim() && date && time && inspector.trim();
-  const canSaveEdit = editBranch.trim() && editTransformerNo.trim() && editDate && editTime && editInspector.trim();
+  const canConfirm =
+    branch.trim() && transformerNo.trim() && date && time && inspector.trim();
+  const canSaveEdit =
+    editBranch.trim() &&
+    editTransformerNo.trim() &&
+    editDate &&
+    editTime &&
+    editInspector.trim();
 
   // Load inspections from backend
   const loadInspections = React.useCallback(async () => {
@@ -282,8 +312,10 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
       setInspections(data);
       setRows(data.map(convertDTOToRow));
     } catch (err) {
-      console.error('Failed to load inspections:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load inspections');
+      console.error("Failed to load inspections:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to load inspections"
+      );
     } finally {
       setLoading(false);
     }
@@ -306,28 +338,32 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
 
   const handleConfirmAdd = async () => {
     if (!canConfirm) return;
-    
+
     try {
       setCreating(true);
-      
+
       // Format date correctly for backend (remove milliseconds and timezone)
-      const inspectionTime = new Date(`${date}T${time}`).toISOString().split('.')[0];
-      
+      const inspectionTime = new Date(`${date}T${time}`)
+        .toISOString()
+        .split(".")[0];
+
       const newInspection = {
         branch: branch.trim(),
         transformerNo: transformerNo.trim(),
         inspector: inspector.trim(),
         inspectionTime,
       };
-      
-      console.log('Creating inspection:', newInspection); // Debug log
-      
+
+      console.log("Creating inspection:", newInspection); // Debug log
+
       await inspectionService.createInspection(newInspection);
       await loadInspections();
       handleCloseAdd();
     } catch (err) {
-      console.error('Failed to create inspection:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create inspection');
+      console.error("Failed to create inspection:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to create inspection"
+      );
     } finally {
       setCreating(false);
     }
@@ -340,12 +376,12 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
     setEditTransformerNo(row.transformerNo);
     setEditInspector(row.inspector);
     setEditStatus(row.status);
-    
+
     // Parse the ISO string back to date and time
     const inspectionDate = new Date(row.inspectionTime);
-    setEditDate(inspectionDate.toISOString().split('T')[0]); // yyyy-mm-dd
+    setEditDate(inspectionDate.toISOString().split("T")[0]); // yyyy-mm-dd
     setEditTime(inspectionDate.toTimeString().slice(0, 5)); // hh:mm
-    
+
     setEditOpen(true);
     setMenuAnchor(null);
   };
@@ -363,28 +399,32 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
 
   const handleSaveEdit = async () => {
     if (!canSaveEdit || editingId === null) return;
-    
+
     try {
       setSaving(true);
-      
+
       // Format date correctly for backend (remove milliseconds and timezone)
-      const inspectionTime = new Date(`${editDate}T${editTime}`).toISOString().split('.')[0];
-      
+      const inspectionTime = new Date(`${editDate}T${editTime}`)
+        .toISOString()
+        .split(".")[0];
+
       const updates = {
         branch: editBranch.trim(),
         transformerNo: editTransformerNo.trim(),
         inspector: editInspector.trim(),
         inspectionTime,
       };
-      
-      console.log('Updating inspection:', updates); // Debug log
-      
+
+      console.log("Updating inspection:", updates); // Debug log
+
       await inspectionService.updateInspection(editingId, updates);
       await loadInspections();
       handleCloseEdit();
     } catch (err) {
-      console.error('Failed to update inspection:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update inspection');
+      console.error("Failed to update inspection:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to update inspection"
+      );
     } finally {
       setSaving(false);
     }
@@ -404,22 +444,27 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
 
   const handleConfirmDelete = async () => {
     if (deleteId === null) return;
-    
+
     try {
       setDeleting(true);
       await inspectionService.deleteInspection(deleteId);
       await loadInspections();
       handleCloseDelete();
     } catch (err) {
-      console.error('Failed to delete inspection:', err);
-      setError(err instanceof Error ? err.message : 'Failed to delete inspection');
+      console.error("Failed to delete inspection:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to delete inspection"
+      );
     } finally {
       setDeleting(false);
     }
   };
 
   /* -------- Menu handlers -------- */
-  const handleMenuClick = (event: React.MouseEvent<HTMLButtonElement>, rowId: number) => {
+  const handleMenuClick = (
+    event: React.MouseEvent<HTMLButtonElement>,
+    rowId: number
+  ) => {
     setMenuAnchor(event.currentTarget);
     setMenuRowId(rowId);
   };
@@ -458,15 +503,22 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
   };
 
   const handleSort = (property: keyof InspectionRow) => {
-    const isAsc = orderBy === property && order === 'asc';
-    setOrder(isAsc ? 'desc' : 'asc');
+    const isAsc = orderBy === property && order === "asc";
+    setOrder(isAsc ? "desc" : "asc");
     setOrderBy(property);
   };
 
   // Show loading state
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "50vh",
+        }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -474,15 +526,11 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
 
   return (
     <>
-       {/* <CssBaseline /> */}
+      {/* <CssBaseline /> */}
 
       {/* Show error if any */}
       {error && (
-        <Alert 
-          severity="error" 
-          onClose={() => setError(null)}
-          sx={{ mb: 2 }}
-        >
+        <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
@@ -518,8 +566,16 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
               </Badge>
             </IconButton>
           </Tooltip>
-          <Stack direction="row" spacing={1.25} alignItems="center" sx={{ ml: 1 }}>
-            <Avatar src="https://i.pravatar.cc/64?img=1" sx={{ width: 36, height: 36 }} />
+          <Stack
+            direction="row"
+            spacing={1.25}
+            alignItems="center"
+            sx={{ ml: 1 }}
+          >
+            <Avatar
+              src="https://i.pravatar.cc/64?img=1"
+              sx={{ width: 36, height: 36 }}
+            />
             <Box sx={{ display: { xs: "none", md: "block" } }}>
               <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
                 Olivera Queen
@@ -536,7 +592,15 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
       <Box sx={{ mt: 0, width: "100%" }}>
         <Stack spacing={2} sx={{ width: "100%" }}>
           {/* Header card */}
-          <Paper elevation={3} sx={{ p: 2, borderRadius: 1, width: "100%", boxSizing: "border-box" }}>
+          <Paper
+            elevation={3}
+            sx={{
+              p: 2,
+              borderRadius: 1,
+              width: "100%",
+              boxSizing: "border-box",
+            }}
+          >
             <Stack
               direction={{ xs: "column", md: "row" }}
               spacing={2}
@@ -572,10 +636,12 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
                   py: 0.9,
                   fontWeight: 700,
                   textTransform: "none",
-                  background: "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
+                  background:
+                    "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
                   boxShadow: "0 8px 18px rgba(79,70,229,0.35)",
                   "&:hover": {
-                    background: "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)",
+                    background:
+                      "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)",
                     boxShadow: "0 10px 22px rgba(79,70,229,0.45)",
                   },
                 }}
@@ -603,9 +669,20 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
                   <ToggleButton
                     value="transformers"
                     sx={{
-                      bgcolor: view === "transformers" ? "primary.main" : "transparent",
-                      color: view === "transformers" ? "primary.contrastText" : "text.primary",
-                      "&:hover": { bgcolor: view === "transformers" ? "primary.dark" : "action.hover" },
+                      bgcolor:
+                        view === "transformers"
+                          ? "primary.main"
+                          : "transparent",
+                      color:
+                        view === "transformers"
+                          ? "primary.contrastText"
+                          : "text.primary",
+                      "&:hover": {
+                        bgcolor:
+                          view === "transformers"
+                            ? "primary.dark"
+                            : "action.hover",
+                      },
                     }}
                   >
                     Transformers
@@ -613,9 +690,18 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
                   <ToggleButton
                     value="inspections"
                     sx={{
-                      bgcolor: view === "inspections" ? "primary.main" : "transparent",
-                      color: view === "inspections" ? "primary.contrastText" : "text.primary",
-                      "&:hover": { bgcolor: view === "inspections" ? "primary.dark" : "action.hover" },
+                      bgcolor:
+                        view === "inspections" ? "primary.main" : "transparent",
+                      color:
+                        view === "inspections"
+                          ? "primary.contrastText"
+                          : "text.primary",
+                      "&:hover": {
+                        bgcolor:
+                          view === "inspections"
+                            ? "primary.dark"
+                            : "action.hover",
+                      },
                     }}
                   >
                     Inspections
@@ -625,7 +711,12 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
             </Stack>
 
             {/* Filters row */}
-            <Stack direction={{ xs: "column", lg: "row" }} spacing={2} alignItems="center" sx={{ mt: 2 }}>
+            <Stack
+              direction={{ xs: "column", lg: "row" }}
+              spacing={2}
+              alignItems="center"
+              sx={{ mt: 2 }}
+            >
               <TextField
                 fullWidth
                 size="small"
@@ -643,7 +734,9 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
               <Select
                 size="small"
                 value={status}
-                onChange={(e) => setStatus(e.target.value as InspectionStatus | "All")}
+                onChange={(e) =>
+                  setStatus(e.target.value as InspectionStatus | "All")
+                }
                 sx={{ minWidth: 180 }}
               >
                 <MenuItem value="All">All Statuses</MenuItem>
@@ -664,7 +757,11 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell sortDirection={orderBy === "transformerNo" ? order : false}>
+                    <TableCell
+                      sortDirection={
+                        orderBy === "transformerNo" ? order : false
+                      }
+                    >
                       <TableSortLabel
                         active={orderBy === "transformerNo"}
                         direction={orderBy === "transformerNo" ? order : "asc"}
@@ -673,7 +770,9 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
                         Transformer No.
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell sortDirection={orderBy === "branch" ? order : false}>
+                    <TableCell
+                      sortDirection={orderBy === "branch" ? order : false}
+                    >
                       <TableSortLabel
                         active={orderBy === "branch"}
                         direction={orderBy === "branch" ? order : "asc"}
@@ -682,7 +781,9 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
                         Branch
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell sortDirection={orderBy === "inspector" ? order : false}>
+                    <TableCell
+                      sortDirection={orderBy === "inspector" ? order : false}
+                    >
                       <TableSortLabel
                         active={orderBy === "inspector"}
                         direction={orderBy === "inspector" ? order : "asc"}
@@ -692,7 +793,11 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
                       </TableSortLabel>
                     </TableCell>
                     <TableCell>Inspection No.</TableCell>
-                    <TableCell sortDirection={orderBy === "inspectedDate" ? order : false}>
+                    <TableCell
+                      sortDirection={
+                        orderBy === "inspectedDate" ? order : false
+                      }
+                    >
                       <TableSortLabel
                         active={orderBy === "inspectedDate"}
                         direction={orderBy === "inspectedDate" ? order : "asc"}
@@ -701,7 +806,9 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
                         Inspected Date
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell sortDirection={orderBy === "status" ? order : false}>
+                    <TableCell
+                      sortDirection={orderBy === "status" ? order : false}
+                    >
                       <TableSortLabel
                         active={orderBy === "status"}
                         direction={orderBy === "status" ? order : "asc"}
@@ -717,31 +824,29 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
                   {paged.map((row) => (
                     <TableRow key={row.id} hover>
                       <TableCell>
-                        <Typography fontWeight={600}>{row.transformerNo}</Typography>
+                        <Typography fontWeight={600}>
+                          {row.transformerNo}
+                        </Typography>
                       </TableCell>
-                      <TableCell>
-                        {row.branch}
-                      </TableCell>
-                      <TableCell>
-                        {row.inspector}
-                      </TableCell>
+                      <TableCell>{row.branch}</TableCell>
+                      <TableCell>{row.inspector}</TableCell>
                       <TableCell>{row.inspectionNo}</TableCell>
-                      <TableCell>
-                        {row.inspectedDate}
-                      </TableCell>
-                      <TableCell>
-                        {statusChip(row.status)}
-                      </TableCell>
+                      <TableCell>{row.inspectedDate}</TableCell>
+                      <TableCell>{statusChip(row.status)}</TableCell>
                       <TableCell align="right">
-                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          justifyContent="flex-end"
+                        >
                           <Button
                             variant="contained"
                             size="small"
                             onClick={() =>
                               navigate(
-                                `/${encodeURIComponent(row.transformerNo)}/${encodeURIComponent(
-                                  row.inspectionNo
-                                )}`
+                                `/${encodeURIComponent(
+                                  row.transformerNo
+                                )}/${encodeURIComponent(row.inspectionNo)}`
                               )
                             }
                           >
@@ -791,12 +896,12 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
         open={Boolean(menuAnchor)}
         onClose={handleMenuClose}
         PaperProps={{
-          sx: { minWidth: 150 }
+          sx: { minWidth: 150 },
         }}
       >
         <MenuItem
           onClick={() => {
-            const row = rows.find(r => r.id === menuRowId);
+            const row = rows.find((r) => r.id === menuRowId);
             if (row) handleStartEdit(row);
           }}
         >
@@ -809,7 +914,7 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
           onClick={() => {
             if (menuRowId) handleOpenDelete(menuRowId);
           }}
-          sx={{ color: 'error.main' }}
+          sx={{ color: "error.main" }}
         >
           <ListItemIcon>
             <DeleteIcon fontSize="small" color="error" />
@@ -826,8 +931,16 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
         maxWidth="sm"
         PaperProps={{ sx: { borderRadius: 2 } }}
       >
-        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Typography fontWeight={700} fontSize="1.25rem">New Inspection</Typography>
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Typography fontWeight={700} fontSize="1.25rem">
+            New Inspection
+          </Typography>
           <IconButton onClick={handleCloseAdd} size="small">
             <CloseIcon />
           </IconButton>
@@ -905,7 +1018,11 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
               },
             }}
           >
-            {creating ? <CircularProgress size={20} color="inherit" /> : "Confirm"}
+            {creating ? (
+              <CircularProgress size={20} color="inherit" />
+            ) : (
+              "Confirm"
+            )}
           </Button>
 
           <Button onClick={handleCloseAdd} sx={{ textTransform: "none" }}>
@@ -922,8 +1039,16 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
         maxWidth="sm"
         PaperProps={{ sx: { borderRadius: 2 } }}
       >
-        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Typography fontWeight={700} fontSize="1.25rem">Edit Inspection</Typography>
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Typography fontWeight={700} fontSize="1.25rem">
+            Edit Inspection
+          </Typography>
           <IconButton onClick={handleCloseEdit} size="small">
             <CloseIcon />
           </IconButton>
@@ -977,7 +1102,9 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
             <Select
               label="Status"
               value={editStatus}
-              onChange={(e) => setEditStatus(e.target.value as InspectionStatus)}
+              onChange={(e) =>
+                setEditStatus(e.target.value as InspectionStatus)
+              }
               fullWidth
               displayEmpty
               renderValue={(value) => value || "Select Status"}
@@ -1014,7 +1141,11 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
               },
             }}
           >
-            {saving ? <CircularProgress size={20} color="inherit" /> : "Save Changes"}
+            {saving ? (
+              <CircularProgress size={20} color="inherit" />
+            ) : (
+              "Save Changes"
+            )}
           </Button>
 
           <Button onClick={handleCloseEdit} sx={{ textTransform: "none" }}>
@@ -1031,8 +1162,16 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
         fullWidth
         PaperProps={{ sx: { borderRadius: 2 } }}
       >
-        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Typography fontWeight={700} fontSize="1.25rem">Confirm Delete</Typography>
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Typography fontWeight={700} fontSize="1.25rem">
+            Confirm Delete
+          </Typography>
           <IconButton onClick={handleCloseDelete} size="small">
             <CloseIcon />
           </IconButton>
@@ -1040,7 +1179,8 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
 
         <DialogContent>
           <Typography>
-            Are you sure you want to delete this inspection? This action cannot be undone.
+            Are you sure you want to delete this inspection? This action cannot
+            be undone.
           </Typography>
         </DialogContent>
 
@@ -1059,7 +1199,11 @@ export default function Inspections({ view = "inspections", onChangeView }: Prop
               textTransform: "none",
             }}
           >
-            {deleting ? <CircularProgress size={20} color="inherit" /> : "Delete"}
+            {deleting ? (
+              <CircularProgress size={20} color="inherit" />
+            ) : (
+              "Delete"
+            )}
           </Button>
 
           <Button onClick={handleCloseDelete} sx={{ textTransform: "none" }}>

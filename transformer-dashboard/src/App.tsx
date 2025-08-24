@@ -11,21 +11,22 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
-      <Routes>
-        {/* Main dashboard with Transformers + Inspections views */}
-        <Route path="/" element={<Dashboard />} />
+        <Routes>
+          {/* Main dashboard with Transformers + Inspections views */}
+          <Route path="/" element={<Dashboard />} />
 
-        {/* Transformer-specific page (all inspections for a transformer) */}
-        <Route path="/:transformerNo" element={<TransformerInspection />} />
+          {/* Transformer-specific page (all inspections for a transformer) */}
+          <Route path="/:transformerNo" element={<TransformerInspection />} />
 
-        {/* Single inspection detail view */}
-        <Route path="/:transformerNo/:inspectionNo" element={<InspectionDetails />} />
-
-      </Routes>
-    </Router>
+          {/* Single inspection detail view */}
+          <Route
+            path="/:transformerNo/:inspectionNo"
+            element={<InspectionDetails />}
+          />
+        </Routes>
+      </Router>
     </ThemeProvider>
   );
 }
 
 export default App;
-

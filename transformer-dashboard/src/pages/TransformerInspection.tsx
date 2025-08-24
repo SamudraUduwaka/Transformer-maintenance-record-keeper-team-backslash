@@ -205,7 +205,9 @@ function StatPill({ top, bottom }: { top: string | number; bottom: string }) {
       <Typography sx={{ fontWeight: 800, fontSize: 13, lineHeight: 1 }}>
         {top}
       </Typography>
-      <Typography sx={{ fontSize: 11, color: "text.secondary", lineHeight: 1.2 }}>
+      <Typography
+        sx={{ fontSize: 11, color: "text.secondary", lineHeight: 1.2 }}
+      >
         {bottom}
       </Typography>
     </Box>
@@ -220,7 +222,9 @@ export default function TransformerInspection() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   // backend data
-  const [transformer, setTransformer] = React.useState<TransformerDTO | null>(null);
+  const [transformer, setTransformer] = React.useState<TransformerDTO | null>(
+    null
+  );
   const [rows, setRows] = React.useState<InspectionRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -382,7 +386,9 @@ export default function TransformerInspection() {
         json: payload,
       });
 
-      setRows((prev) => prev.map((r) => (r.id === editId ? dtoToRow(updated) : r)));
+      setRows((prev) =>
+        prev.map((r) => (r.id === editId ? dtoToRow(updated) : r))
+      );
       handleCloseEdit();
     } catch (e: any) {
       setError(e?.message || "Failed to update inspection");
@@ -453,7 +459,6 @@ export default function TransformerInspection() {
 
   return (
     <>
-
       {/* AppBar */}
       <AppBar
         position="fixed"
@@ -485,8 +490,16 @@ export default function TransformerInspection() {
               </Badge>
             </IconButton>
           </Tooltip>
-          <Stack direction="row" spacing={1.25} alignItems="center" sx={{ ml: 1 }}>
-            <Avatar src="https://i.pravatar.cc/64?img=1" sx={{ width: 36, height: 36 }} />
+          <Stack
+            direction="row"
+            spacing={1.25}
+            alignItems="center"
+            sx={{ ml: 1 }}
+          >
+            <Avatar
+              src="https://i.pravatar.cc/64?img=1"
+              sx={{ width: 36, height: 36 }}
+            />
             <Box sx={{ display: { xs: "none", md: "block" } }}>
               <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
                 Olivera Queen
@@ -500,19 +513,35 @@ export default function TransformerInspection() {
       </AppBar>
 
       {/* Drawer */}
-      <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }} aria-label="sidebar">
+      <Box
+        component="nav"
+        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+        aria-label="sidebar"
+      >
         <Drawer
           variant="temporary"
           open={mobileOpen}
           onClose={() => setMobileOpen(false)}
           ModalProps={{ keepMounted: true }}
-          sx={{ display: { xs: "block", sm: "none" }, "& .MuiDrawer-paper": { boxSizing: "border-box", width: drawerWidth } }}
+          sx={{
+            display: { xs: "block", sm: "none" },
+            "& .MuiDrawer-paper": {
+              boxSizing: "border-box",
+              width: drawerWidth,
+            },
+          }}
         >
           {drawer}
         </Drawer>
         <Drawer
           variant="permanent"
-          sx={{ display: { xs: "none", sm: "block" }, "& .MuiDrawer-paper": { boxSizing: "border-box", width: drawerWidth } }}
+          sx={{
+            display: { xs: "none", sm: "block" },
+            "& .MuiDrawer-paper": {
+              boxSizing: "border-box",
+              width: drawerWidth,
+            },
+          }}
           open
         >
           {drawer}
@@ -521,10 +550,25 @@ export default function TransformerInspection() {
 
       {/* Main */}
       <Box sx={{ display: "flex", bgcolor: "background.default" }}>
-        <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, sm: 1 }, mt: 9, ml: { sm: `${drawerWidth}px` } }}>
+        <Box
+          component="main"
+          sx={{
+            flexGrow: 1,
+            p: { xs: 2, sm: 1 },
+            mt: 9,
+            ml: { sm: `${drawerWidth}px` },
+          }}
+        >
           {/* error */}
           {error && (
-            <Paper sx={{ p: 2, mb: 2, border: (t) => `1px solid ${t.palette.error.light}`, bgcolor: "#FFF5F5" }}>
+            <Paper
+              sx={{
+                p: 2,
+                mb: 2,
+                border: (t) => `1px solid ${t.palette.error.light}`,
+                bgcolor: "#FFF5F5",
+              }}
+            >
               <Typography color="error">{error}</Typography>
             </Paper>
           )}
@@ -538,7 +582,11 @@ export default function TransformerInspection() {
             <Stack spacing={2}>
               {/* ===== Header ===== */}
               <Paper elevation={3} sx={{ p: 2.25, borderRadius: 1 }}>
-                <Stack direction="row" alignItems="stretch" sx={{ width: "100%" }}>
+                <Stack
+                  direction="row"
+                  alignItems="stretch"
+                  sx={{ width: "100%" }}
+                >
                   {/* Left block */}
                   <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                     {/* Row 1 */}
@@ -553,7 +601,14 @@ export default function TransformerInspection() {
                           placeItems: "center",
                         }}
                       >
-                        <Box sx={{ width: 10, height: 10, bgcolor: "#FFFFFF", borderRadius: "50%" }} />
+                        <Box
+                          sx={{
+                            width: 10,
+                            height: 10,
+                            bgcolor: "#FFFFFF",
+                            borderRadius: "50%",
+                          }}
+                        />
                       </Box>
 
                       <Typography variant="h6" fontWeight={800}>
@@ -562,7 +617,9 @@ export default function TransformerInspection() {
 
                       {/* Region */}
                       {transformer?.region && (
-                        <Typography sx={{ ml: 3, fontSize: 14, color: "text.secondary" }}>
+                        <Typography
+                          sx={{ ml: 3, fontSize: 14, color: "text.secondary" }}
+                        >
                           {transformer.region}
                         </Typography>
                       )}
@@ -577,7 +634,12 @@ export default function TransformerInspection() {
                       <Typography
                         variant="body2"
                         color="text.secondary"
-                        sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5 }}
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 0.5,
+                          mt: 0.5,
+                        }}
                       >
                         <PlaceIcon sx={{ fontSize: 16, color: "#EF4444" }} />
                         {transformer.region}
@@ -585,10 +647,25 @@ export default function TransformerInspection() {
                     )}
 
                     {/* Row 3 */}
-                    <Stack direction="row" spacing={1} sx={{ mt: 1.5 }} flexWrap="wrap" useFlexGap>
-                      {transformer?.poleNo !== undefined && <StatPill top={transformer.poleNo} bottom="Pole No" />}
-                      {transformer?.type && <StatPill top={transformer.type} bottom="Type" />}
-                      {transformer?.createdAt && <StatPill top={toLocal(transformer.createdAt)} bottom="Created" />}
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      sx={{ mt: 1.5 }}
+                      flexWrap="wrap"
+                      useFlexGap
+                    >
+                      {transformer?.poleNo !== undefined && (
+                        <StatPill top={transformer.poleNo} bottom="Pole No" />
+                      )}
+                      {transformer?.type && (
+                        <StatPill top={transformer.type} bottom="Type" />
+                      )}
+                      {transformer?.createdAt && (
+                        <StatPill
+                          top={toLocal(transformer.createdAt)}
+                          bottom="Created"
+                        />
+                      )}
                     </Stack>
                   </Box>
 
@@ -599,7 +676,11 @@ export default function TransformerInspection() {
                     justifyContent="space-between"
                     sx={{ alignSelf: "stretch", minWidth: 330, py: 0.5 }}
                   >
-                    <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "nowrap", lineHeight: 1.25 }}>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ whiteSpace: "nowrap", lineHeight: 1.25 }}
+                    >
                       Last Inspected Date: {rows[0]?.inspectedDate ?? "-"}
                     </Typography>
 
@@ -614,9 +695,21 @@ export default function TransformerInspection() {
                         py: 0.75,
                       }}
                     >
-                      <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}>
+                      <Box
+                        sx={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 0.75,
+                        }}
+                      >
                         <ImageIcon sx={{ fontSize: 18, color: "#667085" }} />
-                        <Typography sx={{ fontWeight: 700, fontSize: 14, color: "#344054" }}>
+                        <Typography
+                          sx={{
+                            fontWeight: 700,
+                            fontSize: 14,
+                            color: "#344054",
+                          }}
+                        >
                           Baseline Image
                         </Typography>
                       </Box>
@@ -631,7 +724,10 @@ export default function TransformerInspection() {
                           border: (t) => `1px solid ${t.palette.divider}`,
                         }}
                       >
-                        <VisibilityIcon fontSize="inherit" sx={{ fontSize: 16, color: "#344054" }} />
+                        <VisibilityIcon
+                          fontSize="inherit"
+                          sx={{ fontSize: 16, color: "#344054" }}
+                        />
                       </IconButton>
 
                       <IconButton
@@ -645,7 +741,10 @@ export default function TransformerInspection() {
                           color: "error.main",
                         }}
                       >
-                        <DeleteOutlineIcon fontSize="inherit" sx={{ fontSize: 16 }} />
+                        <DeleteOutlineIcon
+                          fontSize="inherit"
+                          sx={{ fontSize: 16 }}
+                        />
                       </IconButton>
                     </Box>
                   </Stack>
@@ -669,10 +768,12 @@ export default function TransformerInspection() {
                       py: 0.9,
                       fontWeight: 700,
                       textTransform: "none",
-                      background: "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
+                      background:
+                        "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
                       boxShadow: "0 8px 18px rgba(79,70,229,0.35)",
                       "&:hover": {
-                        background: "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)",
+                        background:
+                          "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)",
                         boxShadow: "0 10px 22px rgba(79,70,229,0.45)",
                       },
                     }}
@@ -698,31 +799,44 @@ export default function TransformerInspection() {
                         <TableRow key={row.id} hover>
                           <TableCell width={48}>
                             <IconButton size="small">
-                              {row.favorite ? <StarIcon color="secondary" /> : <StarBorderIcon color="disabled" />}
+                              {row.favorite ? (
+                                <StarIcon color="secondary" />
+                              ) : (
+                                <StarBorderIcon color="disabled" />
+                              )}
                             </IconButton>
                           </TableCell>
                           <TableCell>
-                            <Typography fontWeight={600}>{row.inspectionNo}</Typography>
+                            <Typography fontWeight={600}>
+                              {row.inspectionNo}
+                            </Typography>
                           </TableCell>
                           <TableCell>{row.inspectedDate}</TableCell>
                           <TableCell>{row.maintenanceDate ?? "-"}</TableCell>
                           <TableCell>{statusChip(row.status)}</TableCell>
                           <TableCell align="right">
-                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              justifyContent="flex-end"
+                            >
                               <Button
                                 variant="contained"
                                 size="small"
                                 onClick={() =>
                                   navigate(
-                                    `/${encodeURIComponent(row.transformerNo)}/${encodeURIComponent(
-                                      row.inspectionNo
-                                    )}`
+                                    `/${encodeURIComponent(
+                                      row.transformerNo
+                                    )}/${encodeURIComponent(row.inspectionNo)}`
                                   )
                                 }
                               >
                                 View
                               </Button>
-                              <IconButton size="small" onClick={(e) => openRowMenu(e, row.id)}>
+                              <IconButton
+                                size="small"
+                                onClick={(e) => openRowMenu(e, row.id)}
+                              >
                                 <MoreVertIcon />
                               </IconButton>
                             </Stack>
@@ -794,8 +908,20 @@ export default function TransformerInspection() {
       </Menu>
 
       {/* ---------- Add Inspection Dialog ---------- */}
-      <Dialog open={addOpen} onClose={handleCloseAdd} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 2 } }}>
-        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <Dialog
+        open={addOpen}
+        onClose={handleCloseAdd}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
           <Typography fontWeight={700} fontSize="1.25rem">
             Add Inspection
           </Typography>
@@ -806,9 +932,24 @@ export default function TransformerInspection() {
 
         <DialogContent dividers sx={{ bgcolor: "#FBFBFE" }}>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField label="Branch" fullWidth value={branch} onChange={(e) => setBranch(e.target.value)} />
-            <TextField label="Transformer No" fullWidth value={tNo} onChange={(e) => setTNo(e.target.value)} />
-            <TextField label="Inspector" fullWidth value={inspector} onChange={(e) => setInspector(e.target.value)} />
+            <TextField
+              label="Branch"
+              fullWidth
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+            />
+            <TextField
+              label="Transformer No"
+              fullWidth
+              value={tNo}
+              onChange={(e) => setTNo(e.target.value)}
+            />
+            <TextField
+              label="Inspector"
+              fullWidth
+              value={inspector}
+              onChange={(e) => setInspector(e.target.value)}
+            />
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <TextField
                 label="Date of Inspection"
@@ -855,8 +996,20 @@ export default function TransformerInspection() {
       </Dialog>
 
       {/* ---------- Edit Inspection Dialog ---------- */}
-      <Dialog open={editOpen} onClose={handleCloseEdit} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 2 } }}>
-        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <Dialog
+        open={editOpen}
+        onClose={handleCloseEdit}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
           <Typography fontWeight={700} fontSize="1.25rem">
             Edit Inspection
           </Typography>
@@ -867,8 +1020,18 @@ export default function TransformerInspection() {
 
         <DialogContent dividers sx={{ bgcolor: "#FBFBFE" }}>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField label="Branch" fullWidth value={editBranch} onChange={(e) => setEditBranch(e.target.value)} />
-            <TextField label="Transformer No" fullWidth value={editTNo} onChange={(e) => setEditTNo(e.target.value)} />
+            <TextField
+              label="Branch"
+              fullWidth
+              value={editBranch}
+              onChange={(e) => setEditBranch(e.target.value)}
+            />
+            <TextField
+              label="Transformer No"
+              fullWidth
+              value={editTNo}
+              onChange={(e) => setEditTNo(e.target.value)}
+            />
             <TextField
               label="Inspector"
               fullWidth
@@ -928,7 +1091,13 @@ export default function TransformerInspection() {
         fullWidth
         PaperProps={{ sx: { borderRadius: 2 } }}
       >
-        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
           <Typography fontWeight={700} fontSize="1.25rem">
             Confirm Delete
           </Typography>
@@ -938,11 +1107,19 @@ export default function TransformerInspection() {
         </DialogTitle>
 
         <DialogContent>
-          <Typography>Are you sure you want to delete this inspection? This action cannot be undone.</Typography>
+          <Typography>
+            Are you sure you want to delete this inspection? This action cannot
+            be undone.
+          </Typography>
         </DialogContent>
 
         <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button variant="contained" color="error" onClick={handleConfirmDelete} sx={{ mr: 1 }}>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleConfirmDelete}
+            sx={{ mr: 1 }}
+          >
             Delete
           </Button>
           <Button onClick={handleCloseDelete} sx={{ textTransform: "none" }}>
@@ -950,6 +1127,6 @@ export default function TransformerInspection() {
           </Button>
         </DialogActions>
       </Dialog>
-      </>
+    </>
   );
 }

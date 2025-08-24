@@ -466,7 +466,7 @@ export default function InspectionDetails() {
   );
 
   return (
-<>
+    <>
       {/* AppBar */}
       <AppBar
         position="fixed"
