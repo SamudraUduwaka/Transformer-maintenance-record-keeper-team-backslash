@@ -76,3 +76,33 @@ mvnw.cmd spring-boot:run
 ```
 
 By default the API runs on `http://localhost:8080`
+
+
+## Cloudinary Account & Access (As Cloudinary is used in this project for image management)
+
+You **do not need a Cloudinary account to *view* the seeded demo images**.  
+All image URLs stored in our seed file are **public CDN links** and will load as long as you have internet access.
+
+You **do need a Cloudinary account** if you want to **upload new images from the dashboard** or **seed your own dataset**.
+
+### Create a Cloudinary account (for uploads)
+1. Go to https://cloudinary.com/ and sign up (free tier is enough).
+2. In the **Cloudinary Console** copy your **Cloud name** (e.g., `abc123`).
+3. Create an **unsigned upload preset**  
+   - *Settings* → *Upload* → *Upload presets* → **Add upload preset**  
+   - Set **Unsigned** = `true` and save the **Preset name** (e.g., `dev_unsigned`).
+4. In `transformer-dashboard/.env`, add:
+   ```bash
+   VITE_CLOUDINARY_CLOUD_NAME=<your_cloud_name>
+   VITE_CLOUDINARY_UPLOAD_PRESET=<your_unsigned_preset>
+   VITE_API_BASE_URL=http://localhost:8080
+5. Restart the frontend (npm run dev). New images you upload will go to your Cloudinary and the backend will store the returned URLs.
+
+
+### 4) Seed Data (data.sql) & Image URLs
+
+We ship demo data in `transformer-api/src/main/resources/data.sql.`
+
+This file inserts:
+- Sample transformers and inspections
+- Image URLs hosted on Cloudinary under our team cloud (read-only public links), e.g. `https://res.cloudinary.com/ddleqtgrj/image/upload/...`
