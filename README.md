@@ -139,3 +139,15 @@ npm run dev
 ### Data & Assets
 - Ready-to-run **seed dataset** with sample transformers, inspections, and **public** Cloudinary image URLs.
 - Anyone can run the app and **view images without a Cloudinary account** (uploads require your own Cloudinary and Refer `Cloudinary Account & Access` section for more details).
+
+
+## Known Limitations / Issues (Stage-1)
+
+- **No authentication/authorization yet**  
+  All API endpoints are open in dev; any client can create/read records. Auth & roles will be added in later stages.
+
+- **CORS configuration may require adjustments**  
+  Local dev assumes dashboard on `http://localhost:5173`. If you run on another port/origin, you may hit CORS errors until the backend config is updated.
+
+- **Anomaly detector not wired yet**  
+  `anomaly-detector/` exists as a placeholder; no API/UI integration in Stage-1.
