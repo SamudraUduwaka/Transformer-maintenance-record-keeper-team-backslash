@@ -230,9 +230,9 @@ export default function InspectionDetails() {
         borderColor: "#DC2626",
       },
       "no image": {
-        label: "No Image",
+        label: "Pending",
         color: "default" as const,
-        borderColor: "#6B7280",
+        borderColor: "#e8a60dff",
       },
     };
 
