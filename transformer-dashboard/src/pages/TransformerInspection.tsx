@@ -469,6 +469,7 @@ export default function TransformerInspection() {
           borderBottom: (t) => `1px solid ${t.palette.divider}`,
           ml: { sm: `${drawerWidth}px` },
           width: { sm: `calc(100% - ${drawerWidth}px)` },
+          borderRadius: 0,
         }}
       >
         <Toolbar sx={{ minHeight: 72 }}>
@@ -497,15 +498,15 @@ export default function TransformerInspection() {
             sx={{ ml: 1 }}
           >
             <Avatar
-              src="https://i.pravatar.cc/64?img=1"
+              src="./user.png"
               sx={{ width: 36, height: 36 }}
             />
             <Box sx={{ display: { xs: "none", md: "block" } }}>
               <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
-                Olivera Queen
+                Test User
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                olivera@gmail.com
+                testuser@gmail.com
               </Typography>
             </Box>
           </Stack>
@@ -528,6 +529,7 @@ export default function TransformerInspection() {
             "& .MuiDrawer-paper": {
               boxSizing: "border-box",
               width: drawerWidth,
+              borderRadius: 0,
             },
           }}
         >
@@ -540,6 +542,7 @@ export default function TransformerInspection() {
             "& .MuiDrawer-paper": {
               boxSizing: "border-box",
               width: drawerWidth,
+              borderRadius: 0,
             },
           }}
           open
@@ -683,70 +686,6 @@ export default function TransformerInspection() {
                     >
                       Last Inspected Date: {rows[0]?.inspectedDate ?? "-"}
                     </Typography>
-
-                    <Box
-                      sx={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 0.75,
-                        bgcolor: "#EEF0F6",
-                        borderRadius: 3,
-                        px: 1,
-                        py: 0.75,
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 0.75,
-                        }}
-                      >
-                        <ImageIcon sx={{ fontSize: 18, color: "#667085" }} />
-                        <Typography
-                          sx={{
-                            fontWeight: 700,
-                            fontSize: 14,
-                            color: "#344054",
-                          }}
-                        >
-                          Baseline Image
-                        </Typography>
-                      </Box>
-
-                      <IconButton
-                        onClick={() => alert("Preview baseline")}
-                        size="small"
-                        sx={{
-                          width: 28,
-                          height: 28,
-                          bgcolor: "white",
-                          border: (t) => `1px solid ${t.palette.divider}`,
-                        }}
-                      >
-                        <VisibilityIcon
-                          fontSize="inherit"
-                          sx={{ fontSize: 16, color: "#344054" }}
-                        />
-                      </IconButton>
-
-                      <IconButton
-                        onClick={() => alert("Delete baseline")}
-                        size="small"
-                        sx={{
-                          width: 28,
-                          height: 28,
-                          bgcolor: "white",
-                          border: (t) => `1px solid ${t.palette.divider}`,
-                          color: "error.main",
-                        }}
-                      >
-                        <DeleteOutlineIcon
-                          fontSize="inherit"
-                          sx={{ fontSize: 16 }}
-                        />
-                      </IconButton>
-                    </Box>
                   </Stack>
                 </Stack>
               </Paper>
@@ -789,7 +728,7 @@ export default function TransformerInspection() {
                         <TableCell width={48} />
                         <TableCell>Inspection No</TableCell>
                         <TableCell>Inspected Date</TableCell>
-                        <TableCell>Maintenance Date</TableCell>
+                      
                         <TableCell>Status</TableCell>
                         <TableCell align="right">Actions</TableCell>
                       </TableRow>
@@ -812,7 +751,7 @@ export default function TransformerInspection() {
                             </Typography>
                           </TableCell>
                           <TableCell>{row.inspectedDate}</TableCell>
-                          <TableCell>{row.maintenanceDate ?? "-"}</TableCell>
+                        
                           <TableCell>{statusChip(row.status)}</TableCell>
                           <TableCell align="right">
                             <Stack

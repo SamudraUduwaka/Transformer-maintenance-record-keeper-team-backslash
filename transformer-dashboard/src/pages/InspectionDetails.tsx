@@ -41,6 +41,7 @@ import {
   Visibility as VisibilityIcon,
   DeleteOutline as DeleteOutlineIcon,
 } from "@mui/icons-material";
+import { format } from "date-fns";
 import { useNavigate, useParams } from "react-router-dom";
 
 /* API Service */
@@ -152,8 +153,6 @@ export default function InspectionDetails() {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
-  const inspectedAt = "Mon(21), May, 2023 12:55pm";
-  const lastUpdated = "Mon(21), May, 2023 12:55pm";
   const [weather, setWeather] = React.useState<Weather>("Sunny");
 
   // Thermal upload dialog
@@ -168,17 +167,18 @@ export default function InspectionDetails() {
 
   // Baselines state
   const [baselines, setBaselines] = React.useState<Baselines>({
-    Sunny: {
-      url: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1200&auto=format&fit=crop",
-      updatedAt: new Date().toISOString(),
-      by: "Olivera",
-    },
+    Sunny: undefined,
+    Cloudy: undefined,
+    Rainy: undefined,
   });
 
   const [inspectionDetails, setInspectionDetails] = React.useState({
     poleNo: "",
     branch: "",
     inspectedBy: "",
+    inspectedAt: "",
+    createdAt: "",
+    lastUpdated: "",
     image: {
       url: "",
       type: "",
@@ -329,6 +329,15 @@ export default function InspectionDetails() {
           poleNo: transformerData.poleNo,
           branch: inspectionData.branch,
           inspectedBy: inspectionData.inspector,
+          inspectedAt: inspectionData.inspectionTime
+            ? format(new Date(inspectionData.inspectionTime), "yyyy-MM-dd HH:mm")
+            : "",
+          createdAt: inspectionData.createdAt
+            ? format(new Date(inspectionData.createdAt), "yyyy-MM-dd HH:mm")
+            : "",
+          lastUpdated: inspectionData.updatedAt
+            ? format(new Date(inspectionData.updatedAt), "yyyy-MM-dd HH:mm")
+            : "",
           image: inspectionData.image || {
             url: "",
             type: "",
@@ -418,6 +427,9 @@ export default function InspectionDetails() {
       setManagePreview(null);
       setManageFile(null);
       setManageWeather(null);
+
+      // 5) Reload the page to reflect the new baseline image
+      window.location.reload();
     } catch (e) {
       console.error(e);
       alert((e as Error).message || "Baseline upload failed");
@@ -490,6 +502,7 @@ export default function InspectionDetails() {
           borderBottom: (t) => `1px solid ${t.palette.divider}`,
           ml: { sm: `${drawerWidth}px` },
           width: { sm: `calc(100% - ${drawerWidth}px)` },
+          borderRadius: 0,
         }}
       >
         <Toolbar sx={{ minHeight: 64 }}>
@@ -516,15 +529,15 @@ export default function InspectionDetails() {
             sx={{ ml: 1 }}
           >
             <Avatar
-              src="https://i.pravatar.cc/64?img=1"
+              src="./user.png"
               sx={{ width: 36, height: 36 }}
             />
             <Box sx={{ display: { xs: "none", md: "block" } }}>
               <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
-                Olivera Queen
+                Test User
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                olivera@gmail.com
+                testuser@gmail.com
               </Typography>
             </Box>
           </Stack>
@@ -546,6 +559,7 @@ export default function InspectionDetails() {
             "& .MuiDrawer-paper": {
               boxSizing: "border-box",
               width: drawerWidth,
+              borderRadius: 0,
             },
           }}
         >
@@ -558,6 +572,7 @@ export default function InspectionDetails() {
             "& .MuiDrawer-paper": {
               boxSizing: "border-box",
               width: drawerWidth,
+              borderRadius: 0,
             },
           }}
           open
@@ -637,7 +652,7 @@ export default function InspectionDetails() {
                         color="text.primary"
                         sx={{ display: "block", textAlign: "left" }}
                       >
-                        {inspectedAt}
+                        {inspectionDetails.inspectedAt}
                       </Typography>
                     </Box>
                     <Box>
@@ -657,7 +672,7 @@ export default function InspectionDetails() {
                         color="text.primary"
                         sx={{ display: "block", textAlign: "left" }}
                       >
-                        {lastUpdated}
+                        {inspectionDetails.lastUpdated? inspectionDetails.lastUpdated : inspectionDetails.createdAt}
                       </Typography>
                     </Box>
                   </Stack>

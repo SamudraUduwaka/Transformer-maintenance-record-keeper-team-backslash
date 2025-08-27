@@ -528,6 +528,7 @@ export default function Dashboard() {
           borderBottom: (t) => `1px solid ${t.palette.divider}`,
           ml: { sm: `${drawerWidth}px` },
           width: { sm: `calc(100% - ${drawerWidth}px)` },
+          borderRadius: 0,   
         }}
       >
         <Toolbar sx={{ minHeight: 72 }}>
@@ -554,15 +555,15 @@ export default function Dashboard() {
             sx={{ ml: 1 }}
           >
             <Avatar
-              src="https://i.pravatar.cc/64?img=1"
+              src="./user.png"
               sx={{ width: 36, height: 36 }}
             />
             <Box sx={{ display: { xs: "none", md: "block" } }}>
               <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
-                Olivera Queen
+                Test User
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                olivera@gmail.com
+                testuser@gmail.com
               </Typography>
             </Box>
           </Stack>
@@ -585,6 +586,7 @@ export default function Dashboard() {
             "& .MuiDrawer-paper": {
               boxSizing: "border-box",
               width: drawerWidth,
+              borderRadius: 0,      
             },
           }}
         >
@@ -597,6 +599,7 @@ export default function Dashboard() {
             "& .MuiDrawer-paper": {
               boxSizing: "border-box",
               width: drawerWidth,
+              borderRadius: 0,      
             },
           }}
           open
@@ -1074,8 +1077,8 @@ export default function Dashboard() {
             sx={{
               minWidth: 100,
               background: editingTransformer
-                ? "linear-gradient(45deg, #FF9800 30%, #F57C00 90%)"
-                : "linear-gradient(45deg, #4CAF50 30%, #45a049 90%)",
+                ? "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)"
+                : "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
             }}
           >
             {editingTransformer ? "Update" : "Add"}
