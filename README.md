@@ -118,3 +118,24 @@ npm run dev
 ```
 
 - Open the URL shown in the terminal (Vite default is `http://localhost:5173`).
+
+
+
+## List of Implemented Features (Stage-1)
+
+### Frontend — `transformer-dashboard`
+- Transformer & inspection **list/detail** views with forms to add new records with edit and delete features also implemented.
+- **Image upload** to **Cloudinary** using an **unsigned preset**; secure URL returned from Cloudinary is sent to the backend.
+- Displays stored image URLs in inspection views.
+
+### Backend — `transformer-api`
+- **REST APIs** for transformers, inspections (create, fetch, patch and delete). And for images create and fetch.
+- **MySQL persistence** using JPA/Hibernate; schema auto-creation enabled for dev (`ddl-auto=update`).
+- **Cloudinary URL storage**: image metadata (URL, type, weather) linked to inspection & transformer.
+- **DTOs / service layer / repository** pattern (controllers → services → repositories).
+- **CORS** configured for local development so the Vite app can call the API.
+- **Database seeding** via `src/main/resources/data.sql` (transformers, inspections, and Cloudinary image URLs).
+
+### Data & Assets
+- Ready-to-run **seed dataset** with sample transformers, inspections, and **public** Cloudinary image URLs.
+- Anyone can run the app and **view images without a Cloudinary account** (uploads require your own Cloudinary and Refer `Cloudinary Account & Access` section for more details).
