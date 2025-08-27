@@ -8,7 +8,7 @@ const theme = createTheme({
     background: { default: "#F7F7FB" },
     text: { primary: "#101828", secondary: "#667085" },
     success: { main: "#16A34A" },
-  },
+  },   
   shape: { borderRadius: 16 },
   components: {
     MuiPaper: {

@@ -545,6 +545,7 @@ export default function Inspections({
           borderBottom: (t) => `1px solid ${t.palette.divider}`,
           ml: { sm: `${drawerWidth}px` },
           width: { sm: `calc(100% - ${drawerWidth}px)` },
+          borderRadius: 0,
         }}
       >
         <Toolbar sx={{ minHeight: 72 }}>
@@ -573,15 +574,15 @@ export default function Inspections({
             sx={{ ml: 1 }}
           >
             <Avatar
-              src="https://i.pravatar.cc/64?img=1"
+              src="./user.png"
               sx={{ width: 36, height: 36 }}
             />
             <Box sx={{ display: { xs: "none", md: "block" } }}>
               <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
-                Olivera Queen
+                Test User
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                olivera@gmail.com
+                testuser@gmail.com
               </Typography>
             </Box>
           </Stack>
