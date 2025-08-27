@@ -33,7 +33,7 @@ CREATE DATABASE transformer_db CHARACTER SET utf8mb4;
 
 ### 3) Backend (transformer-api)
 
-Configure datasource and (dev) JPA settings (If haven't added yet):
+#### i) Configure datasource and (dev) JPA settings (If haven't added yet):
 
 In `transformer-api/src/main/resources/application.properties`
 
@@ -56,3 +56,23 @@ spring.jpa.defer-datasource-initialization=true
 
 server.port=8080
 ```
+
+#### ii) Run the API:
+
+Navigate to `transformer-api`
+```cmd
+cd transformer-api
+```
+
+Run the backend
+
+- `Linux/macOS:`
+```cmd
+./mvnw spring-boot:run
+```
+- `Windows (PowerShell/CMD):`
+```cmd
+mvnw.cmd spring-boot:run
+```
+
+By default the API runs on `http://localhost:8080`
