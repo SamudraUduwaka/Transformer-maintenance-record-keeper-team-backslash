@@ -49,7 +49,7 @@ const API_BASE_URL = "http://localhost:8080/api";
 
 // ==== Cloudinary (UNSIGNED) helpers ====
 
-const CLOUD_NAME = "djgapcqtj";
+const CLOUD_NAME = "ddleqtgrj";//"djgapcqtj";
 const UNSIGNED_PRESET = "transformer_images_upload_unsigned";
 
 async function uploadUnsignedToCloudinary(file: File) {
