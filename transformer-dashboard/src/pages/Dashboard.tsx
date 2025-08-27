@@ -487,7 +487,7 @@ export default function Dashboard() {
       <Stack direction="row" alignItems="center" spacing={1} sx={{ p: 2 }}>
         <BoltIcon />
         <Typography variant="h6" fontWeight={800}>
-          Oversight
+          PowerLens
         </Typography>
       </Stack>
       <Divider />
