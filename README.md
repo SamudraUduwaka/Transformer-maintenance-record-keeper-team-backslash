@@ -106,3 +106,15 @@ We ship demo data in `transformer-api/src/main/resources/data.sql.`
 This file inserts:
 - Sample transformers and inspections
 - Image URLs hosted on Cloudinary under our team cloud (read-only public links), e.g. `https://res.cloudinary.com/ddleqtgrj/image/upload/...`
+
+
+### 5) Frontend (transformer-dashboard)
+
+Install deps and start the dev server:
+```cmd
+cd ../transformer-dashboard
+npm install
+npm run dev
+```
+
+- Open the URL shown in the terminal (Vite default is `http://localhost:5173`).
