@@ -142,6 +142,7 @@ function StatPill({ top, bottom }: { top: string | number; bottom: string }) {
 type Weather = "Sunny" | "Cloudy" | "Rainy";
 type BaselineImage = { url: string; updatedAt: string; by?: string };
 type Baselines = Partial<Record<Weather, BaselineImage>>;
+type ImageStatus = "baseline" | "maintenance" | "no image";
 
 /* ----- Page ----- */
 export default function InspectionDetails() {
@@ -197,6 +198,71 @@ export default function InspectionDetails() {
     branch?: string;
     inspector?: string;
     // Add other fields as needed
+  };
+
+  /* Helper function to determine image status */
+  const determineImageStatus = (inspection: Inspection | null): ImageStatus => {
+    if (!inspection || !inspection.image) {
+      return "no image";
+    }
+
+    if (inspection.image.type === "baseline") {
+      return "baseline";
+    }
+
+    return "maintenance";
+  };
+
+  /* Helper function to render status chip */
+  const renderStatusChip = (
+    status: ImageStatus,
+    size: "small" | "medium" = "medium"
+  ) => {
+    const statusConfig = {
+      baseline: {
+        label: "Baseline",
+        color: "success" as const,
+        borderColor: "#059669",
+      },
+      maintenance: {
+        label: "Maintenance",
+        color: "error" as const,
+        borderColor: "#DC2626",
+      },
+      "no image": {
+        label: "No Image",
+        color: "default" as const,
+        borderColor: "#6B7280",
+      },
+    };
+
+    const config = statusConfig[status];
+    const chipHeight = size === "small" ? 22 : 28;
+    const fontSize = size === "small" ? 12 : 14;
+
+    return (
+      <Chip
+        size={size}
+        label={config.label}
+        color={config.color}
+        variant="outlined"
+        sx={{
+          height: chipHeight,
+          fontSize: fontSize,
+          fontWeight: 600,
+          borderColor: config.borderColor,
+          color: config.borderColor,
+          bgcolor:
+            size === "small"
+              ? status === "baseline"
+                ? "#F0FDF4"
+                : status === "maintenance"
+                ? "#FEF2F2"
+                : "#F9FAFB"
+              : "transparent",
+        }}
+      />
+    );
   };
 
   const [inspection, setInspection] = React.useState<Inspection | null>(null);
@@ -330,7 +396,10 @@ export default function InspectionDetails() {
           branch: inspectionData.branch,
           inspectedBy: inspectionData.inspector,
           inspectedAt: inspectionData.inspectionTime
-            ? format(new Date(inspectionData.inspectionTime), "yyyy-MM-dd HH:mm")
+            ? format(
+                new Date(inspectionData.inspectionTime),
+                "yyyy-MM-dd HH:mm"
+              )
             : "",
           createdAt: inspectionData.createdAt
             ? format(new Date(inspectionData.createdAt), "yyyy-MM-dd HH:mm")
@@ -464,7 +533,7 @@ export default function InspectionDetails() {
       <Stack direction="row" alignItems="center" spacing={1} sx={{ p: 2 }}>
         <BoltIcon />
         <Typography variant="h6" fontWeight={800}>
-          Oversight
+          PowerLens
         </Typography>
       </Stack>
       <Divider />
@@ -528,10 +597,7 @@ export default function InspectionDetails() {
             alignItems="center"
             sx={{ ml: 1 }}
           >
-            <Avatar
-              src="./user.png"
-              sx={{ width: 36, height: 36 }}
-            />
+            <Avatar src="./user.png" sx={{ width: 36, height: 36 }} />
             <Box sx={{ display: { xs: "none", md: "block" } }}>
               <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
                 Test User
@@ -672,7 +738,9 @@ export default function InspectionDetails() {
                         color="text.primary"
                         sx={{ display: "block", textAlign: "left" }}
                       >
-                        {inspectionDetails.lastUpdated? inspectionDetails.lastUpdated : inspectionDetails.createdAt}
+                        {inspectionDetails.lastUpdated
+                          ? inspectionDetails.lastUpdated
+                          : inspectionDetails.createdAt}
                       </Typography>
                     </Box>
                   </Stack>
@@ -708,17 +776,7 @@ export default function InspectionDetails() {
                       justifyContent: "flex-end",
                     }}
                   >
-                    <Chip
-                      label="In progress"
-                      color="success"
-                      variant="outlined"
-                      sx={{
-                        height: 28,
-                        fontWeight: 700,
-                        borderColor: "success.light",
-                        color: "success.main",
-                      }}
-                    />
+                    {renderStatusChip(determineImageStatus(inspection))}
                   </Box>
                 </Stack>
               </Stack>
@@ -822,7 +880,7 @@ export default function InspectionDetails() {
                 <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                   <Paper sx={{ p: 2.5, flex: 1 }}>
                     <Typography variant="subtitle1" fontWeight={700}>
-                      Thermal Image ({weather})
+                      Maintenance Image ({weather})
                     </Typography>
                     <Box mt={2}>
                       {inspection.image ? (
@@ -833,7 +891,7 @@ export default function InspectionDetails() {
                         />
                       ) : (
                         <Typography color="text.secondary">
-                          No thermal image available
+                          No maintenance image available
                         </Typography>
                       )}
                     </Box>
@@ -883,7 +941,7 @@ export default function InspectionDetails() {
               /* -------- FULL-WIDTH PROGRESS OVERLAY (replaces Baseline + Thermal + Progress) -------- */
               <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }}>
                 <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
-                  Thermal Image
+                  Maintenance Image
                 </Typography>
                 <Box
                   sx={{
@@ -896,14 +954,14 @@ export default function InspectionDetails() {
                   }}
                 >
                   <Typography fontWeight={700}>
-                    Thermal image uploading.
+                    Maintenance image uploading.
                   </Typography>
                   <Typography
                     variant="body2"
                     color="text.secondary"
                     sx={{ mt: 0.5 }}
                   >
-                    Thermal image is being uploaded and Reviewed.
+                    Maintenance image is being uploaded and Reviewed.
                   </Typography>
                   <Box
                     sx={{ mt: 3, mx: "auto", width: { xs: "100%", sm: "70%" } }}
@@ -955,26 +1013,19 @@ export default function InspectionDetails() {
                   >
                     <Stack direction="row" alignItems="center" spacing={1}>
                       <Typography variant="subtitle1" fontWeight={700}>
-                        Thermal Image
+                        Maintenance Image
                       </Typography>
-                      <Chip
-                        size="small"
-                        label="Pending"
-                        sx={{
-                          height: 22,
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: "#F59E0B",
-                          bgcolor: "#FFF7ED",
-                        }}
-                      />
+                      {renderStatusChip(
+                        determineImageStatus(inspection),
+                        "small"
+                      )}
                     </Stack>
                     <Typography
                       variant="body2"
                       color="text.secondary"
                       sx={{ mt: 2, textAlign: "left" }}
                     >
-                      Upload a thermal image of the transformer to identify
+                      Upload a maintenance image of the transformer to identify
                       potential issues.
                     </Typography>
                     <Box sx={{ mt: 3 }}>
@@ -1006,7 +1057,7 @@ export default function InspectionDetails() {
                       onClick={() => setUploadOpen(true)}
                       disabled={!baselineImage} // only enabled when baseline exists for selected weather
                     >
-                      Upload Thermal Image
+                      Upload Maintenance Image
                     </Button>
                   </Paper>
 
@@ -1059,17 +1110,10 @@ export default function InspectionDetails() {
                                 {step}
                               </Typography>
                             </Stack>
-                            <Chip
-                              size="small"
-                              label="Pending"
-                              sx={{
-                                height: 22,
-                                fontSize: 12,
-                                fontWeight: 600,
-                                color: "#F59E0B",
-                                bgcolor: "#FFF7ED",
-                              }}
-                            />
+                            {renderStatusChip(
+                              determineImageStatus(inspection),
+                              "small"
+                            )}
                           </Stack>
                           <Box
                             sx={{
@@ -1105,7 +1149,7 @@ export default function InspectionDetails() {
       >
         <DialogTitle sx={{ px: 3, py: 1.75 }}>
           <Typography variant="h6" fontWeight={700}>
-            Upload Thermal Image
+            Upload Maintenance Image
           </Typography>
         </DialogTitle>
         <DialogContent

@@ -42,11 +42,8 @@ import {
   MoreVert as MoreVertIcon,
   Star as StarIcon,
   StarBorder as StarBorderIcon,
-  Image as ImageIcon,
   Add as AddIcon,
   Place as PlaceIcon,
-  Visibility as VisibilityIcon,
-  DeleteOutline as DeleteOutlineIcon,
   Close as CloseIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
@@ -73,16 +70,20 @@ type InspectionDTO = {
   createdAt?: string;
   updatedAt?: string;
   transformerNo: string;
+  image?: {
+    type: string;
+    url: string;
+  } | null;
 };
 
 /* ================= Local row (UI) ================= */
-type InspectionStatus = "In Progress" | "Pending" | "Completed";
+type ImageStatus = "baseline" | "maintenance" | "no image";
 type InspectionRow = {
   id: number;
   inspectionNo: string;
   inspectedDate: string;
   maintenanceDate?: string;
-  status: InspectionStatus;
+  status: ImageStatus;
   favorite?: boolean;
   // for editing:
   inspectionTimeIso: string;
@@ -93,7 +94,8 @@ type InspectionRow = {
 
 /* ================= Tiny inline HTTP helper ================= */
 const API_BASE =
-  (import.meta.env as { VITE_API_BASE_URL?: string }).VITE_API_BASE_URL ?? "http://localhost:8080/api";
+  (import.meta.env as { VITE_API_BASE_URL?: string }).VITE_API_BASE_URL ??
+  "http://localhost:8080/api";
 
 async function http<T>(
   path: string,
@@ -136,9 +138,17 @@ function toLocal(dt: string) {
     return dt;
   }
 }
-function pickStatus(id: number): InspectionStatus {
-  const arr: InspectionStatus[] = ["In Progress", "Pending", "Completed"];
-  return arr[id % arr.length];
+function determineImageStatus(dto: InspectionDTO): ImageStatus {
+  // Determine image status based on the image field
+  let status: ImageStatus = "no image";
+  if (dto.image && typeof dto.image === "object") {
+    if (dto.image.type === "baseline") {
+      status = "baseline";
+    } else {
+      status = "maintenance";
+    }
+  }
+  return status;
 }
 function dtoToRow(dto: InspectionDTO): InspectionRow {
   return {
@@ -149,7 +159,7 @@ function dtoToRow(dto: InspectionDTO): InspectionRow {
       dto.updatedAt && dto.createdAt && dto.updatedAt !== dto.createdAt
         ? toLocal(dto.updatedAt)
         : "-",
-    status: pickStatus(dto.inspectionId),
+    status: determineImageStatus(dto),
     favorite: false,
     inspectionTimeIso: dto.inspectionTime,
     branch: dto.branch,
@@ -161,11 +171,11 @@ function dtoToRow(dto: InspectionDTO): InspectionRow {
 const drawerWidth = 260;
 
 /* ---------------- Small UI helpers ---------------- */
-const statusChip = (s: InspectionStatus) => {
-  const map: Record<InspectionStatus, { color: string; label: string }> = {
-    Completed: { color: "#16A34A", label: "Completed" },
-    Pending: { color: "#F59E0B", label: "Pending" },
-    "In Progress": { color: "#0EA5E9", label: "In Progress" },
+const statusChip = (s: ImageStatus) => {
+  const map: Record<ImageStatus, { color: string; label: string }> = {
+    baseline: { color: "#059669", label: "Baseline" },
+    maintenance: { color: "#DC2626", label: "Maintenance" },
+    "no image": { color: "#6B7280", label: "No Image" },
   };
   const i = map[s];
   return (
@@ -431,7 +441,7 @@ export default function TransformerInspection() {
       <Stack direction="row" alignItems="center" spacing={1} sx={{ p: 2 }}>
         <BoltIcon />
         <Typography variant="h6" fontWeight={800}>
-          Oversight
+          PowerLens
         </Typography>
       </Stack>
       <Divider />
@@ -497,10 +507,7 @@ export default function TransformerInspection() {
             alignItems="center"
             sx={{ ml: 1 }}
           >
-            <Avatar
-              src="./user.png"
-              sx={{ width: 36, height: 36 }}
-            />
+            <Avatar src="./user.png" sx={{ width: 36, height: 36 }} />
             <Box sx={{ display: { xs: "none", md: "block" } }}>
               <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
                 Test User
@@ -728,8 +735,8 @@ export default function TransformerInspection() {
                         <TableCell width={48} />
                         <TableCell>Inspection No</TableCell>
                         <TableCell>Inspected Date</TableCell>
-                      
-                        <TableCell>Status</TableCell>
+
+                        <TableCell>Image Status</TableCell>
                         <TableCell align="right">Actions</TableCell>
                       </TableRow>
                     </TableHead>
@@ -751,7 +758,7 @@ export default function TransformerInspection() {
                             </Typography>
                           </TableCell>
                           <TableCell>{row.inspectedDate}</TableCell>
-                        
+
                           <TableCell>{statusChip(row.status)}</TableCell>
                           <TableCell align="right">
                             <Stack

@@ -55,7 +55,18 @@ type Props = {
 };
 
 /* Types matching backend DTOs */
-type InspectionStatus = "In Progress" | "Pending" | "Completed";
+type ImageStatus = "baseline" | "maintenance" | "no image";
+
+type ImageDTO = {
+  imageId: number;
+  imageUrl: string;
+  type: string;
+  weatherCondition: string;
+  createdAt: string;
+  updatedAt: string;
+  inspectionId: number;
+  transformerNo: string;
+};
 
 type InspectionDTO = {
   inspectionId: number;
@@ -65,6 +76,7 @@ type InspectionDTO = {
   createdAt: string;
   updatedAt: string;
   transformerNo: string;
+  image?: ImageDTO; // Optional image field
 };
 
 type InspectionRow = {
@@ -73,7 +85,7 @@ type InspectionRow = {
   inspectionNo: string;
   inspectedDate: string;
   maintenanceDate: string; // always string, never undefined
-  status: InspectionStatus;
+  status: ImageStatus;
   branch: string;
   inspector: string;
   inspectionTime: string; // Keep original ISO string for editing
@@ -170,9 +182,15 @@ const inspectionService = {
 
 /* Helper to convert DTO to display row */
 const convertDTOToRow = (dto: InspectionDTO): InspectionRow => {
-  // Generate random status for display purposes since backend doesn't have status field
-  const statuses: InspectionStatus[] = ["In Progress", "Pending", "Completed"];
-  const status = statuses[dto.inspectionId % statuses.length];
+  // Determine image status based on the image field
+  let status: ImageStatus = "no image";
+  if (dto.image) {
+    if (dto.image.type === "baseline") {
+      status = "baseline";
+    } else if (dto.image.type === "thermal") {
+      status = "maintenance";
+    }
+  }
 
   // Format dates
   const inspectedDate = new Date(dto.inspectionTime).toLocaleString();
@@ -226,14 +244,14 @@ function stableSort<T>(
 }
 
 /* Status chip */
-const statusChip = (s: InspectionStatus) => {
+const statusChip = (s: ImageStatus) => {
   const map: Record<
-    InspectionStatus,
+    ImageStatus,
     { color: "success" | "warning" | "info"; label: string }
   > = {
-    Completed: { color: "success", label: "Completed" },
-    Pending: { color: "warning", label: "Pending" },
-    "In Progress": { color: "info", label: "In Progress" },
+    baseline: { color: "info", label: "Baseline" },
+    maintenance: { color: "warning", label: "Maintenance" },
+    "no image": { color: "success", label: "No Image" },
   };
   const i = map[s];
   return (
@@ -257,7 +275,7 @@ export default function Inspections({
   const [error, setError] = React.useState<string | null>(null);
 
   const [search, setSearch] = React.useState("");
-  const [status, setStatus] = React.useState<InspectionStatus | "All">("All");
+  const [status, setStatus] = React.useState<ImageStatus | "All">("All");
   const [order, setOrder] = React.useState<Order>("asc");
   const [orderBy, setOrderBy] =
     React.useState<keyof InspectionRow>("transformerNo");
@@ -282,7 +300,7 @@ export default function Inspections({
   const [editTime, setEditTime] = React.useState("");
   const [editInspector, setEditInspector] = React.useState("");
   const [editStatus, setEditStatus] =
-    React.useState<InspectionStatus>("Pending");
+    React.useState<ImageStatus>("no image");
   const [saving, setSaving] = React.useState(false);
 
   /* -------- Delete state -------- */
@@ -394,7 +412,7 @@ export default function Inspections({
     setEditDate("");
     setEditTime("");
     setEditInspector("");
-    setEditStatus("Pending");
+    setEditStatus("no image");
   };
 
   const handleSaveEdit = async () => {
@@ -736,14 +754,14 @@ export default function Inspections({
                 size="small"
                 value={status}
                 onChange={(e) =>
-                  setStatus(e.target.value as InspectionStatus | "All")
+                  setStatus(e.target.value as ImageStatus | "All")
                 }
                 sx={{ minWidth: 180 }}
               >
                 <MenuItem value="All">All Statuses</MenuItem>
-                <MenuItem value="In Progress">In Progress</MenuItem>
-                <MenuItem value="Pending">Pending</MenuItem>
-                <MenuItem value="Completed">Completed</MenuItem>
+                <MenuItem value="baseline">Baseline</MenuItem>
+                <MenuItem value="maintenance">Maintenance</MenuItem>
+                <MenuItem value="no image">No Image</MenuItem>
               </Select>
 
               <Button onClick={resetFilters} sx={{ textTransform: "none" }}>
@@ -1104,15 +1122,15 @@ export default function Inspections({
               label="Status"
               value={editStatus}
               onChange={(e) =>
-                setEditStatus(e.target.value as InspectionStatus)
+                setEditStatus(e.target.value as ImageStatus)
               }
               fullWidth
               displayEmpty
               renderValue={(value) => value || "Select Status"}
             >
-              <MenuItem value="In Progress">In Progress</MenuItem>
-              <MenuItem value="Pending">Pending</MenuItem>
-              <MenuItem value="Completed">Completed</MenuItem>
+              <MenuItem value="baseline">Baseline</MenuItem>
+              <MenuItem value="maintenance">Maintenance</MenuItem>
+              <MenuItem value="no image">No Image</MenuItem>
             </Select>
           </Stack>
         </DialogContent>
