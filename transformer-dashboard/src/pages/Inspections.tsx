@@ -184,10 +184,14 @@ const inspectionService = {
 const convertDTOToRow = (dto: InspectionDTO): InspectionRow => {
   // Determine image status based on the image field
   let status: ImageStatus = "no image";
-  if (dto.image) {
+  if (dto.image && dto.image.type) {
     if (dto.image.type === "baseline") {
       status = "baseline";
-    } else if (dto.image.type === "thermal") {
+    } else if (dto.image.type === "thermal" || dto.image.type === "maintenance") {
+      status = "maintenance";
+    }
+    // Default fallback for any other image type
+    else {
       status = "maintenance";
     }
   }

@@ -140,15 +140,22 @@ function toLocal(dt: string) {
 }
 function determineImageStatus(dto: InspectionDTO): ImageStatus {
   // Determine image status based on the image field
-  let status: ImageStatus = "no image";
-  if (dto.image && typeof dto.image === "object") {
-    if (dto.image.type === "baseline") {
-      status = "baseline";
-    } else {
-      status = "maintenance";
-    }
+  if (!dto.image || !dto.image.type) {
+    return "no image";
   }
-  return status;
+  
+  // If the image type is explicitly baseline, return baseline
+  if (dto.image.type === "baseline") {
+    return "baseline";
+  }
+  
+  // If the image type is thermal/maintenance, return maintenance
+  if (dto.image.type === "thermal" || dto.image.type === "maintenance") {
+    return "maintenance";
+  }
+  
+  // Default fallback - treat any other image as maintenance
+  return "maintenance";
 }
 function dtoToRow(dto: InspectionDTO): InspectionRow {
   return {
