@@ -46,6 +46,10 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
 } from "@mui/icons-material";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
 
 /* Props controlled by Dashboard */
@@ -547,7 +551,8 @@ export default function Inspections({
   }
 
   return (
-    <>
+    // <>
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
       {/* <CssBaseline /> */}
 
       {/* Show error if any */}
@@ -996,13 +1001,19 @@ export default function Inspections({
             />
 
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <TextField
+              {/* <TextField
                 label="Date of Inspection"
                 type="date"
                 fullWidth
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 InputLabelProps={{ shrink: true }}
+              /> */}
+              <DatePicker
+                label="Date of Inspection"
+                value={date ? dayjs(date) : null}
+                onChange={(v) => setDate(v ? v.format("YYYY-MM-DD") : "")}
+                slotProps={{ textField: { fullWidth: true } }}
               />
               <TextField
                 label="Time"
@@ -1104,13 +1115,19 @@ export default function Inspections({
             />
 
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <TextField
+              {/* <TextField
                 label="Date of Inspection"
                 type="date"
                 fullWidth
                 value={editDate}
                 onChange={(e) => setEditDate(e.target.value)}
                 InputLabelProps={{ shrink: true }}
+              /> */}
+              <DatePicker
+                label="Date of Inspection"
+                value={editDate ? dayjs(editDate) : null}
+                onChange={(v) => setEditDate(v ? v.format("YYYY-MM-DD") : "")}
+                slotProps={{ textField: { fullWidth: true } }}
               />
               <TextField
                 label="Time"
@@ -1234,6 +1251,7 @@ export default function Inspections({
           </Button>
         </DialogActions>
       </Dialog>
-    </>
+      </LocalizationProvider>
+    // </>
   );
 }
