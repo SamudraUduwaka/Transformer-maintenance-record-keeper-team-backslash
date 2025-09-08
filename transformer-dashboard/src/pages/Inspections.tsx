@@ -1014,7 +1014,14 @@ export default function Inspections({
                 label="Date of Inspection"
                 value={date ? dayjs(date) : null}
                 onChange={(v) => setDate(v ? v.format("YYYY-MM-DD") : "")}
-                slotProps={{ textField: { fullWidth: true } }}
+                slotProps={{
+                  textField: { fullWidth: true },
+                  openPickerButton: {
+                    onMouseDown: (e) => e.preventDefault(),
+                    disableRipple: true,
+                    disableFocusRipple: true,
+                  },
+                }}
               />
               {/* <TextField
                 label="Time"
@@ -1028,7 +1035,14 @@ export default function Inspections({
                 label="Time"
                 value={time ? dayjs(`1970-01-01T${time}`) : null}
                 onChange={(v) => setTime(v ? v.format("HH:mm") : "")}
-                slotProps={{ textField: { fullWidth: true } }}
+                slotProps={{
+                  textField: { fullWidth: true },
+                  openPickerButton: {
+                    onMouseDown: (e) => e.preventDefault(),
+                    disableRipple: true,
+                    disableFocusRipple: true,
+                  },
+                }}
               />
             </Stack>
           </Stack>
@@ -1134,7 +1148,14 @@ export default function Inspections({
                 label="Date of Inspection"
                 value={editDate ? dayjs(editDate) : null}
                 onChange={(v) => setEditDate(v ? v.format("YYYY-MM-DD") : "")}
-                slotProps={{ textField: { fullWidth: true } }}
+                slotProps={{
+                  textField: { fullWidth: true },
+                  openPickerButton: {
+                    onMouseDown: (e) => e.preventDefault(),
+                    disableRipple: true,
+                    disableFocusRipple: true,
+                  },
+                }}
               />
               {/* <TextField
                 label="Time"
@@ -1148,7 +1169,15 @@ export default function Inspections({
                 label="Time"
                 value={editTime ? dayjs(`1970-01-01T${editTime}`) : null}
                 onChange={(v) => setEditTime(v ? v.format("HH:mm") : "")}
-                slotProps={{ textField: { fullWidth: true } }}
+                // slotProps={{ textField: { fullWidth: true } }}
+                slotProps={{
+                  textField: { fullWidth: true },
+                  openPickerButton: {
+                    onMouseDown: (e) => e.preventDefault(),
+                    disableRipple: true,
+                    disableFocusRipple: true,
+                  },
+                }}
               />
             </Stack>
 
