@@ -49,6 +49,7 @@ import {
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { TimePicker } from "@mui/x-date-pickers/TimePicker";
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
 
@@ -1015,13 +1016,19 @@ export default function Inspections({
                 onChange={(v) => setDate(v ? v.format("YYYY-MM-DD") : "")}
                 slotProps={{ textField: { fullWidth: true } }}
               />
-              <TextField
+              {/* <TextField
                 label="Time"
                 type="time"
                 fullWidth
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
                 InputLabelProps={{ shrink: true }}
+              /> */}
+              <TimePicker
+                label="Time"
+                value={time ? dayjs(`1970-01-01T${time}`) : null}
+                onChange={(v) => setTime(v ? v.format("HH:mm") : "")}
+                slotProps={{ textField: { fullWidth: true } }}
               />
             </Stack>
           </Stack>
@@ -1129,13 +1136,19 @@ export default function Inspections({
                 onChange={(v) => setEditDate(v ? v.format("YYYY-MM-DD") : "")}
                 slotProps={{ textField: { fullWidth: true } }}
               />
-              <TextField
+              {/* <TextField
                 label="Time"
                 type="time"
                 fullWidth
                 value={editTime}
                 onChange={(e) => setEditTime(e.target.value)}
                 InputLabelProps={{ shrink: true }}
+              /> */}
+              <TimePicker
+                label="Time"
+                value={editTime ? dayjs(`1970-01-01T${editTime}`) : null}
+                onChange={(v) => setEditTime(v ? v.format("HH:mm") : "")}
+                slotProps={{ textField: { fullWidth: true } }}
               />
             </Stack>
 
