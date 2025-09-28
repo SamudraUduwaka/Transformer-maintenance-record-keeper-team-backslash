@@ -26,10 +26,6 @@ import {
   TableSortLabel,
   ToggleButton,
   ToggleButtonGroup,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   CircularProgress,
   Alert,
   Menu,
@@ -42,16 +38,15 @@ import {
   Search as SearchIcon,
   Menu as MenuIcon,
   Notifications as NotificationsIcon,
-  Close as CloseIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
 } from "@mui/icons-material";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import { TimePicker } from "@mui/x-date-pickers/TimePicker";
-import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
+import AddInspectionDialog from "../models/AddInspectionDialog";
+import EditInspectionDialog from "../models/EditInspectionDialog";
+import DeleteInspectionConfirmationDialog from "../models/DeleteInspectionConfirmationDialog";
 
 /* Props controlled by Dashboard */
 type Props = {
@@ -293,23 +288,11 @@ export default function Inspections({
 
   /* -------- Add Inspection dialog state -------- */
   const [addOpen, setAddOpen] = React.useState(false);
-  const [branch, setBranch] = React.useState("");
-  const [transformerNo, setTransformerNo] = React.useState("");
-  const [date, setDate] = React.useState("");
-  const [time, setTime] = React.useState("");
-  const [inspector, setInspector] = React.useState("");
   const [creating, setCreating] = React.useState(false);
 
   /* -------- Edit state -------- */
   const [editOpen, setEditOpen] = React.useState(false);
-  const [editingId, setEditingId] = React.useState<number | null>(null);
-  const [editBranch, setEditBranch] = React.useState("");
-  const [editTransformerNo, setEditTransformerNo] = React.useState("");
-  const [editDate, setEditDate] = React.useState("");
-  const [editTime, setEditTime] = React.useState("");
-  const [editInspector, setEditInspector] = React.useState("");
-  const [editStatus, setEditStatus] =
-    React.useState<ImageStatus>("no image");
+  const [editingInspection, setEditingInspection] = React.useState<InspectionRow | null>(null);
   const [saving, setSaving] = React.useState(false);
 
   /* -------- Delete state -------- */
@@ -320,15 +303,6 @@ export default function Inspections({
   /* -------- Menu state -------- */
   const [menuAnchor, setMenuAnchor] = React.useState<null | HTMLElement>(null);
   const [menuRowId, setMenuRowId] = React.useState<number | null>(null);
-
-  const canConfirm =
-    branch.trim() && transformerNo.trim() && date && time && inspector.trim();
-  const canSaveEdit =
-    editBranch.trim() &&
-    editTransformerNo.trim() &&
-    editDate &&
-    editTime &&
-    editInspector.trim();
 
   // Load inspections from backend
   const loadInspections = React.useCallback(async () => {
@@ -356,41 +330,28 @@ export default function Inspections({
   const handleOpenAdd = () => setAddOpen(true);
   const handleCloseAdd = () => {
     setAddOpen(false);
-    setBranch("");
-    setTransformerNo("");
-    setDate("");
-    setTime("");
-    setInspector("");
   };
 
-  const handleConfirmAdd = async () => {
-    if (!canConfirm) return;
-
+  const handleConfirmAdd = async (inspectionData: {
+    branch: string;
+    transformerNo: string;
+    inspector: string;
+    inspectionTime: string;
+  }) => {
     try {
       setCreating(true);
 
-      // Format date correctly for backend (remove milliseconds and timezone)
-      const inspectionTime = new Date(`${date}T${time}`)
-        .toISOString()
-        .split(".")[0];
+      console.log("Creating inspection:", inspectionData); // Debug log
 
-      const newInspection = {
-        branch: branch.trim(),
-        transformerNo: transformerNo.trim(),
-        inspector: inspector.trim(),
-        inspectionTime,
-      };
-
-      console.log("Creating inspection:", newInspection); // Debug log
-
-      await inspectionService.createInspection(newInspection);
+      await inspectionService.createInspection(inspectionData);
       await loadInspections();
-      handleCloseAdd();
+      setAddOpen(false);
     } catch (err) {
       console.error("Failed to create inspection:", err);
       setError(
         err instanceof Error ? err.message : "Failed to create inspection"
       );
+      throw err; // Re-throw so the dialog can handle the error state
     } finally {
       setCreating(false);
     }
@@ -398,60 +359,40 @@ export default function Inspections({
 
   /* -------- Edit handlers -------- */
   const handleStartEdit = (row: InspectionRow) => {
-    setEditingId(row.id);
-    setEditBranch(row.branch);
-    setEditTransformerNo(row.transformerNo);
-    setEditInspector(row.inspector);
-    setEditStatus(row.status);
-
-    // Parse the ISO string back to date and time
-    const inspectionDate = new Date(row.inspectionTime);
-    setEditDate(inspectionDate.toISOString().split("T")[0]); // yyyy-mm-dd
-    setEditTime(inspectionDate.toTimeString().slice(0, 5)); // hh:mm
-
+    setEditingInspection(row);
     setEditOpen(true);
     setMenuAnchor(null);
   };
 
   const handleCloseEdit = () => {
     setEditOpen(false);
-    setEditingId(null);
-    setEditBranch("");
-    setEditTransformerNo("");
-    setEditDate("");
-    setEditTime("");
-    setEditInspector("");
-    setEditStatus("no image");
+    setEditingInspection(null);
   };
 
-  const handleSaveEdit = async () => {
-    if (!canSaveEdit || editingId === null) return;
-
+  const handleSaveEdit = async (
+    id: number,
+    inspectionData: {
+      branch: string;
+      transformerNo: string;
+      inspector: string;
+      inspectionTime: string;
+    }
+  ) => {
     try {
       setSaving(true);
 
-      // Format date correctly for backend (remove milliseconds and timezone)
-      const inspectionTime = new Date(`${editDate}T${editTime}`)
-        .toISOString()
-        .split(".")[0];
+      console.log("Updating inspection:", inspectionData); // Debug log
 
-      const updates = {
-        branch: editBranch.trim(),
-        transformerNo: editTransformerNo.trim(),
-        inspector: editInspector.trim(),
-        inspectionTime,
-      };
-
-      console.log("Updating inspection:", updates); // Debug log
-
-      await inspectionService.updateInspection(editingId, updates);
+      await inspectionService.updateInspection(id, inspectionData);
       await loadInspections();
-      handleCloseEdit();
+      setEditOpen(false);
+      setEditingInspection(null);
     } catch (err) {
       console.error("Failed to update inspection:", err);
       setError(
         err instanceof Error ? err.message : "Failed to update inspection"
       );
+      throw err; // Re-throw so the dialog can handle the error state
     } finally {
       setSaving(false);
     }
@@ -469,19 +410,19 @@ export default function Inspections({
     setDeleteId(null);
   };
 
-  const handleConfirmDelete = async () => {
-    if (deleteId === null) return;
-
+  const handleConfirmDelete = async (id: number) => {
     try {
       setDeleting(true);
-      await inspectionService.deleteInspection(deleteId);
+      await inspectionService.deleteInspection(id);
       await loadInspections();
-      handleCloseDelete();
+      setDeleteOpen(false);
+      setDeleteId(null);
     } catch (err) {
       console.error("Failed to delete inspection:", err);
       setError(
         err instanceof Error ? err.message : "Failed to delete inspection"
       );
+      throw err; // Re-throw so the dialog can handle the error state
     } finally {
       setDeleting(false);
     }
@@ -953,346 +894,30 @@ export default function Inspections({
       </Menu>
 
       {/* ---------- Add Inspection Dialog ---------- */}
-      <Dialog
+      <AddInspectionDialog
         open={addOpen}
         onClose={handleCloseAdd}
-        fullWidth
-        maxWidth="sm"
-        PaperProps={{ sx: { borderRadius: 2 } }}
-      >
-        <DialogTitle
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Typography fontWeight={700} fontSize="1.25rem">
-            New Inspection
-          </Typography>
-          <IconButton onClick={handleCloseAdd} size="small">
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-
-        <DialogContent dividers sx={{ bgcolor: "#FBFBFE" }}>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Branch"
-              placeholder="Branch"
-              fullWidth
-              value={branch}
-              onChange={(e) => setBranch(e.target.value)}
-            />
-
-            <TextField
-              label="Transformer No"
-              placeholder="Transformer No"
-              fullWidth
-              value={transformerNo}
-              onChange={(e) => setTransformerNo(e.target.value)}
-            />
-
-            <TextField
-              label="Inspector"
-              placeholder="Inspector Name"
-              fullWidth
-              value={inspector}
-              onChange={(e) => setInspector(e.target.value)}
-            />
-
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              {/* <TextField
-                label="Date of Inspection"
-                type="date"
-                fullWidth
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              /> */}
-              <DatePicker
-                label="Date of Inspection"
-                value={date ? dayjs(date) : null}
-                onChange={(v) => setDate(v ? v.format("YYYY-MM-DD") : "")}
-                slotProps={{
-                  textField: { fullWidth: true },
-                  openPickerButton: {
-                    onMouseDown: (e) => e.preventDefault(),
-                    disableRipple: true,
-                    disableFocusRipple: true,
-                  },
-                }}
-              />
-              {/* <TextField
-                label="Time"
-                type="time"
-                fullWidth
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              /> */}
-              <TimePicker
-                label="Time"
-                value={time ? dayjs(`1970-01-01T${time}`) : null}
-                onChange={(v) => setTime(v ? v.format("HH:mm") : "")}
-                slotProps={{
-                  textField: { fullWidth: true },
-                  openPickerButton: {
-                    onMouseDown: (e) => e.preventDefault(),
-                    disableRipple: true,
-                    disableFocusRipple: true,
-                  },
-                }}
-              />
-            </Stack>
-          </Stack>
-        </DialogContent>
-
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button
-            variant="contained"
-            onClick={handleConfirmAdd}
-            disabled={!canConfirm || creating}
-            sx={{
-              mr: 1,
-              borderRadius: 999,
-              px: 3,
-              py: 1,
-              fontWeight: 700,
-              textTransform: "none",
-              background: "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
-              color: "#fff",
-              boxShadow: "0 8px 18px rgba(79,70,229,0.35)",
-              "&:hover": {
-                background: "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)",
-                boxShadow: "0 10px 22px rgba(79,70,229,0.45)",
-              },
-              "&.Mui-disabled": {
-                background: "#A5B4FC",
-                color: "#fff",
-              },
-            }}
-          >
-            {creating ? (
-              <CircularProgress size={20} color="inherit" />
-            ) : (
-              "Confirm"
-            )}
-          </Button>
-
-          <Button onClick={handleCloseAdd} sx={{ textTransform: "none" }}>
-            Cancel
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handleConfirmAdd}
+        isCreating={creating}
+      />
 
       {/* ---------- Edit Inspection Dialog ---------- */}
-      <Dialog
+      <EditInspectionDialog
         open={editOpen}
         onClose={handleCloseEdit}
-        fullWidth
-        maxWidth="sm"
-        PaperProps={{ sx: { borderRadius: 2 } }}
-      >
-        <DialogTitle
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Typography fontWeight={700} fontSize="1.25rem">
-            Edit Inspection
-          </Typography>
-          <IconButton onClick={handleCloseEdit} size="small">
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-
-        <DialogContent dividers sx={{ bgcolor: "#FBFBFE" }}>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Branch"
-              placeholder="Branch"
-              fullWidth
-              value={editBranch}
-              onChange={(e) => setEditBranch(e.target.value)}
-            />
-
-            <TextField
-              label="Transformer No"
-              placeholder="Transformer No"
-              fullWidth
-              value={editTransformerNo}
-              onChange={(e) => setEditTransformerNo(e.target.value)}
-            />
-
-            <TextField
-              label="Inspector"
-              placeholder="Inspector Name"
-              fullWidth
-              value={editInspector}
-              onChange={(e) => setEditInspector(e.target.value)}
-            />
-
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              {/* <TextField
-                label="Date of Inspection"
-                type="date"
-                fullWidth
-                value={editDate}
-                onChange={(e) => setEditDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              /> */}
-              <DatePicker
-                label="Date of Inspection"
-                value={editDate ? dayjs(editDate) : null}
-                onChange={(v) => setEditDate(v ? v.format("YYYY-MM-DD") : "")}
-                slotProps={{
-                  textField: { fullWidth: true },
-                  openPickerButton: {
-                    onMouseDown: (e) => e.preventDefault(),
-                    disableRipple: true,
-                    disableFocusRipple: true,
-                  },
-                }}
-              />
-              {/* <TextField
-                label="Time"
-                type="time"
-                fullWidth
-                value={editTime}
-                onChange={(e) => setEditTime(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              /> */}
-              <TimePicker
-                label="Time"
-                value={editTime ? dayjs(`1970-01-01T${editTime}`) : null}
-                onChange={(v) => setEditTime(v ? v.format("HH:mm") : "")}
-                // slotProps={{ textField: { fullWidth: true } }}
-                slotProps={{
-                  textField: { fullWidth: true },
-                  openPickerButton: {
-                    onMouseDown: (e) => e.preventDefault(),
-                    disableRipple: true,
-                    disableFocusRipple: true,
-                  },
-                }}
-              />
-            </Stack>
-
-            <Select
-              label="Status"
-              value={editStatus}
-              onChange={(e) =>
-                setEditStatus(e.target.value as ImageStatus)
-              }
-              fullWidth
-              displayEmpty
-              renderValue={(value) => value || "Select Status"}
-            >
-              <MenuItem value="baseline">Baseline</MenuItem>
-              <MenuItem value="maintenance">Maintenance</MenuItem>
-              <MenuItem value="no image">No Image</MenuItem>
-            </Select>
-          </Stack>
-        </DialogContent>
-
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button
-            variant="contained"
-            onClick={handleSaveEdit}
-            disabled={!canSaveEdit || saving}
-            sx={{
-              mr: 1,
-              borderRadius: 999,
-              px: 3,
-              py: 1,
-              fontWeight: 700,
-              textTransform: "none",
-              background: "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
-              color: "#fff",
-              boxShadow: "0 8px 18px rgba(79,70,229,0.35)",
-              "&:hover": {
-                background: "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)",
-                boxShadow: "0 10px 22px rgba(79,70,229,0.45)",
-              },
-              "&.Mui-disabled": {
-                background: "#A5B4FC",
-                color: "#fff",
-              },
-            }}
-          >
-            {saving ? (
-              <CircularProgress size={20} color="inherit" />
-            ) : (
-              "Save Changes"
-            )}
-          </Button>
-
-          <Button onClick={handleCloseEdit} sx={{ textTransform: "none" }}>
-            Cancel
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onSave={handleSaveEdit}
+        inspectionData={editingInspection}
+        isSaving={saving}
+      />
 
       {/* ---------- Delete Confirmation Dialog ---------- */}
-      <Dialog
+      <DeleteInspectionConfirmationDialog
         open={deleteOpen}
         onClose={handleCloseDelete}
-        maxWidth="xs"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: 2 } }}
-      >
-        <DialogTitle
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Typography fontWeight={700} fontSize="1.25rem">
-            Confirm Delete
-          </Typography>
-          <IconButton onClick={handleCloseDelete} size="small">
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete this inspection? This action cannot
-            be undone.
-          </Typography>
-        </DialogContent>
-
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={handleConfirmDelete}
-            disabled={deleting}
-            sx={{
-              mr: 1,
-              borderRadius: 999,
-              px: 3,
-              py: 1,
-              fontWeight: 700,
-              textTransform: "none",
-            }}
-          >
-            {deleting ? (
-              <CircularProgress size={20} color="inherit" />
-            ) : (
-              "Delete"
-            )}
-          </Button>
-
-          <Button onClick={handleCloseDelete} sx={{ textTransform: "none" }}>
-            Cancel
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handleConfirmDelete}
+        inspectionId={deleteId}
+        isDeleting={deleting}
+      />
       </LocalizationProvider>
     // </>
   );
