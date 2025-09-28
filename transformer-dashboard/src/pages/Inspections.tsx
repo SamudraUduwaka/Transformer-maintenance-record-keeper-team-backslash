@@ -12,6 +12,7 @@ import {
   Paper,
   Select,
   Stack,
+  Switch,
   TextField,
   Toolbar,
   Tooltip,
@@ -40,6 +41,8 @@ import {
   Notifications as NotificationsIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  Star as StarIcon,
+  StarBorder as StarBorderIcon,
 } from "@mui/icons-material";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -47,6 +50,7 @@ import { useNavigate } from "react-router-dom";
 import AddInspectionDialog from "../models/AddInspectionDialog";
 import EditInspectionDialog from "../models/EditInspectionDialog";
 import DeleteInspectionConfirmationDialog from "../models/DeleteInspectionConfirmationDialog";
+import "../styles/Dashboard.css";
 
 /* Props controlled by Dashboard */
 type Props = {
@@ -77,6 +81,7 @@ type InspectionDTO = {
   updatedAt: string;
   transformerNo: string;
   image?: ImageDTO; // Optional image field
+  favorite?: boolean; // Added for favorite functionality
 };
 
 type InspectionRow = {
@@ -89,6 +94,7 @@ type InspectionRow = {
   branch: string;
   inspector: string;
   inspectionTime: string; // Keep original ISO string for editing
+  favorite: boolean; // Added for favorite functionality
 };
 
 /* API Service */
@@ -178,6 +184,26 @@ const inspectionService = {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
   },
+
+  async patchInspection(
+    id: number,
+    updates: Partial<InspectionDTO>
+  ): Promise<InspectionDTO> {
+    const response = await fetch(`${API_BASE_URL}/inspections/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(updates),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  },
 };
 
 /* Helper to convert DTO to display row */
@@ -213,6 +239,7 @@ const convertDTOToRow = (dto: InspectionDTO): InspectionRow => {
     branch: dto.branch,
     inspector: dto.inspector,
     inspectionTime: dto.inspectionTime,
+    favorite: dto.favorite || false, // Get from database
   };
 };
 
@@ -227,8 +254,8 @@ function getComparator<Key extends PropertyKey>(
   order: Order,
   orderBy: Key
 ): (
-  a: { [key in Key]: number | string },
-  b: { [key in Key]: number | string }
+  a: { [key in Key]: number | string | boolean },
+  b: { [key in Key]: number | string | boolean }
 ) => number {
   return order === "desc"
     ? (a, b) => descendingComparator(a, b, orderBy)
@@ -264,7 +291,6 @@ const statusChip = (s: ImageStatus) => {
 };
 
 /* Match your drawer width so the fixed AppBar lines up */
-const drawerWidth = 260;
 
 export default function Inspections({
   view = "inspections",
@@ -280,6 +306,7 @@ export default function Inspections({
 
   const [search, setSearch] = React.useState("");
   const [status, setStatus] = React.useState<ImageStatus | "All">("All");
+  const [onlyFav, setOnlyFav] = React.useState(false); // Added for favorites filtering
   const [order, setOrder] = React.useState<Order>("asc");
   const [orderBy, setOrderBy] =
     React.useState<keyof InspectionRow>("transformerNo");
@@ -428,6 +455,32 @@ export default function Inspections({
     }
   };
 
+  /* -------- Favorite handlers -------- */
+  const handleToggleFavorite = async (row: InspectionRow) => {
+    try {
+      const updatedInspection = await inspectionService.patchInspection(
+        row.id,
+        { favorite: !row.favorite }
+      );
+
+      setRows((prevRows) =>
+        prevRows.map((r) =>
+          r.id === row.id ? { ...r, favorite: updatedInspection.favorite || false } : r
+        )
+      );
+
+      // You can add a snackbar notification here if needed
+      // showSnackbar(
+      //   updatedInspection.favorite
+      //     ? "Added to favorites"
+      //     : "Removed from favorites"
+      // );
+    } catch (error) {
+      console.error("Failed to update favorite status:", error);
+      setError("Failed to update favorite status");
+    }
+  };
+
   /* -------- Menu handlers -------- */
   const handleMenuClick = (
     event: React.MouseEvent<HTMLButtonElement>,
@@ -452,9 +505,10 @@ export default function Inspections({
         r.branch.toLowerCase().includes(q) ||
         r.inspector.toLowerCase().includes(q);
       const m2 = status === "All" || r.status === status;
-      return m1 && m2;
+      const m3 = !onlyFav || r.favorite; // Add favorites filtering
+      return m1 && m2 && m3;
     });
-  }, [rows, search, status]);
+  }, [rows, search, status, onlyFav]);
 
   const sorted = React.useMemo(
     () => stableSort(filtered, getComparator(order, orderBy)),
@@ -468,6 +522,7 @@ export default function Inspections({
   const resetFilters = () => {
     setSearch("");
     setStatus("All");
+    setOnlyFav(false); // Reset favorites filter
   };
 
   const handleSort = (property: keyof InspectionRow) => {
@@ -479,14 +534,7 @@ export default function Inspections({
   // Show loading state
   if (loading) {
     return (
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "50vh",
-        }}
-      >
+      <Box className="dashboard-loading-container">
         <CircularProgress />
       </Box>
     );
@@ -499,7 +547,7 @@ export default function Inspections({
 
       {/* Show error if any */}
       {error && (
-        <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 2 }}>
+        <Alert severity="error" onClose={() => setError(null)} className="dashboard-error-alert">
           {error}
         </Alert>
       )}
@@ -509,25 +557,19 @@ export default function Inspections({
         position="fixed"
         color="inherit"
         elevation={0}
-        sx={{
-          bgcolor: "background.paper",
-          borderBottom: (t) => `1px solid ${t.palette.divider}`,
-          ml: { sm: `${drawerWidth}px` },
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          borderRadius: 0,
-        }}
+        className="dashboard-app-header-fixed"
       >
-        <Toolbar sx={{ minHeight: 72 }}>
+        <Toolbar className="dashboard-toolbar-inspections">
           <Stack direction="row" spacing={1.25} alignItems="center">
             <IconButton>
               <MenuIcon />
             </IconButton>
-            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+            <Typography variant="h6" className="dashboard-app-title">
               Transformer &gt; All Inspections
             </Typography>
           </Stack>
 
-          <Box sx={{ flexGrow: 1 }} />
+          <Box className="dashboard-flex-grow" />
 
           <Tooltip title="Notifications">
             <IconButton>
@@ -540,13 +582,13 @@ export default function Inspections({
             direction="row"
             spacing={1.25}
             alignItems="center"
-            sx={{ ml: 1 }}
+            className="dashboard-user-info"
           >
             <Avatar
               src="./user.png"
               sx={{ width: 36, height: 36 }}
             />
-            <Box sx={{ display: { xs: "none", md: "block" } }}>
+            <Box className="dashboard-user-details">
               <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
                 Test User
               </Typography>
@@ -559,38 +601,24 @@ export default function Inspections({
       </AppBar>
 
       {/* Push page content below fixed AppBar */}
-      <Box sx={{ mt: 0, width: "100%" }}>
-        <Stack spacing={2} sx={{ width: "100%" }}>
+      <Box className="dashboard-inspections-content">
+        <Stack spacing={2} className="dashboard-inspections-stack">
           {/* Header card */}
           <Paper
             elevation={3}
-            sx={{
-              p: 2,
-              borderRadius: 1,
-              width: "100%",
-              boxSizing: "border-box",
-            }}
+            className="dashboard-header-card-full-width"
           >
             <Stack
               direction={{ xs: "column", md: "row" }}
               spacing={2}
               alignItems={{ xs: "stretch", md: "center" }}
+              className="dashboard-header-stack"
             >
               <Stack direction="row" spacing={1.25} alignItems="center">
-                <Box
-                  sx={{
-                    bgcolor: "primary.main",
-                    color: "primary.contrastText",
-                    fontWeight: 700,
-                    borderRadius: 2,
-                    px: 1.2,
-                    py: 0.4,
-                    boxShadow: "0 6px 16px rgba(79,70,229,0.25)",
-                  }}
-                >
+                <Box className="dashboard-count-badge">
                   {filtered.length}
                 </Box>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                <Typography variant="h6" className="dashboard-section-title">
                   All Inspections
                 </Typography>
               </Stack>
@@ -599,80 +627,27 @@ export default function Inspections({
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={handleOpenAdd}
-                sx={{
-                  ml: { md: 1 },
-                  borderRadius: 999,
-                  px: 2.5,
-                  py: 0.9,
-                  fontWeight: 700,
-                  textTransform: "none",
-                  background:
-                    "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
-                  boxShadow: "0 8px 18px rgba(79,70,229,0.35)",
-                  "&:hover": {
-                    background:
-                      "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)",
-                    boxShadow: "0 10px 22px rgba(79,70,229,0.45)",
-                  },
-                }}
+                className="dashboard-add-button"
               >
                 Add Inspection
               </Button>
 
-              <Box sx={{ flexGrow: 1 }} />
-              <Paper elevation={3} sx={{ p: 0.5, borderRadius: 999 }}>
+              <Box className="dashboard-flex-grow" />
+              <Paper elevation={3} className="dashboard-toggle-paper">
                 <ToggleButtonGroup
                   value={view}
                   exclusive
                   onChange={(_, v) => v && onChangeView?.(v)}
-                  sx={{
-                    "& .MuiToggleButton-root": {
-                      border: 0,
-                      textTransform: "none",
-                      px: 2.2,
-                      py: 0.8,
-                      borderRadius: 999,
-                      fontWeight: 600,
-                    },
-                  }}
                 >
                   <ToggleButton
                     value="transformers"
-                    sx={{
-                      bgcolor:
-                        view === "transformers"
-                          ? "primary.main"
-                          : "transparent",
-                      color:
-                        view === "transformers"
-                          ? "primary.contrastText"
-                          : "text.primary",
-                      "&:hover": {
-                        bgcolor:
-                          view === "transformers"
-                            ? "primary.dark"
-                            : "action.hover",
-                      },
-                    }}
+                    className={`dashboard-toggle-button ${view === "transformers" ? "dashboard-toggle-button-active" : ""}`}
                   >
                     Transformers
                   </ToggleButton>
                   <ToggleButton
                     value="inspections"
-                    sx={{
-                      bgcolor:
-                        view === "inspections" ? "primary.main" : "transparent",
-                      color:
-                        view === "inspections"
-                          ? "primary.contrastText"
-                          : "text.primary",
-                      "&:hover": {
-                        bgcolor:
-                          view === "inspections"
-                            ? "primary.dark"
-                            : "action.hover",
-                      },
-                    }}
+                    className={`dashboard-toggle-button ${view === "inspections" ? "dashboard-toggle-button-active" : ""}`}
                   >
                     Inspections
                   </ToggleButton>
@@ -685,7 +660,7 @@ export default function Inspections({
               direction={{ xs: "column", lg: "row" }}
               spacing={2}
               alignItems="center"
-              sx={{ mt: 2 }}
+              className="dashboard-filter-container"
             >
               <TextField
                 fullWidth
@@ -707,7 +682,7 @@ export default function Inspections({
                 onChange={(e) =>
                   setStatus(e.target.value as ImageStatus | "All")
                 }
-                sx={{ minWidth: 180 }}
+                className="dashboard-filter-select"
               >
                 <MenuItem value="All">All Statuses</MenuItem>
                 <MenuItem value="baseline">Baseline</MenuItem>
@@ -715,7 +690,21 @@ export default function Inspections({
                 <MenuItem value="no image">No Image</MenuItem>
               </Select>
 
-              <Button onClick={resetFilters} sx={{ textTransform: "none" }}>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <StarIcon
+                  className="dashboard-star-icon"
+                  color={onlyFav ? "secondary" : "disabled"}
+                />
+                <Switch
+                  checked={onlyFav}
+                  onChange={(e) => setOnlyFav(e.target.checked)}
+                />
+                <Typography variant="body2" color="text.secondary">
+                  Favorites only
+                </Typography>
+              </Stack>
+
+              <Button onClick={resetFilters} className="dashboard-reset-filters">
                 Reset Filters
               </Button>
             </Stack>
@@ -727,6 +716,7 @@ export default function Inspections({
               <Table>
                 <TableHead>
                   <TableRow>
+                    <TableCell></TableCell>
                     <TableCell
                       sortDirection={
                         orderBy === "transformerNo" ? order : false
@@ -737,7 +727,7 @@ export default function Inspections({
                         direction={orderBy === "transformerNo" ? order : "asc"}
                         onClick={() => handleSort("transformerNo")}
                       >
-                        Transformer No.
+                        <Typography fontWeight="bold">Transformer No.</Typography>
                       </TableSortLabel>
                     </TableCell>
                     <TableCell
@@ -748,7 +738,7 @@ export default function Inspections({
                         direction={orderBy === "branch" ? order : "asc"}
                         onClick={() => handleSort("branch")}
                       >
-                        Branch
+                        <Typography fontWeight="bold">Branch</Typography>
                       </TableSortLabel>
                     </TableCell>
                     <TableCell
@@ -759,10 +749,10 @@ export default function Inspections({
                         direction={orderBy === "inspector" ? order : "asc"}
                         onClick={() => handleSort("inspector")}
                       >
-                        Inspector
+                        <Typography fontWeight="bold">Inspector</Typography>
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell>Inspection No.</TableCell>
+                    <TableCell><Typography fontWeight="bold">Inspection No.</Typography></TableCell>
                     <TableCell
                       sortDirection={
                         orderBy === "inspectedDate" ? order : false
@@ -773,7 +763,7 @@ export default function Inspections({
                         direction={orderBy === "inspectedDate" ? order : "asc"}
                         onClick={() => handleSort("inspectedDate")}
                       >
-                        Inspected Date
+                        <Typography fontWeight="bold">Inspected Date</Typography>
                       </TableSortLabel>
                     </TableCell>
                     <TableCell
@@ -784,15 +774,30 @@ export default function Inspections({
                         direction={orderBy === "status" ? order : "asc"}
                         onClick={() => handleSort("status")}
                       >
-                        Status
+                        <Typography fontWeight="bold">Status</Typography>
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell align="right">Actions</TableCell>
+                    <TableCell align="right"></TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {paged.map((row) => (
                     <TableRow key={row.id} hover>
+                      <TableCell>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleToggleFavorite(row)}
+                          aria-label={
+                            row.favorite ? "unfavorite" : "favorite"
+                          }
+                        >
+                          {row.favorite ? (
+                            <StarIcon color="secondary" />
+                          ) : (
+                            <StarBorderIcon color="disabled" />
+                          )}
+                        </IconButton>
+                      </TableCell>
                       <TableCell>
                         <Typography fontWeight={600}>
                           {row.transformerNo}
@@ -834,8 +839,8 @@ export default function Inspections({
                   ))}
                   {paged.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7}>
-                        <Box sx={{ p: 4, textAlign: "center" }}>
+                      <TableCell colSpan={8}>
+                        <Box className="dashboard-no-results">
                           <Typography>No results found</Typography>
                         </Box>
                       </TableCell>
@@ -866,7 +871,7 @@ export default function Inspections({
         open={Boolean(menuAnchor)}
         onClose={handleMenuClose}
         PaperProps={{
-          sx: { minWidth: 150 },
+          className: "dashboard-action-menu",
         }}
       >
         <MenuItem
@@ -884,7 +889,7 @@ export default function Inspections({
           onClick={() => {
             if (menuRowId) handleOpenDelete(menuRowId);
           }}
-          sx={{ color: "error.main" }}
+          className="dashboard-delete-menu-item"
         >
           <ListItemIcon>
             <DeleteIcon fontSize="small" color="error" />
