@@ -10,23 +10,23 @@ VALUES
 
 -- ===== Baseline + extra inspections (fixed IDs; idempotent) =====
 INSERT IGNORE INTO inspection
-  (inspection_id, transformer_no, inspection_time, branch, inspector, created_at, updated_at)
+  (inspection_id, transformer_no, inspection_time, branch, inspector, created_at, updated_at, favorite)
 VALUES
-(1,'AZ-8801','2024-01-15 09:30:00','Nugegoda','System', NOW(), NOW()),
-(2,'AZ-8802','2024-01-15 10:00:00','Maharagama','System', NOW(), NOW()),
-(3,'AZ-8803','2024-01-15 10:30:00','Kotte','System', NOW(), NOW()),
-(4,'AZ-8804','2024-01-15 11:00:00','Dehiwala','System', NOW(), NOW()),
-(5,'AZ-8805','2024-01-15 11:30:00','Nugegoda','System', NOW(), NOW()),
-(6,'AZ-8801','2024-01-20 09:30:00','Nugegoda','System', NOW(), NOW()),
-(7,'AZ-8802','2024-01-20 10:00:00','Maharagama','System', NOW(), NOW()),
-(8,'AZ-8803','2024-01-20 10:30:00','Kotte','System', NOW(), NOW()),
-(9,'AZ-8804','2024-01-20 11:00:00','Dehiwala','System', NOW(), NOW()),
-(10,'AZ-8805','2024-01-20 11:30:00','Nugegoda','System', NOW(), NOW()),
-(11,'AZ-8801','2024-01-25 09:30:00','Nugegoda','System', NOW(), NOW()),
-(12,'AZ-8802','2024-01-25 10:00:00','Maharagama','System', NOW(), NOW()),
-(13,'AZ-8803','2024-01-25 10:30:00','Kotte','System', NOW(), NOW()),
-(14,'AZ-8804','2024-01-25 11:00:00','Dehiwala','System', NOW(), NOW()),
-(15,'AZ-8805','2024-01-25 11:30:00','Nugegoda','System', NOW(), NOW());
+(1,'AZ-8801','2024-01-15 09:30:00','Nugegoda','System', NOW(), NOW(), 0),
+(2,'AZ-8802','2024-01-15 10:00:00','Maharagama','System', NOW(), NOW(), 0),
+(3,'AZ-8803','2024-01-15 10:30:00','Kotte','System', NOW(), NOW(), 0),
+(4,'AZ-8804','2024-01-15 11:00:00','Dehiwala','System', NOW(), NOW(), 0),
+(5,'AZ-8805','2024-01-15 11:30:00','Nugegoda','System', NOW(), NOW(), 0),
+(6,'AZ-8801','2024-01-20 09:30:00','Nugegoda','System', NOW(), NOW(), 0),
+(7,'AZ-8802','2024-01-20 10:00:00','Maharagama','System', NOW(), NOW(), 0),
+(8,'AZ-8803','2024-01-20 10:30:00','Kotte','System', NOW(), NOW(), 0),
+(9,'AZ-8804','2024-01-20 11:00:00','Dehiwala','System', NOW(), NOW(), 0),
+(10,'AZ-8805','2024-01-20 11:30:00','Nugegoda','System', NOW(), NOW(), 0),
+(11,'AZ-8801','2024-01-25 09:30:00','Nugegoda','System', NOW(), NOW(), 0),
+(12,'AZ-8802','2024-01-25 10:00:00','Maharagama','System', NOW(), NOW(), 0),
+(13,'AZ-8803','2024-01-25 10:30:00','Kotte','System', NOW(), NOW(), 0),
+(14,'AZ-8804','2024-01-25 11:00:00','Dehiwala','System', NOW(), NOW(), 0),
+(15,'AZ-8805','2024-01-25 11:30:00','Nugegoda','System', NOW(), NOW(), 0);
 
 -- ===== Images (one per inspection; omit image_id so AUTO_INCREMENT is used) =====
 INSERT IGNORE INTO image
