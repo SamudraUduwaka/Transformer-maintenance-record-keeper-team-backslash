@@ -541,7 +541,6 @@ export default function Inspections({
   }
 
   return (
-    // <>
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       {/* <CssBaseline /> */}
 
@@ -924,6 +923,5 @@ export default function Inspections({
         isDeleting={deleting}
       />
       </LocalizationProvider>
-    // </>
   );
 }
