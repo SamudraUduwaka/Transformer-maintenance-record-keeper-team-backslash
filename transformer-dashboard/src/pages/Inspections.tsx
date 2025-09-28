@@ -50,7 +50,7 @@ import { useNavigate } from "react-router-dom";
 import AddInspectionDialog from "../models/AddInspectionDialog";
 import EditInspectionDialog from "../models/EditInspectionDialog";
 import DeleteInspectionConfirmationDialog from "../models/DeleteInspectionConfirmationDialog";
-import "../styles/Dashboard.css";
+import "../styles/dashboard.css";
 
 /* Props controlled by Dashboard */
 type Props = {

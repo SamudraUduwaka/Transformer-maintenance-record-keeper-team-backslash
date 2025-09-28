@@ -57,7 +57,7 @@ import { useNavigate } from "react-router-dom";
 import Inspections from "./Inspections";
 import { AddTransformerDialog, type TransformerFormData } from "../models/AddEditTransformerDialog";
 import { DeleteTransformerConfirmationDialog } from "../models/DeleteTransformerConfirmationDialog";
-import "../styles/Dashboard.css";
+import "../styles/dashboard.css";
 
 /* Types */
 type TransformerType = "Bulk" | "Distribution";
