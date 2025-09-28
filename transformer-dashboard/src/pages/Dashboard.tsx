@@ -32,12 +32,6 @@ import {
   TableRow,
   TableSortLabel,
   Switch,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControl,
-  InputLabel,
   ToggleButton,
   ToggleButtonGroup,
   Snackbar,
@@ -58,10 +52,11 @@ import {
   MoreVert as MoreVertIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Warning as WarningIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import Inspections from "./Inspections";
+import { AddTransformerDialog, type TransformerFormData } from "../models/AddEditTransformerDialog";
+import { DeleteTransformerConfirmationDialog } from "../models/DeleteTransformerConfirmationDialog";
 
 /* Types */
 type TransformerType = "Bulk" | "Distribution";
@@ -209,14 +204,7 @@ export default function Dashboard() {
   const [openDialog, setOpenDialog] = React.useState(false);
   const [editingTransformer, setEditingTransformer] =
     React.useState<Transformer | null>(null);
-  const [form, setForm] = React.useState({
-    region: "",
-    transformerNo: "",
-    poleNo: "",
-    type: "" as TransformerType | "",
-    location: "",
-  });
-  const [errors, setErrors] = React.useState<{ [k: string]: boolean }>({});
+  const [saving, setSaving] = React.useState(false);
   const [snackbar, setSnackbar] = React.useState({
     open: false,
     message: "",
@@ -320,27 +308,11 @@ export default function Dashboard() {
   // Dialog handlers
   const openAddDialog = () => {
     setEditingTransformer(null);
-    setForm({
-      region: "",
-      transformerNo: "",
-      poleNo: "",
-      type: "",
-      location: "",
-    });
-    setErrors({});
     setOpenDialog(true);
   };
 
   const openEditDialog = (transformer: Transformer) => {
     setEditingTransformer(transformer);
-    setForm({
-      region: transformer.region,
-      transformerNo: transformer.transformerNo,
-      poleNo: transformer.poleNo,
-      type: transformer.type,
-      location: transformer.location || "",
-    });
-    setErrors({});
     setOpenDialog(true);
     handleCloseActionMenu();
   };
@@ -348,39 +320,12 @@ export default function Dashboard() {
   const closeDialog = () => {
     setOpenDialog(false);
     setEditingTransformer(null);
-    setErrors({});
-    setForm({
-      region: "",
-      transformerNo: "",
-      poleNo: "",
-      type: "",
-      location: "",
-    });
   };
 
-  const updateField =
-    (k: keyof typeof form) =>
-    (
-      e:
-        | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-        | React.ChangeEvent<{ value: unknown }>
-        | { target: { value: unknown } }
-    ) =>
-      setForm((f) => ({ ...f, [k]: e.target.value }));
-
-  const confirmSave = async () => {
-    const newErrors = {
-      region: !form.region,
-      transformerNo: !form.transformerNo,
-      poleNo: !form.poleNo,
-      type: !form.type,
-    };
-
-    setErrors(newErrors);
-    if (Object.values(newErrors).some(Boolean)) return;
-
+  const handleTransformerSave = async (form: TransformerFormData, isEdit: boolean) => {
+    setSaving(true);
     try {
-      if (editingTransformer) {
+      if (isEdit && editingTransformer) {
         // Edit existing transformer
         const updatedTransformer: Transformer = {
           ...editingTransformer,
@@ -420,14 +365,15 @@ export default function Dashboard() {
         setRows((rs) => [savedTransformer, ...rs]);
         showSnackbar("Transformer added successfully");
       }
-
-      closeDialog();
     } catch (err) {
-      const action = editingTransformer ? "update" : "add";
+      const action = isEdit ? "update" : "add";
       showSnackbar(
         err instanceof Error ? err.message : `Failed to ${action} transformer`,
         "error"
       );
+      throw err; // Re-throw so dialog can handle error state
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -441,7 +387,7 @@ export default function Dashboard() {
     setDeleteDialog({ open: false, transformer: null });
   };
 
-  const confirmDelete = async () => {
+  const handleTransformerDelete = async () => {
     if (!deleteDialog.transformer) return;
 
     try {
@@ -453,8 +399,12 @@ export default function Dashboard() {
       );
       showSnackbar("Transformer deleted successfully");
       closeDeleteDialog();
-    } catch {
-      showSnackbar("Failed to delete transformer", "error");
+    } catch (err) {
+      showSnackbar(
+        err instanceof Error ? err.message : "Failed to delete transformer",
+        "error"
+      );
+      throw err; // Re-throw so dialog can handle error state
     }
   };
 
@@ -976,202 +926,24 @@ export default function Dashboard() {
       </Menu>
 
       {/* Add/Edit Transformer Dialog */}
-      <Dialog open={openDialog} onClose={closeDialog} fullWidth maxWidth="sm">
-        <DialogTitle sx={{ pb: 1 }}>
-          {editingTransformer ? "Edit Transformer" : "Add New Transformer"}
-        </DialogTitle>
-        <DialogContent sx={{ pt: 1 }}>
-          <Stack spacing={2.5} sx={{ mt: 1 }}>
-            <FormControl fullWidth size="small" error={!!errors.region}>
-              <InputLabel id="region-label">Region *</InputLabel>
-              <Select
-                labelId="region-label"
-                label="Region *"
-                value={form.region}
-                onChange={updateField("region")}
-              >
-                {REGIONS.map((r) => (
-                  <MenuItem key={r} value={r}>
-                    {r}
-                  </MenuItem>
-                ))}
-              </Select>
-              {errors.region && (
-                <Typography
-                  variant="caption"
-                  color="error"
-                  sx={{ mt: 0.5, ml: 1.5 }}
-                >
-                  Region is required
-                </Typography>
-              )}
-            </FormControl>
-
-            <TextField
-              size="small"
-              label="Transformer No *"
-              value={form.transformerNo}
-              onChange={updateField("transformerNo")}
-              error={!!errors.transformerNo}
-              helperText={
-                errors.transformerNo ? "Transformer number is required" : ""
-              }
-              fullWidth
-              disabled={!!editingTransformer} /* Disable editing transformer number for existing records */
-            />
-
-            <TextField
-              size="small"
-              label="Pole No *"
-              value={form.poleNo}
-              onChange={updateField("poleNo")}
-              error={!!errors.poleNo}
-              helperText={errors.poleNo ? "Pole number is required" : ""}
-              fullWidth
-            />
-
-            <FormControl fullWidth size="small" error={!!errors.type}>
-              <InputLabel id="type-label">Type *</InputLabel>
-              <Select
-                labelId="type-label"
-                label="Type *"
-                value={form.type}
-                onChange={updateField("type")}
-              >
-                {TYPES.map((t) => (
-                  <MenuItem key={t} value={t}>
-                    {t}
-                  </MenuItem>
-                ))}
-              </Select>
-              {errors.type && (
-                <Typography
-                  variant="caption"
-                  color="error"
-                  sx={{ mt: 0.5, ml: 1.5 }}
-                >
-                  Type is required
-                </Typography>
-              )}
-            </FormControl>
-
-            <TextField
-              size="small"
-              label="Location Details"
-              value={form.location}
-              onChange={updateField("location")}
-              fullWidth
-              multiline
-              minRows={3}
-              placeholder="Enter detailed location information..."
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5, pt: 1 }}>
-          <Button onClick={closeDialog} sx={{ mr: 1 }}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={confirmSave}
-            sx={{
-              minWidth: 100,
-              background: editingTransformer
-                ? "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)"
-                : "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
-            }}
-          >
-            {editingTransformer ? "Update" : "Add"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <AddTransformerDialog
+        open={openDialog}
+        onClose={closeDialog}
+        onSave={handleTransformerSave}
+        transformer={editingTransformer}
+        regions={REGIONS}
+        types={TYPES}
+        isSaving={saving}
+      />
 
       {/* Delete Confirmation Dialog */}
-      <Dialog
+      <DeleteTransformerConfirmationDialog
         open={deleteDialog.open}
         onClose={closeDeleteDialog}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle sx={{ pb: 1 }}>
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <WarningIcon color="error" />
-            <Typography variant="h6" component="span">
-              Confirm Delete
-            </Typography>
-          </Stack>
-        </DialogTitle>
-        <DialogContent sx={{ pt: 1 }}>
-          <Typography variant="body1" sx={{ mb: 2 }}>
-            Are you sure you want to delete this transformer?
-          </Typography>
-
-          {deleteDialog.transformer && (
-            <Paper
-              sx={{
-                p: 2,
-                bgcolor: "grey.50",
-                border: "1px solid",
-                borderColor: "grey.200",
-              }}
-            >
-              <Stack spacing={1}>
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">
-                    Transformer No:
-                  </Typography>
-                  <Typography variant="body2" fontWeight={600}>
-                    {deleteDialog.transformer.transformerNo}
-                  </Typography>
-                </Stack>
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">
-                    Pole No:
-                  </Typography>
-                  <Typography variant="body2" fontWeight={600}>
-                    {deleteDialog.transformer.poleNo}
-                  </Typography>
-                </Stack>
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">
-                    Region:
-                  </Typography>
-                  <Typography variant="body2" fontWeight={600}>
-                    {deleteDialog.transformer.region}
-                  </Typography>
-                </Stack>
-              </Stack>
-            </Paper>
-          )}
-
-          <Typography
-            variant="body2"
-            color="error"
-            sx={{ mt: 2, fontStyle: "italic" }}
-          >
-            This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5, pt: 1 }}>
-          <Button onClick={closeDeleteDialog} sx={{ mr: 1 }}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={confirmDelete}
-            sx={{
-              minWidth: 100,
-              background: "linear-gradient(45deg, #f44336 30%, #d32f2f 90%)",
-              "&:hover": {
-                background: "linear-gradient(45deg, #d32f2f 30%, #b71c1c 90%)",
-              },
-            }}
-          >
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handleTransformerDelete}
+        transformer={deleteDialog.transformer}
+        isDeleting={saving}
+      />
 
       {/* Snackbar for notifications */}
       <Snackbar
