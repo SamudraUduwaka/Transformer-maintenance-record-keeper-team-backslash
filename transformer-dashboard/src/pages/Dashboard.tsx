@@ -57,6 +57,7 @@ import { useNavigate } from "react-router-dom";
 import Inspections from "./Inspections";
 import { AddTransformerDialog, type TransformerFormData } from "../models/AddEditTransformerDialog";
 import { DeleteTransformerConfirmationDialog } from "../models/DeleteTransformerConfirmationDialog";
+import "../styles/Dashboard.css";
 
 /* Types */
 type TransformerType = "Bulk" | "Distribution";
@@ -433,15 +434,15 @@ export default function Dashboard() {
 
   /* Drawer */
   const drawer = (
-    <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ p: 2 }}>
+    <Box className="dashboard-drawer">
+      <Stack direction="row" alignItems="center" spacing={1} className="dashboard-logo-container">
         <BoltIcon />
-        <Typography variant="h6" fontWeight={800}>
+        <Typography variant="h6" className="dashboard-logo-text">
           PowerLens
         </Typography>
       </Stack>
       <Divider />
-      <List sx={{ p: 1 }}>
+      <List className="dashboard-nav-list">
         <ListItem disablePadding>
           <ListItemButton
             selected={view === "transformers"}
@@ -462,7 +463,7 @@ export default function Dashboard() {
           </ListItemButton>
         </ListItem>
       </List>
-      <Box sx={{ flexGrow: 1 }} />
+      <Box className="dashboard-flex-grow" />
     </Box>
   );
 
@@ -473,24 +474,18 @@ export default function Dashboard() {
         position="fixed"
         color="inherit"
         elevation={0}
-        sx={{
-          bgcolor: "background.paper",
-          borderBottom: (t) => `1px solid ${t.palette.divider}`,
-          ml: { sm: `${drawerWidth}px` },
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          borderRadius: 0,   
-        }}
+        className="dashboard-app-header"
       >
-        <Toolbar sx={{ minHeight: 72 }}>
+        <Toolbar className="dashboard-toolbar">
           <Stack direction="row" spacing={1.25} alignItems="center">
             <IconButton onClick={() => setMobileOpen(!mobileOpen)}>
               <MenuIcon />
             </IconButton>
-            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+            <Typography variant="h6" className="dashboard-toolbar-title">
               Transformers
             </Typography>
           </Stack>
-          <Box sx={{ flexGrow: 1 }} />
+          <Box className="dashboard-flex-grow" />
           <Tooltip title="Notifications">
             <IconButton>
               <Badge color="secondary" variant="dot">
@@ -502,14 +497,14 @@ export default function Dashboard() {
             direction="row"
             spacing={1.25}
             alignItems="center"
-            sx={{ ml: 1 }}
+            className="dashboard-user-stack"
           >
             <Avatar
               src="./user.png"
-              sx={{ width: 36, height: 36 }}
+              className="dashboard-user-avatar"
             />
-            <Box sx={{ display: { xs: "none", md: "block" } }}>
-              <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
+            <Box className="dashboard-user-info">
+              <Typography variant="subtitle2" className="dashboard-user-name">
                 Test User
               </Typography>
               <Typography variant="caption" color="text.secondary">
@@ -531,12 +526,13 @@ export default function Dashboard() {
           open={mobileOpen}
           onClose={() => setMobileOpen(false)}
           ModalProps={{ keepMounted: true }}
+          className="dashboard-drawer-temporary"
           sx={{
             display: { xs: "block", sm: "none" },
             "& .MuiDrawer-paper": {
               boxSizing: "border-box",
               width: drawerWidth,
-              borderRadius: 0,      
+              borderRadius: 0,
             },
           }}
         >
@@ -544,12 +540,13 @@ export default function Dashboard() {
         </Drawer>
         <Drawer
           variant="permanent"
+          className="dashboard-drawer-permanent"
           sx={{
             display: { xs: "none", sm: "block" },
             "& .MuiDrawer-paper": {
               boxSizing: "border-box",
               width: drawerWidth,
-              borderRadius: 0,      
+              borderRadius: 0,
             },
           }}
           open
@@ -562,37 +559,23 @@ export default function Dashboard() {
       <Box sx={{ display: "flex", bgcolor: "background.default" }}>
         <Box
           component="main"
-          sx={{
-            flexGrow: 1,
-            p: { xs: 2, sm: 1 },
-            mt: 9,
-            ml: { sm: `${drawerWidth}px` },
-          }}
+          className="dashboard-main-content"
         >
           {view === "transformers" ? (
             <Stack spacing={2}>
               {/* Section header card */}
-              <Paper elevation={3} sx={{ p: 2, borderRadius: 1 }}>
+              <Paper elevation={3} className="dashboard-header-card">
                 <Stack
                   direction={{ xs: "column", md: "row" }}
                   spacing={2}
                   alignItems={{ xs: "stretch", md: "center" }}
+                  className="dashboard-header-stack"
                 >
                   <Stack direction="row" spacing={1.25} alignItems="center">
-                    <Box
-                      sx={{
-                        bgcolor: "primary.main",
-                        color: "primary.contrastText",
-                        fontWeight: 700,
-                        borderRadius: 2,
-                        px: 1.2,
-                        py: 0.4,
-                        boxShadow: "0 6px 16px rgba(79,70,229,0.25)",
-                      }}
-                    >
+                    <Box className="dashboard-count-badge">
                       {filtered.length}
                     </Box>
-                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                    <Typography variant="h6" className="dashboard-section-title">
                       Transformers
                     </Typography>
                   </Stack>
@@ -600,29 +583,14 @@ export default function Dashboard() {
                     variant="contained"
                     startIcon={<AddIcon />}
                     onClick={openAddDialog}
-                    sx={{
-                      ml: { md: 1 },
-                      borderRadius: 999,
-                      px: 2.5,
-                      py: 0.9,
-                      fontWeight: 700,
-                      textTransform: "none",
-                      background:
-                        "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
-                      boxShadow: "0 8px 18px rgba(79,70,229,0.35)",
-                      "&:hover": {
-                        background:
-                          "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)",
-                        boxShadow: "0 10px 22px rgba(79,70,229,0.45)",
-                      },
-                    }}
+                    className="dashboard-add-button"
                   >
                     Add Transformer
                   </Button>
 
                   {/* Pill toggle on the right side */}
-                  <Box sx={{ flexGrow: 1 }} />
-                  <Paper elevation={3} sx={{ p: 0.5, borderRadius: 999 }}>
+                  <Box className="dashboard-flex-grow" />
+                  <Paper elevation={3} className="dashboard-toggle-paper">
                     <ToggleButtonGroup
                       value={view}
                       exclusive
@@ -642,27 +610,15 @@ export default function Dashboard() {
                     >
                       <ToggleButton
                         value="transformers"
-                        sx={{
-                          bgcolor:
-                            view === "transformers"
-                              ? "primary.main"
-                              : "transparent",
-                          color:
-                            view === "transformers"
-                              ? "primary.contrastText"
-                              : "text.primary",
-                          "&:hover": {
-                            bgcolor:
-                              view === "transformers"
-                                ? "primary.dark"
-                                : "action.hover",
-                          },
-                        }}
+                        className={`dashboard-toggle-button ${
+                          view === "transformers" ? "dashboard-toggle-button-active" : ""
+                        }`}
                       >
                         Transformers
                       </ToggleButton>
                       <ToggleButton
                         value="inspections"
+                        className="dashboard-toggle-button"
                       >
                         Inspections
                       </ToggleButton>
@@ -675,7 +631,7 @@ export default function Dashboard() {
                   direction={{ xs: "column", lg: "row" }}
                   spacing={2}
                   alignItems="center"
-                  sx={{ mt: 2 }}
+                  className="dashboard-filter-container"
                 >
                   <TextField
                     fullWidth
@@ -695,7 +651,7 @@ export default function Dashboard() {
                     size="small"
                     value={region}
                     onChange={(e) => setRegion(e.target.value)}
-                    sx={{ minWidth: 180 }}
+                    className="dashboard-filter-select"
                   >
                     <MenuItem value="All">All Regions</MenuItem>
                     {REGIONS.map((r) => (
@@ -708,7 +664,7 @@ export default function Dashboard() {
                     size="small"
                     value={ttype}
                     onChange={(e) => setTtype(e.target.value as TransformerType | "All")}
-                    sx={{ minWidth: 180 }}
+                    className="dashboard-filter-select"
                   >
                     <MenuItem value="All">All Types</MenuItem>
                     {TYPES.map((t) => (
@@ -719,7 +675,7 @@ export default function Dashboard() {
                   </Select>
                   <Stack direction="row" alignItems="center" spacing={1}>
                     <StarIcon
-                      sx={{ fontSize: 18 }}
+                      className="dashboard-star-icon"
                       color={onlyFav ? "secondary" : "disabled"}
                     />
                     <Switch
@@ -730,7 +686,7 @@ export default function Dashboard() {
                       Favorites only
                     </Typography>
                   </Stack>
-                  <Button onClick={resetFilters} sx={{ textTransform: "none" }}>
+                  <Button onClick={resetFilters} className="dashboard-reset-filters">
                     Reset Filters
                   </Button>
                 </Stack>
@@ -739,13 +695,13 @@ export default function Dashboard() {
               {/* Table */}
               <Paper>
                 {loading ? (
-                  <Box sx={{ p: 4, textAlign: "center" }}>
+                  <Box className="dashboard-loading-container">
                     <CircularProgress />
                   </Box>
                 ) : error ? (
-                  <Box sx={{ p: 4, textAlign: "center" }}>
+                  <Box className="dashboard-error-container">
                     <Typography color="error">{error}</Typography>
-                    <Button onClick={fetchTransformers} sx={{ mt: 2 }}>
+                    <Button onClick={fetchTransformers} className="dashboard-retry-button">
                       Retry
                     </Button>
                   </Box>
@@ -768,13 +724,13 @@ export default function Dashboard() {
                                 }
                                 onClick={handleRequestSort("transformerNo")}
                               >
-                                Transformer No.
+                                <Typography fontWeight="bold">Transformer No.</Typography>
                               </TableSortLabel>
                             </TableCell>
-                            <TableCell>Pole No.</TableCell>
-                            <TableCell>Region</TableCell>
-                            <TableCell>Type</TableCell>
-                            <TableCell align="right">Actions</TableCell>
+                            <TableCell><Typography fontWeight="bold">Pole No.</Typography></TableCell>
+                            <TableCell><Typography fontWeight="bold">Region</Typography></TableCell>
+                            <TableCell><Typography fontWeight="bold">Type</Typography></TableCell>
+                            <TableCell align="right"></TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -801,14 +757,14 @@ export default function Dashboard() {
                                   spacing={1}
                                   alignItems="center"
                                 >
-                                  <Typography fontWeight={600}>
+                                  <Typography className="dashboard-transformer-number">
                                     {row.transformerNo}
                                   </Typography>
                                   <Chip
                                     size="small"
                                     label="↓"
                                     variant="outlined"
-                                    sx={{ borderRadius: 1 }}
+                                    className="dashboard-chip-arrow"
                                   />
                                 </Stack>
                               </TableCell>
@@ -855,7 +811,7 @@ export default function Dashboard() {
                           {paged.length === 0 && (
                             <TableRow>
                               <TableCell colSpan={6}>
-                                <Box sx={{ p: 4, textAlign: "center" }}>
+                                <Box className="dashboard-no-results">
                                   <Typography>No results found</Typography>
                                 </Box>
                               </TableCell>
@@ -894,12 +850,7 @@ export default function Dashboard() {
         transformOrigin={{ horizontal: "right", vertical: "top" }}
         anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
         PaperProps={{
-          sx: {
-            mt: 1,
-            minWidth: 150,
-            boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-            borderRadius: 2,
-          },
+          className: "dashboard-action-menu",
         }}
       >
         <MenuItem
@@ -916,7 +867,7 @@ export default function Dashboard() {
           onClick={() =>
             selectedTransformer && openDeleteDialog(selectedTransformer)
           }
-          sx={{ color: "error.main" }}
+          className="dashboard-delete-menu-item"
         >
           <ListItemIcon>
             <DeleteIcon fontSize="small" color="error" />
@@ -955,11 +906,7 @@ export default function Dashboard() {
         <Alert
           onClose={handleCloseSnackbar}
           severity={snackbar.severity}
-          sx={{
-            width: "100%",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            borderRadius: 2,
-          }}
+          className="dashboard-snackbar-alert"
           variant="filled"
         >
           {snackbar.message}
