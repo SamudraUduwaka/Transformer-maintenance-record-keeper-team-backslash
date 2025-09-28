@@ -9,6 +9,7 @@ public class InspectionDTO {
     private LocalDateTime inspectionTime;
     private String branch;
     private String inspector;
+    private Boolean favorite;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

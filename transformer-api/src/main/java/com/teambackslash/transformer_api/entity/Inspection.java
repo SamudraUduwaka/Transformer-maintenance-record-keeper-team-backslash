@@ -30,6 +30,9 @@ public class Inspection {
     @Column(name = "inspector", nullable = false, length = 100)
     private String inspector;
 
+    @Column(name = "favorite", nullable = false)
+    private boolean favorite = false;
+
     @OneToOne(mappedBy = "inspection", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonManagedReference
     private Image image;

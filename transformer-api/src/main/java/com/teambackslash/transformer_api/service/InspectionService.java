@@ -75,6 +75,7 @@ public class InspectionService {
                 }
                 case "branch"    -> inspection.setBranch((String) value);
                 case "inspector" -> inspection.setInspector((String) value);
+                case "favorite"  -> inspection.setFavorite((Boolean) value);
                 case "transformerNo" -> {
                     String tNo = (String) value;
                     Transformer transformer = transformerRepository.findById(tNo)
