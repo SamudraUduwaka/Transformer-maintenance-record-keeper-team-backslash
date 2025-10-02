@@ -304,7 +304,6 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
         }
 
         const data = await response.json();
-        console.log("API Response data:", data);
         return data;
       } catch (error) {
         console.warn(`Failed to connect to ${apiUrl}:`, error);
