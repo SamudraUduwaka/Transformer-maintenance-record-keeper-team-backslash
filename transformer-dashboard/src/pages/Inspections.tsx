@@ -364,8 +364,6 @@ export default function Inspections({
     try {
       setCreating(true);
 
-      console.log("Creating inspection:", inspectionData); // Debug log
-
       await inspectionService.createInspection(inspectionData);
       await loadInspections();
       setAddOpen(false);
@@ -403,8 +401,6 @@ export default function Inspections({
   ) => {
     try {
       setSaving(true);
-
-      console.log("Updating inspection:", inspectionData); // Debug log
 
       await inspectionService.updateInspection(id, inspectionData);
       await loadInspections();

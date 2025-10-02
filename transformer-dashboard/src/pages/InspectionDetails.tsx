@@ -44,6 +44,7 @@ import {
 import { format } from "date-fns";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import PowerLensBranding from "../components/PowerLensBranding";
+import ThermalImageAnalysis from "../components/ThermalImageAnalysis";
 
 /* API Service */
 const API_BASE_URL = "http://localhost:8080/api";
@@ -1046,48 +1047,11 @@ export default function InspectionDetails() {
             {inspection?.image ? (
               /* ===== Baseline + Thermal (if exists) ===== */
               inspection.image.type === "thermal" ? (
-                // Thermal + Baseline side by side
-                <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                  <Paper sx={{ p: 2.5, flex: 1 }}>
-                    <Typography variant="subtitle1" fontWeight={700}>
-                      Baseline Image ({weather})
-                    </Typography>
-                    <Box mt={2}>
-                      {baselineImage?.url ? (
-                        <ZoomableImage
-                          src={baselineImage.url}
-                          alt="Baseline"
-                          style={{ width: "100%" }}
-                          maxHeight={300}
-                        />
-                      ) : (
-                        <Typography color="text.secondary">
-                          No baseline image available
-                        </Typography>
-                      )}
-                    </Box>
-                  </Paper>
-
-                  <Paper sx={{ p: 2.5, flex: 1 }}>
-                    <Typography variant="subtitle1" fontWeight={700}>
-                      Maintenance Image ({weather})
-                    </Typography>
-                    <Box mt={2}>
-                      {inspection.image ? (
-                        <ZoomableImage
-                          src={inspection.image.imageUrl}
-                          alt="Thermal"
-                          style={{ width: "100%" }}
-                          maxHeight={300}
-                        />
-                      ) : (
-                        <Typography color="text.secondary">
-                          No maintenance image available
-                        </Typography>
-                      )}
-                    </Box>
-                  </Paper>
-                </Stack>
+                // Thermal analysis with intelligent bounding boxes
+                <ThermalImageAnalysis
+                  thermalImageUrl={inspection.image.imageUrl}
+                  baselineImageUrl={baselineImage?.url || ""}
+                />
               ) : (
                 // Baseline only
                 <Paper sx={{ p: 2.5 }}>
