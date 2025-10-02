@@ -25,11 +25,6 @@ import {
   TableHead,
   TablePagination,
   TableRow,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
   Menu,
   MenuItem,
 } from "@mui/material";
@@ -44,11 +39,13 @@ import {
   StarBorder as StarBorderIcon,
   Add as AddIcon,
   Place as PlaceIcon,
-  Close as CloseIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
 } from "@mui/icons-material";
 import { useParams, useNavigate } from "react-router-dom";
+import AddInspectionDialog from "../models/AddInspectionDialog";
+import EditInspectionDialog, { type InspectionRow as EditInspectionRow } from "../models/EditInspectionDialog";
+import DeleteInspectionConfirmationDialog from "../models/DeleteInspectionConfirmationDialog";
 
 /* ================= Backend DTOs (inline, no shared files) ================= */
 type TransformerType = "Bulk" | "Distribution" | string;
@@ -260,33 +257,16 @@ export default function TransformerInspection() {
 
   // add dialog
   const [addOpen, setAddOpen] = React.useState(false);
-  const [branch, setBranch] = React.useState("");
-  const [tNo, setTNo] = React.useState(transformerNo || "");
-  const [date, setDate] = React.useState("");
-  const [time, setTime] = React.useState("");
-  const [inspector, setInspector] = React.useState("");
+  const [creating, setCreating] = React.useState(false);
 
   // edit dialog
   const [editOpen, setEditOpen] = React.useState(false);
-  const [editId, setEditId] = React.useState<number | null>(null);
-  const [editBranch, setEditBranch] = React.useState("");
-  const [editTNo, setEditTNo] = React.useState("");
-  const [editInspector, setEditInspector] = React.useState("");
-  const [editDate, setEditDate] = React.useState("");
-  const [editTime, setEditTime] = React.useState("");
+  const [editingInspection, setEditingInspection] = React.useState<EditInspectionRow | null>(null);
+  const [saving, setSaving] = React.useState(false);
 
   // delete dialog
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleteId, setDeleteId] = React.useState<number | null>(null);
-
-  const canConfirmAdd =
-    branch.trim() && tNo.trim() && date && time && inspector.trim();
-  const canConfirmEdit =
-    editBranch.trim() &&
-    editTNo.trim() &&
-    editDate &&
-    editTime &&
-    editInspector.trim();
 
   // load data
   React.useEffect(() => {
@@ -307,10 +287,6 @@ export default function TransformerInspection() {
           .filter((i) => i.transformerNo === transformerNo)
           .sort((a, b) => b.inspectionId - a.inspectionId);
         setRows(mine.map(dtoToRow));
-
-        // prefill add dialog defaults
-        setBranch(t.region || "");
-        setTNo(t.transformerNo || transformerNo);
       } catch {
         setError("Failed to load data");
       } finally {
@@ -323,27 +299,26 @@ export default function TransformerInspection() {
   const handleOpenAdd = () => setAddOpen(true);
   const handleCloseAdd = () => setAddOpen(false);
 
-  const handleConfirmAdd = async () => {
-    if (!canConfirmAdd) return;
+  const handleConfirmAdd = async (inspectionData: {
+    branch: string;
+    transformerNo: string;
+    inspector: string;
+    inspectionTime: string;
+  }) => {
     try {
-      const inspectionTime = new Date(`${date}T${time}`)
-        .toISOString()
-        .split(".")[0];
-      const payload = {
-        branch: branch.trim(),
-        transformerNo: tNo.trim(),
-        inspector: inspector.trim(),
-        inspectionTime,
-      };
+      setCreating(true);
       const created = await http<InspectionDTO>("/inspections", {
         method: "POST",
-        json: payload,
+        json: inspectionData,
       });
       setRows((prev) => [dtoToRow(created), ...prev]);
       setAddOpen(false);
-      navigate(`/${encodeURIComponent(tNo)}/${pad8(created.inspectionId)}`);
+      navigate(`/${encodeURIComponent(inspectionData.transformerNo)}/${pad8(created.inspectionId)}`);
     } catch {
       setError("Failed to create inspection");
+      throw new Error("Failed to create inspection"); // Re-throw so dialog can handle error state
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -360,55 +335,51 @@ export default function TransformerInspection() {
   const handleStartEdit = (id: number) => {
     const row = rows.find((r) => r.id === id);
     if (!row) return;
-    setEditId(row.id);
-    setEditBranch(row.branch);
-    setEditTNo(row.transformerNo);
-    setEditInspector(row.inspector);
-
-    // parse original ISO to date/time fields
-    const d = new Date(row.inspectionTimeIso);
-    setEditDate(d.toISOString().slice(0, 10)); // yyyy-mm-dd
-    setEditTime(d.toTimeString().slice(0, 5)); // HH:mm
-
+    // Convert the local InspectionRow to the format expected by EditInspectionDialog
+    const editData: EditInspectionRow = {
+      id: row.id,
+      transformerNo: row.transformerNo,
+      inspectionNo: row.inspectionNo,
+      inspectedDate: row.inspectedDate,
+      maintenanceDate: row.maintenanceDate || "-",
+      status: row.status,
+      branch: row.branch,
+      inspector: row.inspector,
+      inspectionTime: row.inspectionTimeIso, // Map inspectionTimeIso to inspectionTime
+    };
+    setEditingInspection(editData);
     setEditOpen(true);
     closeRowMenu();
   };
 
-  const handleCloseEdit = () => {
-    setEditOpen(false);
-    setEditId(null);
-    setEditBranch("");
-    setEditTNo("");
-    setEditInspector("");
-    setEditDate("");
-    setEditTime("");
-  };
 
-  const handleConfirmEdit = async () => {
-    if (!canConfirmEdit || editId == null) return;
+  const handleConfirmEdit = async (
+    id: number,
+    inspectionData: {
+      branch: string;
+      transformerNo: string;
+      inspector: string;
+      inspectionTime: string;
+    }
+  ) => {
     try {
-      const inspectionTime = new Date(`${editDate}T${editTime}`)
-        .toISOString()
-        .split(".")[0];
-
+      setSaving(true);
       // Use PUT to avoid Map<...> cast issues in your PATCH service
-      const payload: Partial<InspectionDTO> = {
-        branch: editBranch.trim(),
-        transformerNo: editTNo.trim(),
-        inspector: editInspector.trim(),
-        inspectionTime,
-      };
-      const updated = await http<InspectionDTO>(`/inspections/${editId}`, {
+      const updated = await http<InspectionDTO>(`/inspections/${id}`, {
         method: "PUT",
-        json: payload,
+        json: inspectionData,
       });
 
       setRows((prev) =>
-        prev.map((r) => (r.id === editId ? dtoToRow(updated) : r))
+        prev.map((r) => (r.id === id ? dtoToRow(updated) : r))
       );
-      handleCloseEdit();
+      setEditOpen(false);
+      setEditingInspection(null);
     } catch {
       setError("Failed to update inspection");
+      throw new Error("Failed to update inspection"); // Re-throw so dialog can handle error state
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -861,225 +832,32 @@ export default function TransformerInspection() {
       </Menu>
 
       {/* ---------- Add Inspection Dialog ---------- */}
-      <Dialog
+      <AddInspectionDialog
         open={addOpen}
         onClose={handleCloseAdd}
-        fullWidth
-        maxWidth="sm"
-        PaperProps={{ sx: { borderRadius: 2 } }}
-      >
-        <DialogTitle
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Typography fontWeight={700} fontSize="1.25rem">
-            Add Inspection
-          </Typography>
-          <IconButton onClick={handleCloseAdd} size="small">
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-
-        <DialogContent dividers sx={{ bgcolor: "#FBFBFE" }}>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Branch"
-              fullWidth
-              value={branch}
-              onChange={(e) => setBranch(e.target.value)}
-            />
-            <TextField
-              label="Transformer No"
-              fullWidth
-              value={tNo}
-              onChange={(e) => setTNo(e.target.value)}
-            />
-            <TextField
-              label="Inspector"
-              fullWidth
-              value={inspector}
-              onChange={(e) => setInspector(e.target.value)}
-            />
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <TextField
-                label="Date of Inspection"
-                type="date"
-                fullWidth
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-              <TextField
-                label="Time"
-                type="time"
-                fullWidth
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Stack>
-          </Stack>
-        </DialogContent>
-
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button
-            variant="contained"
-            onClick={handleConfirmAdd}
-            disabled={!canConfirmAdd}
-            sx={{
-              mr: 1,
-              borderRadius: 999,
-              px: 3,
-              py: 1,
-              fontWeight: 700,
-              textTransform: "none",
-              background: "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
-              color: "#fff",
-            }}
-          >
-            Confirm
-          </Button>
-          <Button onClick={handleCloseAdd} sx={{ textTransform: "none" }}>
-            Cancel
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handleConfirmAdd}
+        isCreating={creating}
+      />
 
       {/* ---------- Edit Inspection Dialog ---------- */}
-      <Dialog
+      <EditInspectionDialog
         open={editOpen}
-        onClose={handleCloseEdit}
-        fullWidth
-        maxWidth="sm"
-        PaperProps={{ sx: { borderRadius: 2 } }}
-      >
-        <DialogTitle
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Typography fontWeight={700} fontSize="1.25rem">
-            Edit Inspection
-          </Typography>
-          <IconButton onClick={handleCloseEdit} size="small">
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-
-        <DialogContent dividers sx={{ bgcolor: "#FBFBFE" }}>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Branch"
-              fullWidth
-              value={editBranch}
-              onChange={(e) => setEditBranch(e.target.value)}
-            />
-            <TextField
-              label="Transformer No"
-              fullWidth
-              value={editTNo}
-              onChange={(e) => setEditTNo(e.target.value)}
-            />
-            <TextField
-              label="Inspector"
-              fullWidth
-              value={editInspector}
-              onChange={(e) => setEditInspector(e.target.value)}
-            />
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <TextField
-                label="Date of Inspection"
-                type="date"
-                fullWidth
-                value={editDate}
-                onChange={(e) => setEditDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-              <TextField
-                label="Time"
-                type="time"
-                fullWidth
-                value={editTime}
-                onChange={(e) => setEditTime(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Stack>
-          </Stack>
-        </DialogContent>
-
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button
-            variant="contained"
-            onClick={handleConfirmEdit}
-            disabled={!canConfirmEdit}
-            sx={{
-              mr: 1,
-              borderRadius: 999,
-              px: 3,
-              py: 1,
-              fontWeight: 700,
-              textTransform: "none",
-              background: "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
-              color: "#fff",
-            }}
-          >
-            Save Changes
-          </Button>
-          <Button onClick={handleCloseEdit} sx={{ textTransform: "none" }}>
-            Cancel
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onClose={() => setEditOpen(false)}
+        onSave={handleConfirmEdit}
+        inspectionData={editingInspection}
+        isSaving={saving}
+      />
 
       {/* ---------- Delete Confirmation Dialog ---------- */}
-      <Dialog
+      <DeleteInspectionConfirmationDialog
         open={deleteOpen}
-        onClose={handleCloseDelete}
-        maxWidth="xs"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: 2 } }}
-      >
-        <DialogTitle
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Typography fontWeight={700} fontSize="1.25rem">
-            Confirm Delete
-          </Typography>
-          <IconButton onClick={handleCloseDelete} size="small">
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete this inspection? This action cannot
-            be undone.
-          </Typography>
-        </DialogContent>
-
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={handleConfirmDelete}
-            sx={{ mr: 1 }}
-          >
-            Delete
-          </Button>
-          <Button onClick={handleCloseDelete} sx={{ textTransform: "none" }}>
-            Cancel
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={async () => {
+          await handleConfirmDelete();
+        }}
+        inspectionId={deleteId}
+        isDeleting={saving}
+      />
     </>
   );
 }
