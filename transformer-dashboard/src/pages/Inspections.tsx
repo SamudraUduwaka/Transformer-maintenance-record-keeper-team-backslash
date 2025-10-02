@@ -551,8 +551,8 @@ export default function Inspections({
         </Alert>
       )}
 
-      <Stack spacing={2}>
-        {/* Header card */}
+      <Stack spacing={2} sx={{ maxWidth: 1000, mx: "auto", width: "100%" }}>
+        {/* Section header card */}
         <Paper elevation={3} className="dashboard-header-card">
           <Stack
             direction={{ xs: "column", md: "row" }}
@@ -576,12 +576,23 @@ export default function Inspections({
               Add Inspection
             </Button>
 
+            {/* Pill toggle on the right side */}
             <Box className="dashboard-flex-grow" />
             <Paper elevation={3} className="dashboard-toggle-paper">
               <ToggleButtonGroup
                 value={view}
                 exclusive
                 onChange={(_, v) => v && onChangeView?.(v)}
+                sx={{
+                  "& .MuiToggleButton-root": {
+                    border: 0,
+                    textTransform: "none",
+                    px: 2.2,
+                    py: 0.8,
+                    borderRadius: 999,
+                    fontWeight: 600,
+                  },
+                }}
               >
                 <ToggleButton
                   value="transformers"
@@ -607,7 +618,7 @@ export default function Inspections({
             </Paper>
           </Stack>
 
-          {/* Filters row */}
+          {/* Filter row */}
           <Stack
             direction={{ xs: "column", lg: "row" }}
             spacing={2}
@@ -666,7 +677,7 @@ export default function Inspections({
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell></TableCell>
+                  <TableCell width={48}></TableCell>
                   <TableCell
                     sortDirection={orderBy === "transformerNo" ? order : false}
                   >
@@ -731,7 +742,7 @@ export default function Inspections({
               <TableBody>
                 {paged.map((row) => (
                   <TableRow key={row.id} hover>
-                    <TableCell>
+                    <TableCell width={48}>
                       <IconButton
                         size="small"
                         onClick={() => handleToggleFavorite(row)}
@@ -745,9 +756,17 @@ export default function Inspections({
                       </IconButton>
                     </TableCell>
                     <TableCell>
-                      <Typography fontWeight={600}>
-                        {row.transformerNo}
-                      </Typography>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography className="dashboard-transformer-number">
+                          {row.transformerNo}
+                        </Typography>
+                        <Chip
+                          size="small"
+                          label="↓"
+                          variant="outlined"
+                          className="dashboard-chip-arrow"
+                        />
+                      </Stack>
                     </TableCell>
                     <TableCell>{row.branch}</TableCell>
                     <TableCell>{row.inspector}</TableCell>
@@ -767,7 +786,8 @@ export default function Inspections({
                             navigate(
                               `/${encodeURIComponent(
                                 row.transformerNo
-                              )}/${encodeURIComponent(row.inspectionNo)}`
+                              )}/${encodeURIComponent(row.inspectionNo)}`,
+                              { state: { from: "inspections-dashboard" } }
                             )
                           }
                         >

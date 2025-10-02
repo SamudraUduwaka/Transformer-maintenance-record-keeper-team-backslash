@@ -2,7 +2,6 @@ import * as React from "react";
 import {
   AppBar,
   Avatar,
-  Badge,
   Box,
   Button,
   Chip,
@@ -21,7 +20,6 @@ import {
   Stack,
   TextField,
   Toolbar,
-  Tooltip,
   Typography,
   Table,
   TableBody,
@@ -40,22 +38,23 @@ import {
   Menu,
 } from "@mui/material";
 import {
-  Menu as MenuIcon,
-  Notifications as NotificationsIcon,
   Settings as SettingsIcon,
   Search as SearchIcon,
   Star as StarIcon,
   StarBorder as StarBorderIcon,
-  Bolt as BoltIcon,
   List as ListIcon,
   Add as AddIcon,
   MoreVert as MoreVertIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
 } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
+import PowerLensBranding from "../components/PowerLensBranding";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Inspections from "./Inspections";
-import { AddTransformerDialog, type TransformerFormData } from "../models/AddEditTransformerDialog";
+import {
+  AddTransformerDialog,
+  type TransformerFormData,
+} from "../models/AddEditTransformerDialog";
 import { DeleteTransformerConfirmationDialog } from "../models/DeleteTransformerConfirmationDialog";
 import "../styles/dashboard.css";
 
@@ -180,12 +179,25 @@ function stableSort<T>(
   return stabilized.map((el) => el[0]);
 }
 
-const drawerWidth = 260;
+const drawerWidth = 200;
 
 export default function Dashboard() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
-  const [view, setView] = React.useState<"transformers" | "inspections">("transformers");
+  const [view, setView] = React.useState<"transformers" | "inspections">(
+    "transformers"
+  );
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Effect to handle URL view parameter
+  React.useEffect(() => {
+    const viewParam = searchParams.get("view");
+    if (viewParam === "inspections") {
+      setView("inspections");
+    } else if (viewParam === "transformers") {
+      setView("transformers");
+    }
+  }, [searchParams]);
 
   // Transformers state
   const [rows, setRows] = React.useState<Transformer[]>([]);
@@ -199,7 +211,7 @@ export default function Dashboard() {
   const [orderBy, setOrderBy] =
     React.useState<keyof Transformer>("transformerNo");
   const [page, setPage] = React.useState(0);
-  const [rowsPerPage, setRowsPerPage] = React.useState(10);
+  const [rowsPerPage, setRowsPerPage] = React.useState(20);
 
   // Dialog states
   const [openDialog, setOpenDialog] = React.useState(false);
@@ -323,7 +335,10 @@ export default function Dashboard() {
     setEditingTransformer(null);
   };
 
-  const handleTransformerSave = async (form: TransformerFormData, isEdit: boolean) => {
+  const handleTransformerSave = async (
+    form: TransformerFormData,
+    isEdit: boolean
+  ) => {
     setSaving(true);
     try {
       if (isEdit && editingTransformer) {
@@ -434,15 +449,10 @@ export default function Dashboard() {
 
   /* Drawer */
   const drawer = (
-    <Box className="dashboard-drawer">
-      <Stack direction="row" alignItems="center" spacing={1} className="dashboard-logo-container">
-        <BoltIcon />
-        <Typography variant="h6" className="dashboard-logo-text">
-          PowerLens
-        </Typography>
-      </Stack>
+    <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <PowerLensBranding />
       <Divider />
-      <List className="dashboard-nav-list">
+      <List sx={{ p: 1 }}>
         <ListItem disablePadding>
           <ListItemButton
             selected={view === "transformers"}
@@ -455,6 +465,17 @@ export default function Dashboard() {
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>
+          <ListItemButton
+            selected={view === "inspections"}
+            onClick={() => setView("inspections")}
+          >
+            <ListItemIcon>
+              <SearchIcon />
+            </ListItemIcon>
+            <ListItemText primary="Inspections" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
           <ListItemButton>
             <ListItemIcon>
               <SettingsIcon />
@@ -463,48 +484,41 @@ export default function Dashboard() {
           </ListItemButton>
         </ListItem>
       </List>
-      <Box className="dashboard-flex-grow" />
+      <Box sx={{ flexGrow: 1 }} />
     </Box>
   );
 
   return (
     <>
-      {/* Top App Header */}
+      {/* AppBar */}
       <AppBar
         position="fixed"
         color="inherit"
         elevation={0}
-        className="dashboard-app-header"
+        sx={{
+          bgcolor: "background.paper",
+          borderBottom: (t) => `1px solid ${t.palette.divider}`,
+          ml: { sm: `${drawerWidth}px` },
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          borderRadius: 0,
+        }}
       >
-        <Toolbar className="dashboard-toolbar">
+        <Toolbar sx={{ minHeight: 64 }}>
           <Stack direction="row" spacing={1.25} alignItems="center">
-            <IconButton onClick={() => setMobileOpen(!mobileOpen)}>
-              <MenuIcon />
-            </IconButton>
-            <Typography variant="h6" className="dashboard-toolbar-title">
-              Transformers
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              {view === "transformers" ? "Transformers" : "Inspections"}
             </Typography>
           </Stack>
-          <Box className="dashboard-flex-grow" />
-          <Tooltip title="Notifications">
-            <IconButton>
-              <Badge color="secondary" variant="dot">
-                <NotificationsIcon />
-              </Badge>
-            </IconButton>
-          </Tooltip>
+          <Box sx={{ flexGrow: 1 }} />
           <Stack
             direction="row"
             spacing={1.25}
             alignItems="center"
-            className="dashboard-user-stack"
+            sx={{ ml: 1 }}
           >
-            <Avatar
-              src="./user.png"
-              className="dashboard-user-avatar"
-            />
-            <Box className="dashboard-user-info">
-              <Typography variant="subtitle2" className="dashboard-user-name">
+            <Avatar src="./user.png" sx={{ width: 36, height: 36 }} />
+            <Box sx={{ display: { xs: "none", md: "block" } }}>
+              <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
                 Test User
               </Typography>
               <Typography variant="caption" color="text.secondary">
@@ -519,14 +533,12 @@ export default function Dashboard() {
       <Box
         component="nav"
         sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-        aria-label="sidebar"
       >
         <Drawer
           variant="temporary"
           open={mobileOpen}
           onClose={() => setMobileOpen(false)}
           ModalProps={{ keepMounted: true }}
-          className="dashboard-drawer-temporary"
           sx={{
             display: { xs: "block", sm: "none" },
             "& .MuiDrawer-paper": {
@@ -540,7 +552,6 @@ export default function Dashboard() {
         </Drawer>
         <Drawer
           variant="permanent"
-          className="dashboard-drawer-permanent"
           sx={{
             display: { xs: "none", sm: "block" },
             "& .MuiDrawer-paper": {
@@ -559,10 +570,18 @@ export default function Dashboard() {
       <Box sx={{ display: "flex", bgcolor: "background.default" }}>
         <Box
           component="main"
-          className="dashboard-main-content"
+          sx={{
+            flexGrow: 1,
+            p: { xs: 2, sm: 1 },
+            mt: 8,
+            ml: { sm: `${drawerWidth}px` },
+          }}
         >
           {view === "transformers" ? (
-            <Stack spacing={2}>
+            <Stack
+              spacing={2}
+              sx={{ maxWidth: 1000, mx: "auto", width: "100%" }}
+            >
               {/* Section header card */}
               <Paper elevation={3} className="dashboard-header-card">
                 <Stack
@@ -575,7 +594,10 @@ export default function Dashboard() {
                     <Box className="dashboard-count-badge">
                       {filtered.length}
                     </Box>
-                    <Typography variant="h6" className="dashboard-section-title">
+                    <Typography
+                      variant="h6"
+                      className="dashboard-section-title"
+                    >
                       Transformers
                     </Typography>
                   </Stack>
@@ -595,7 +617,8 @@ export default function Dashboard() {
                       value={view}
                       exclusive
                       onChange={(_, v) => {
-                        if (v === "transformers" || v === "inspections") setView(v);
+                        if (v === "transformers" || v === "inspections")
+                          setView(v);
                       }}
                       sx={{
                         "& .MuiToggleButton-root": {
@@ -611,7 +634,9 @@ export default function Dashboard() {
                       <ToggleButton
                         value="transformers"
                         className={`dashboard-toggle-button ${
-                          view === "transformers" ? "dashboard-toggle-button-active" : ""
+                          view === "transformers"
+                            ? "dashboard-toggle-button-active"
+                            : ""
                         }`}
                       >
                         Transformers
@@ -663,7 +688,9 @@ export default function Dashboard() {
                   <Select
                     size="small"
                     value={ttype}
-                    onChange={(e) => setTtype(e.target.value as TransformerType | "All")}
+                    onChange={(e) =>
+                      setTtype(e.target.value as TransformerType | "All")
+                    }
                     className="dashboard-filter-select"
                   >
                     <MenuItem value="All">All Types</MenuItem>
@@ -686,7 +713,10 @@ export default function Dashboard() {
                       Favorites only
                     </Typography>
                   </Stack>
-                  <Button onClick={resetFilters} className="dashboard-reset-filters">
+                  <Button
+                    onClick={resetFilters}
+                    className="dashboard-reset-filters"
+                  >
                     Reset Filters
                   </Button>
                 </Stack>
@@ -701,7 +731,10 @@ export default function Dashboard() {
                 ) : error ? (
                   <Box className="dashboard-error-container">
                     <Typography color="error">{error}</Typography>
-                    <Button onClick={fetchTransformers} className="dashboard-retry-button">
+                    <Button
+                      onClick={fetchTransformers}
+                      className="dashboard-retry-button"
+                    >
                       Retry
                     </Button>
                   </Box>
@@ -724,12 +757,22 @@ export default function Dashboard() {
                                 }
                                 onClick={handleRequestSort("transformerNo")}
                               >
-                                <Typography fontWeight="bold">Transformer No.</Typography>
+                                <Typography fontWeight="bold">
+                                  Transformer No.
+                                </Typography>
                               </TableSortLabel>
                             </TableCell>
-                            <TableCell><Typography fontWeight="bold">Pole No.</Typography></TableCell>
-                            <TableCell><Typography fontWeight="bold">Region</Typography></TableCell>
-                            <TableCell><Typography fontWeight="bold">Type</Typography></TableCell>
+                            <TableCell>
+                              <Typography fontWeight="bold">
+                                Pole No.
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Typography fontWeight="bold">Region</Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Typography fontWeight="bold">Type</Typography>
+                            </TableCell>
                             <TableCell align="right"></TableCell>
                           </TableRow>
                         </TableHead>
@@ -837,7 +880,17 @@ export default function Dashboard() {
               </Paper>
             </Stack>
           ) : (
-            <Inspections view="inspections" onChangeView={setView} />
+            <Box
+              sx={{
+                maxWidth: 1200,
+                width: "100%",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+              }}
+            >
+              <Inspections view="inspections" onChangeView={setView} />
+            </Box>
           )}
         </Box>
       </Box>

@@ -4,8 +4,8 @@
 .dashboard-app-header {
   background-color: var(--mui-palette-background-paper);
   border-bottom: 1px solid var(--mui-palette-divider);
-  margin-left: 260px;
-  width: calc(100% - 260px);
+  margin-left: 200px;
+  width: calc(100% - 200px);
   border-radius: 0;
 }
 
@@ -50,7 +50,7 @@
 
 .dashboard-drawer-paper {
   box-sizing: border-box;
-  width: 260px;
+  width: 200px;
   border-radius: 0;
 }
 
@@ -69,9 +69,9 @@
 /* Main Content Styles */
 .dashboard-main-content {
   flex-grow: 1;
-  padding: 16px 8px;
+  padding: 16px 24px;
   margin-top: 72px;
-  margin-left: 260px;
+  margin-left: 200px;
 }
 
 @media (max-width: 600px) {
@@ -85,6 +85,8 @@
 .dashboard-header-card {
   padding: 16px;
   border-radius: 8px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .dashboard-count-badge {
@@ -263,6 +265,10 @@
 }
 
 /* Header responsive layout */
+.dashboard-header-stack {
+  width: 100%;
+}
+
 @media (max-width: 900px) {
   .dashboard-header-stack {
     flex-direction: column;

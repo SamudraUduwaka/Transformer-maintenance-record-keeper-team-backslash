@@ -2,7 +2,6 @@ import * as React from "react";
 import {
   AppBar,
   Avatar,
-  Badge,
   Box,
   Button,
   Chip,
@@ -24,14 +23,12 @@ import {
   Select,
   Stack,
   Toolbar,
-  Tooltip,
   Typography,
 } from "@mui/material";
 import {
-  Menu as MenuIcon,
-  Notifications as NotificationsIcon,
+  ArrowBack as ArrowBackIcon,
   Settings as SettingsIcon,
-  Bolt as BoltIcon,
+  Search as SearchIcon,
   List as ListIcon,
   MoreVert as MoreVertIcon,
   Cloud as CloudIcon,
@@ -45,7 +42,8 @@ import {
   CenterFocusStrong as CenterFocusStrongIcon,
 } from "@mui/icons-material";
 import { format } from "date-fns";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
+import PowerLensBranding from "../components/PowerLensBranding";
 
 /* API Service */
 const API_BASE_URL = "http://localhost:8080/api";
@@ -111,7 +109,7 @@ async function fetchBaselineImage(transformerNo: string, weather: Weather) {
   }
 }
 
-const drawerWidth = 260;
+const drawerWidth = 200;
 
 /* Helpers */
 function StatPill({ top, bottom }: { top: string | number; bottom: string }) {
@@ -155,7 +153,24 @@ export default function InspectionDetails() {
   const inspectionId = Number(inspectionNo);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+
+  // Smart back navigation function
+  const handleBackNavigation = () => {
+    // Check if we came from transformer inspection page
+    const fromTransformerInspection =
+      location.state?.from === "transformer-inspection";
+    const transformerNo = location.state?.transformerNo;
+
+    if (fromTransformerInspection && transformerNo) {
+      // Navigate back to transformer inspection page
+      navigate(`/${transformerNo}`);
+    } else {
+      // Navigate back to main dashboard with inspections view
+      navigate("/?view=inspections");
+    }
+  };
 
   const [weather, setWeather] = React.useState<Weather>("Sunny");
 
@@ -686,12 +701,7 @@ export default function InspectionDetails() {
   /* Drawer */
   const drawer = (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ p: 2 }}>
-        <BoltIcon />
-        <Typography variant="h6" fontWeight={800}>
-          PowerLens
-        </Typography>
-      </Stack>
+      <PowerLensBranding />
       <Divider />
       <List sx={{ p: 1 }}>
         <ListItem disablePadding>
@@ -700,6 +710,14 @@ export default function InspectionDetails() {
               <ListIcon />
             </ListItemIcon>
             <ListItemText primary="Transformer" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton onClick={() => navigate("/?view=inspections")}>
+            <ListItemIcon>
+              <SearchIcon />
+            </ListItemIcon>
+            <ListItemText primary="Inspections" />
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>
@@ -732,21 +750,17 @@ export default function InspectionDetails() {
       >
         <Toolbar sx={{ minHeight: 64 }}>
           <Stack direction="row" spacing={1.25} alignItems="center">
-            <IconButton onClick={() => setMobileOpen(!mobileOpen)}>
-              <MenuIcon />
+            <IconButton
+              onClick={handleBackNavigation}
+              sx={{ color: "inherit" }}
+            >
+              <ArrowBackIcon />
             </IconButton>
             <Typography variant="h6" sx={{ fontWeight: 800 }}>
-              Transformer
+              Inspection Details
             </Typography>
           </Stack>
           <Box sx={{ flexGrow: 1 }} />
-          <Tooltip title="Notifications">
-            <IconButton>
-              <Badge color="secondary" variant="dot">
-                <NotificationsIcon />
-              </Badge>
-            </IconButton>
-          </Tooltip>
           <Stack
             direction="row"
             spacing={1.25}

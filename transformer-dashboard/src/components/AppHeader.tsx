@@ -1,5 +1,5 @@
-import React from 'react';
-import { AppBar, Toolbar, Stack, Typography, Box, Avatar } from '@mui/material';
+import React from "react";
+import { AppBar, Toolbar, Stack, Typography, Box, Avatar } from "@mui/material";
 
 interface AppHeaderProps {
   title: string;
@@ -7,7 +7,11 @@ interface AppHeaderProps {
   leftContent?: React.ReactNode;
 }
 
-const AppHeader: React.FC<AppHeaderProps> = ({ title, drawerWidth, leftContent }) => {
+const AppHeader: React.FC<AppHeaderProps> = ({
+  title,
+  drawerWidth,
+  leftContent,
+}) => {
   return (
     <AppBar
       position="fixed"

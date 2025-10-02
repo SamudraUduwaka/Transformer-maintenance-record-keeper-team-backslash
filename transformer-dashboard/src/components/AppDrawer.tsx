@@ -1,6 +1,6 @@
-import React from 'react';
-import { Box, Drawer, Divider } from '@mui/material';
-import PowerLensBranding from './PowerLensBranding';
+import React from "react";
+import { Box, Drawer, Divider } from "@mui/material";
+import PowerLensBranding from "./PowerLensBranding";
 
 interface AppDrawerProps {
   mobileOpen: boolean;
@@ -9,11 +9,11 @@ interface AppDrawerProps {
   children: React.ReactNode;
 }
 
-const AppDrawer: React.FC<AppDrawerProps> = ({ 
-  mobileOpen, 
-  setMobileOpen, 
-  drawerWidth, 
-  children 
+const AppDrawer: React.FC<AppDrawerProps> = ({
+  mobileOpen,
+  setMobileOpen,
+  drawerWidth,
+  children,
 }) => {
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);

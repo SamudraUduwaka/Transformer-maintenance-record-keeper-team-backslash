@@ -1,7 +1,7 @@
-import React from 'react';
-import { Box } from '@mui/material';
-import AppHeader from './AppHeader';
-import AppDrawer from './AppDrawer';
+import React from "react";
+import { Box } from "@mui/material";
+import AppHeader from "./AppHeader";
+import AppDrawer from "./AppDrawer";
 
 interface AppLayoutProps {
   title: string;
@@ -24,9 +24,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({
 }) => {
   return (
     <Box sx={{ display: "flex" }}>
-      <AppHeader 
-        title={title} 
-        drawerWidth={drawerWidth} 
+      <AppHeader
+        title={title}
+        drawerWidth={drawerWidth}
         leftContent={headerLeftContent}
       />
       <AppDrawer

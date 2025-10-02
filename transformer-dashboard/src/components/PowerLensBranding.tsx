@@ -1,6 +1,6 @@
-import React from 'react';
-import { Stack, Typography } from '@mui/material';
-import { Bolt as BoltIcon } from '@mui/icons-material';
+import React from "react";
+import { Stack, Typography } from "@mui/material";
+import { Bolt as BoltIcon } from "@mui/icons-material";
 
 const PowerLensBranding: React.FC = () => {
   return (
