@@ -1036,26 +1036,6 @@ export default function InspectionDetails() {
                 <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                   <Paper sx={{ p: 2.5, flex: 1 }}>
                     <Typography variant="subtitle1" fontWeight={700}>
-                      Maintenance Image ({weather})
-                    </Typography>
-                    <Box mt={2}>
-                      {inspection.image ? (
-                        <ZoomableImage
-                          src={inspection.image.imageUrl}
-                          alt="Thermal"
-                          style={{ width: "100%" }}
-                          maxHeight={300}
-                        />
-                      ) : (
-                        <Typography color="text.secondary">
-                          No maintenance image available
-                        </Typography>
-                      )}
-                    </Box>
-                  </Paper>
-
-                  <Paper sx={{ p: 2.5, flex: 1 }}>
-                    <Typography variant="subtitle1" fontWeight={700}>
                       Baseline Image ({weather})
                     </Typography>
                     <Box mt={2}>
@@ -1069,6 +1049,26 @@ export default function InspectionDetails() {
                       ) : (
                         <Typography color="text.secondary">
                           No baseline image available
+                        </Typography>
+                      )}
+                    </Box>
+                  </Paper>
+
+                  <Paper sx={{ p: 2.5, flex: 1 }}>
+                    <Typography variant="subtitle1" fontWeight={700}>
+                      Maintenance Image ({weather})
+                    </Typography>
+                    <Box mt={2}>
+                      {inspection.image ? (
+                        <ZoomableImage
+                          src={inspection.image.imageUrl}
+                          alt="Thermal"
+                          style={{ width: "100%" }}
+                          maxHeight={300}
+                        />
+                      ) : (
+                        <Typography color="text.secondary">
+                          No maintenance image available
                         </Typography>
                       )}
                     </Box>
