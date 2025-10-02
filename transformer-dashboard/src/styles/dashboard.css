@@ -81,27 +81,10 @@
   }
 }
 
-/* Inspections Page Specific */
-.dashboard-inspections-content {
-  margin-top: 0;
-  width: 100%;
-}
-
-.dashboard-inspections-stack {
-  width: 100%;
-}
-
 /* Header Card Styles */
 .dashboard-header-card {
   padding: 16px;
   border-radius: 8px;
-}
-
-.dashboard-header-card-full-width {
-  padding: 16px;
-  border-radius: 8px;
-  width: 100%;
-  box-sizing: border-box;
 }
 
 .dashboard-count-badge {
@@ -291,44 +274,5 @@
   .dashboard-header-stack {
     flex-direction: row;
     align-items: center;
-  }
-}
-
-/* Inspections Page Specific Styles */
-.dashboard-app-header-fixed {
-  background-color: var(--mui-palette-background-paper) !important;
-  border-bottom: 1px solid var(--mui-palette-divider) !important;
-  border-radius: 0 !important;
-  margin-left: 260px;
-  width: calc(100% - 260px);
-}
-
-@media (max-width: 600px) {
-  .dashboard-app-header-fixed {
-    margin-left: 0;
-    width: 100%;
-  }
-}
-
-.dashboard-toolbar-inspections {
-  min-height: 72px;
-  justify-content: space-between;
-}
-
-.dashboard-app-title {
-  font-weight: 800 !important;
-}
-
-.dashboard-user-info {
-  margin-left: 8px;
-}
-
-.dashboard-user-details {
-  display: block;
-}
-
-@media (max-width: 900px) {
-  .dashboard-user-details {
-    display: none;
   }
 }
