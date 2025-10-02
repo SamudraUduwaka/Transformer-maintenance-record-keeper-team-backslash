@@ -40,6 +40,9 @@ import {
   Upload as UploadIcon,
   Visibility as VisibilityIcon,
   DeleteOutline as DeleteOutlineIcon,
+  ZoomIn as ZoomInIcon,
+  ZoomOut as ZoomOutIcon,
+  CenterFocusStrong as CenterFocusStrongIcon,
 } from "@mui/icons-material";
 import { format } from "date-fns";
 import { useNavigate, useParams } from "react-router-dom";
@@ -49,7 +52,7 @@ const API_BASE_URL = "http://localhost:8080/api";
 
 // ==== Cloudinary (UNSIGNED) helpers ====
 
-const CLOUD_NAME = "ddleqtgrj";//"djgapcqtj";
+const CLOUD_NAME = "ddleqtgrj"; //"djgapcqtj";
 const UNSIGNED_PRESET = "transformer_images_upload_unsigned";
 
 async function uploadUnsignedToCloudinary(file: File) {
@@ -262,6 +265,159 @@ export default function InspectionDetails() {
               : "transparent",
         }}
       />
+    );
+  };
+
+  /* ZoomableImage component with zoom and pan functionality */
+  interface ZoomableImageProps {
+    src: string;
+    alt: string;
+    style?: React.CSSProperties;
+    maxHeight?: number;
+  }
+
+  const ZoomableImage: React.FC<ZoomableImageProps> = ({
+    src,
+    alt,
+    style,
+    maxHeight = 400,
+  }) => {
+    const [scale, setScale] = React.useState(1);
+    const [position, setPosition] = React.useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = React.useState(false);
+    const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
+    const containerRef = React.useRef<HTMLDivElement>(null);
+
+    const handleZoomIn = () => {
+      setScale((prev) => Math.min(prev * 1.2, 5));
+    };
+
+    const handleZoomOut = () => {
+      setScale((prev) => Math.max(prev / 1.2, 0.5));
+    };
+
+    const handleReset = () => {
+      setScale(1);
+      setPosition({ x: 0, y: 0 });
+    };
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+      if (scale > 1) {
+        setIsDragging(true);
+        setDragStart({
+          x: e.clientX - position.x,
+          y: e.clientY - position.y,
+        });
+      }
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+      if (isDragging && scale > 1) {
+        setPosition({
+          x: e.clientX - dragStart.x,
+          y: e.clientY - dragStart.y,
+        });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    const handleWheel = (e: React.WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 1 / 1.1 : 1.1;
+      setScale((prev) => Math.min(Math.max(prev * delta, 0.5), 5));
+    };
+
+    return (
+      <Box sx={{ position: "relative", ...style }}>
+        {/* Image Container */}
+        <Box
+          ref={containerRef}
+          sx={{
+            width: "100%",
+            height: maxHeight,
+            overflow: "hidden",
+            borderRadius: 2,
+            cursor: scale > 1 ? (isDragging ? "grabbing" : "grab") : "default",
+            position: "relative",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            bgcolor: "#f5f5f5",
+          }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onWheel={handleWheel}
+        >
+          <img
+            src={src}
+            alt={alt}
+            style={{
+              maxWidth: "100%",
+              maxHeight: "100%",
+              transform: `scale(${scale}) translate(${position.x}px, ${position.y}px)`,
+              transition: isDragging ? "none" : "transform 0.2s ease",
+              borderRadius: 12,
+              objectFit: "contain",
+              userSelect: "none",
+              pointerEvents: "none",
+            }}
+            draggable={false}
+          />
+        </Box>
+
+        {/* Zoom Controls */}
+        <Box
+          sx={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            display: "flex",
+            flexDirection: "column",
+            gap: 1,
+            bgcolor: "rgba(255, 255, 255, 0.9)",
+            borderRadius: 1,
+            p: 0.5,
+            boxShadow: 1,
+          }}
+        >
+          <IconButton size="small" onClick={handleZoomIn} disabled={scale >= 5}>
+            <ZoomInIcon fontSize="small" />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={handleZoomOut}
+            disabled={scale <= 0.5}
+          >
+            <ZoomOutIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" onClick={handleReset}>
+            <CenterFocusStrongIcon fontSize="small" />
+          </IconButton>
+        </Box>
+
+        {/* Scale Indicator */}
+        <Box
+          sx={{
+            position: "absolute",
+            bottom: 8,
+            left: 8,
+            bgcolor: "rgba(0, 0, 0, 0.7)",
+            color: "white",
+            px: 1,
+            py: 0.5,
+            borderRadius: 1,
+            fontSize: 12,
+            fontWeight: 600,
+          }}
+        >
+          {Math.round(scale * 100)}%
+        </Box>
+      </Box>
     );
   };
 
@@ -884,10 +1040,11 @@ export default function InspectionDetails() {
                     </Typography>
                     <Box mt={2}>
                       {inspection.image ? (
-                        <img
+                        <ZoomableImage
                           src={inspection.image.imageUrl}
                           alt="Thermal"
-                          style={{ width: "100%", borderRadius: 12 }}
+                          style={{ width: "100%" }}
+                          maxHeight={300}
                         />
                       ) : (
                         <Typography color="text.secondary">
@@ -903,10 +1060,11 @@ export default function InspectionDetails() {
                     </Typography>
                     <Box mt={2}>
                       {baselineImage?.url ? (
-                        <img
+                        <ZoomableImage
                           src={baselineImage.url}
                           alt="Baseline"
-                          style={{ width: "100%", borderRadius: 12 }}
+                          style={{ width: "100%" }}
+                          maxHeight={300}
                         />
                       ) : (
                         <Typography color="text.secondary">
@@ -924,10 +1082,11 @@ export default function InspectionDetails() {
                   </Typography>
                   <Box mt={2}>
                     {inspection.image.imageUrl ? (
-                      <img
+                      <ZoomableImage
                         src={inspection.image.imageUrl}
                         alt="Baseline"
-                        style={{ width: "100%", borderRadius: 12 }}
+                        style={{ width: "100%" }}
+                        maxHeight={200}
                       />
                     ) : (
                       <Typography color="text.secondary">
@@ -1176,15 +1335,11 @@ export default function InspectionDetails() {
                   gap: 1.25,
                 }}
               >
-                <img
+                <ZoomableImage
                   src={preview}
                   alt="preview"
-                  style={{
-                    maxWidth: "100%",
-                    maxHeight: 200,
-                    borderRadius: 10,
-                    objectFit: "contain",
-                  }}
+                  style={{ width: "100%" }}
+                  maxHeight={200}
                 />
                 <Typography variant="body2" color="text.secondary">
                   {file?.name}
@@ -1285,26 +1440,18 @@ export default function InspectionDetails() {
             }}
           >
             {managePreview ? (
-              <img
+              <ZoomableImage
                 src={managePreview}
                 alt="baseline preview"
-                style={{
-                  maxWidth: "100%",
-                  maxHeight: 280,
-                  borderRadius: 10,
-                  objectFit: "contain",
-                }}
+                style={{ width: "100%" }}
+                maxHeight={280}
               />
             ) : baselines[manageWeather as Weather]?.url ? (
-              <img
+              <ZoomableImage
                 src={baselines[manageWeather as Weather]!.url}
                 alt="current baseline"
-                style={{
-                  maxWidth: "100%",
-                  maxHeight: 280,
-                  borderRadius: 10,
-                  objectFit: "contain",
-                }}
+                style={{ width: "100%" }}
+                maxHeight={280}
               />
             ) : (
               <Typography color="text.secondary">No image selected</Typography>
@@ -1352,15 +1499,11 @@ export default function InspectionDetails() {
         </DialogTitle>
         <DialogContent dividers>
           {viewer.url ? (
-            <img
+            <ZoomableImage
               src={viewer.url}
               alt="baseline"
-              style={{
-                width: "100%",
-                height: "auto",
-                display: "block",
-                borderRadius: 8,
-              }}
+              style={{ width: "100%" }}
+              maxHeight={window.innerHeight * 0.7}
             />
           ) : (
             <Typography>No image</Typography>
