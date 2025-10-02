@@ -284,7 +284,6 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     for (const apiUrl of apiUrls) {
       try {
         console.log(`Trying thermal analysis API call to: ${apiUrl}`);
-        console.log("Request payload:", { imageUrl, analysisType: "thermal" });
 
         const response = await fetch(apiUrl, {
           method: "POST",
