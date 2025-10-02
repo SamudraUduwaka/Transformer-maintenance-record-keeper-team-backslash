@@ -19,21 +19,32 @@ public class ThermalAnalysisService {
 
     private static final Random random = new Random();
     
+    // Issue generation constants
+    private static final int MIN_ISSUES = 2;
+    private static final int MAX_ADDITIONAL_ISSUES = 4; // Will generate MIN_ISSUES + random(0 to MAX_ADDITIONAL_ISSUES-1)
+    
+    // Issue type constants
+    private static final String LOOSE_JOINT_FAULTY = "Loose Joint (Faulty)";
+    private static final String LOOSE_JOINT_POTENTIAL = "Loose Joint (Potential)";
+    private static final String POINT_OVERLOAD_FAULTY = "Point Overload (Faulty)";
+    private static final String POINT_OVERLOAD_POTENTIAL = "Point Overload (Potential)";
+    private static final String FULL_WIRE_OVERLOAD = "Full Wire Overload";
+    
     // Thermal issue types based on the specifications
     private static final Map<String, ThermalIssueConfig> THERMAL_ISSUE_TYPES = Map.of(
-        "Loose Joint (Faulty)", new ThermalIssueConfig("Loose Joint (Faulty)", "critical",
+        LOOSE_JOINT_FAULTY, new ThermalIssueConfig(LOOSE_JOINT_FAULTY, "critical",
             "Middle area reddish/orange-yellowish, background blue/black", 
             Arrays.asList("Immediate inspection required", "Tighten connections", "Schedule emergency maintenance")),
-        "Loose Joint (Potential)", new ThermalIssueConfig("Loose Joint (Potential)", "warning",
+        LOOSE_JOINT_POTENTIAL, new ThermalIssueConfig(LOOSE_JOINT_POTENTIAL, "warning",
             "Middle area yellowish (not reddish/orange), background blue/black",
             Arrays.asList("Schedule inspection within 30 days", "Monitor temperature trends", "Check connection torque")),
-        "Point Overload (Faulty)", new ThermalIssueConfig("Point Overload (Faulty)", "critical",
+        POINT_OVERLOAD_FAULTY, new ThermalIssueConfig(POINT_OVERLOAD_FAULTY, "critical",
             "Small spot reddish/orange-yellowish, rest of the wire black/blue or yellowish",
             Arrays.asList("Immediate load assessment required", "Check electrical connections", "Emergency maintenance needed")),
-        "Point Overload (Potential)", new ThermalIssueConfig("Point Overload (Potential)", "warning",
+        POINT_OVERLOAD_POTENTIAL, new ThermalIssueConfig(POINT_OVERLOAD_POTENTIAL, "warning",
             "Small spot yellowish, rest of the wire black/blue",
             Arrays.asList("Monitor load conditions", "Schedule inspection", "Check for loose connections")),
-        "Full Wire Overload", new ThermalIssueConfig("Full Wire Overload", "critical",
+        FULL_WIRE_OVERLOAD, new ThermalIssueConfig(FULL_WIRE_OVERLOAD, "critical",
             "The entire wire is reddish or yellowish",
             Arrays.asList("Immediate load reduction required", "Emergency inspection needed", "Check circuit capacity"))
     );
@@ -84,7 +95,7 @@ public class ThermalAnalysisService {
         List<ThermalIssueDTO> issues = new ArrayList<>();
         
         // Generate 2-5 random issues (only actual problems, no normal conditions)
-        int numIssues = random.nextInt(4) + 2;
+        int numIssues = random.nextInt(MAX_ADDITIONAL_ISSUES) + MIN_ISSUES;
         
         for (int i = 0; i < numIssues; i++) {
             String issueType = selectRandomIssueType();
@@ -110,11 +121,11 @@ public class ThermalAnalysisService {
     private String selectRandomIssueType() {
         // Select from actual issue types only (no normal conditions)
         String[] issueTypes = {
-            "Loose Joint (Faulty)",
-            "Loose Joint (Potential)", 
-            "Point Overload (Faulty)",
-            "Point Overload (Potential)",
-            "Full Wire Overload"
+            LOOSE_JOINT_FAULTY,
+            LOOSE_JOINT_POTENTIAL, 
+            POINT_OVERLOAD_FAULTY,
+            POINT_OVERLOAD_POTENTIAL,
+            FULL_WIRE_OVERLOAD
         };
         
         return issueTypes[random.nextInt(issueTypes.length)];
@@ -125,12 +136,12 @@ public class ThermalAnalysisService {
         int width, height;
         
         switch (issueType) {
-            case "Point Overload (Faulty)", "Point Overload (Potential)" -> {
+            case POINT_OVERLOAD_FAULTY, POINT_OVERLOAD_POTENTIAL -> {
                 // Small spots for point overloads
                 width = random.nextInt(60) + 30;  // 30-90 pixels
                 height = random.nextInt(60) + 30;
             }
-            case "Full Wire Overload" -> {
+            case FULL_WIRE_OVERLOAD -> {
                 // Larger areas for wire overloads
                 width = random.nextInt(200) + 100; // 100-300 pixels
                 height = random.nextInt(100) + 50;  // 50-150 pixels

@@ -66,6 +66,9 @@ const ISSUE_TYPE_LABELS: Record<string, string> = {
   "Full Wire Overload": "Full Wire Overload",
 };
 
+// Opacity for bounding box background (20 = ~12% opacity in hex)
+const BOUNDING_BOX_OPACITY = "20";
+
 /* ZoomableImage component with zoom and pan functionality */
 interface ZoomableImageProps {
   src: string;
@@ -283,8 +286,6 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
     for (const apiUrl of apiUrls) {
       try {
-        console.log(`Trying thermal analysis API call to: ${apiUrl}`);
-
         const response = await fetch(apiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -293,9 +294,6 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
             analysisType: "thermal",
           }),
         });
-
-        console.log(`API Response from ${apiUrl} - status:`, response.status);
-        console.log(`API Response statusText:`, response.statusText);
 
         if (!response.ok) {
           throw new Error(
@@ -368,7 +366,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       ctx.strokeRect(x, y, width, height);
 
       // Draw filled background with transparency
-      ctx.fillStyle = color + "20"; // 20 = ~12% opacity
+      ctx.fillStyle = color + BOUNDING_BOX_OPACITY;
       ctx.fillRect(x, y, width, height);
 
       // Draw number badge using original issue index
