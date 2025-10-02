@@ -135,8 +135,13 @@ const ZoomableImage: React.FC<ZoomableImageProps> = ({
 
   const handleImageLoad = () => {
     if (imageRef.current && canvasRef?.current) {
+      // Set canvas dimensions BEFORE any context acquisition or drawing
       canvasRef.current.width = imageRef.current.naturalWidth;
       canvasRef.current.height = imageRef.current.naturalHeight;
+      // If you have drawing logic or context acquisition, do it after setting dimensions
+      // Example:
+      // const ctx = canvasRef.current.getContext("2d");
+      // ...drawing logic here...
     }
     onImageLoad?.();
   };
