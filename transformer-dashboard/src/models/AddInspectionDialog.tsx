@@ -39,6 +39,8 @@ export interface AddInspectionDialogProps {
     inspectionTime: string;
   }) => Promise<void>;
   isCreating?: boolean;
+  defaultTransformerNo?: string; // Pre-populate transformer number
+  defaultBranch?: string; // Pre-populate branch
 }
 
 export const AddInspectionDialog: React.FC<AddInspectionDialogProps> = ({
@@ -46,6 +48,8 @@ export const AddInspectionDialog: React.FC<AddInspectionDialogProps> = ({
   onClose,
   onConfirm,
   isCreating = false,
+  defaultTransformerNo,
+  defaultBranch,
 }) => {
   // Dialog state
   const [branch, setBranch] = React.useState("");
@@ -61,13 +65,27 @@ export const AddInspectionDialog: React.FC<AddInspectionDialogProps> = ({
   // Reset form when dialog closes
   React.useEffect(() => {
     if (!open) {
-      setBranch("");
-      setTransformerNo("");
+      setBranch(defaultBranch || "");
+      setTransformerNo(defaultTransformerNo || "");
       setDate("");
       setTime("");
       setInspector("");
     }
-  }, [open]);
+  }, [open, defaultTransformerNo, defaultBranch]);
+
+  // Set transformer number when defaultTransformerNo is provided
+  React.useEffect(() => {
+    if (defaultTransformerNo) {
+      setTransformerNo(defaultTransformerNo);
+    }
+  }, [defaultTransformerNo]);
+
+  // Set branch when defaultBranch is provided
+  React.useEffect(() => {
+    if (defaultBranch) {
+      setBranch(defaultBranch);
+    }
+  }, [defaultBranch]);
 
   const handleClose = () => {
     onClose();
@@ -113,7 +131,9 @@ export const AddInspectionDialog: React.FC<AddInspectionDialogProps> = ({
           }}
         >
           <Typography fontWeight={700} fontSize="1.25rem">
-            New Inspection
+            {defaultTransformerNo
+              ? `New Inspection for ${defaultTransformerNo}`
+              : "New Inspection"}
           </Typography>
           <IconButton onClick={handleClose} size="small">
             <CloseIcon />
@@ -130,13 +150,29 @@ export const AddInspectionDialog: React.FC<AddInspectionDialogProps> = ({
               onChange={(e) => setBranch(e.target.value)}
             />
 
-            <TextField
-              label="Transformer No"
-              placeholder="Transformer No"
-              fullWidth
-              value={transformerNo}
-              onChange={(e) => setTransformerNo(e.target.value)}
-            />
+            {!defaultTransformerNo && (
+              <TextField
+                label="Transformer No"
+                placeholder="Transformer No"
+                fullWidth
+                value={transformerNo}
+                onChange={(e) => setTransformerNo(e.target.value)}
+              />
+            )}
+
+            {defaultTransformerNo && (
+              <TextField
+                label="Transformer No"
+                fullWidth
+                value={transformerNo}
+                disabled
+                sx={{
+                  "& .MuiInputBase-input.Mui-disabled": {
+                    WebkitTextFillColor: "rgba(0, 0, 0, 0.6)",
+                  },
+                }}
+              />
+            )}
 
             <TextField
               label="Inspector"
