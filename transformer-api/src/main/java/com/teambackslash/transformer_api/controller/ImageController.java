@@ -1,7 +1,10 @@
 package com.teambackslash.transformer_api.controller;
 
 import com.teambackslash.transformer_api.dto.ImageDTO;
+import com.teambackslash.transformer_api.dto.ThermalAnalysisDTO;
+import com.teambackslash.transformer_api.dto.ThermalAnalysisRequestDTO;
 import com.teambackslash.transformer_api.service.ImageService;
+import com.teambackslash.transformer_api.service.ThermalAnalysisService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,9 +17,11 @@ import java.util.Map;
 public class ImageController {
 
     private final ImageService imageService;
+    private final ThermalAnalysisService thermalAnalysisService;
 
-    public ImageController(ImageService imageService) {
+    public ImageController(ImageService imageService, ThermalAnalysisService thermalAnalysisService) {
         this.imageService = imageService;
+        this.thermalAnalysisService = thermalAnalysisService;
     }
 
     @GetMapping
@@ -65,5 +70,27 @@ public class ImageController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(imageDTO);
+    }
+
+    // ===== THERMAL ANALYSIS ENDPOINTS =====
+
+    @PostMapping("/thermal-analysis")
+    public ResponseEntity<ThermalAnalysisDTO> analyzeThermalImage(@RequestBody ThermalAnalysisRequestDTO request) {
+        try {
+            ThermalAnalysisDTO analysis = thermalAnalysisService.analyzeThermalImage(request.getImageUrl());
+            return ResponseEntity.ok(analysis);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/thermal-analysis")
+    public ResponseEntity<ThermalAnalysisDTO> analyzeThermalImageByUrl(@RequestParam String imageUrl) {
+        try {
+            ThermalAnalysisDTO analysis = thermalAnalysisService.analyzeThermalImage(imageUrl);
+            return ResponseEntity.ok(analysis);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 }
