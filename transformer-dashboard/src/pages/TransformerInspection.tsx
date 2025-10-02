@@ -44,7 +44,9 @@ import {
 } from "@mui/icons-material";
 import { useParams, useNavigate } from "react-router-dom";
 import AddInspectionDialog from "../models/AddInspectionDialog";
-import EditInspectionDialog, { type InspectionRow as EditInspectionRow } from "../models/EditInspectionDialog";
+import EditInspectionDialog, {
+  type InspectionRow as EditInspectionRow,
+} from "../models/EditInspectionDialog";
 import DeleteInspectionConfirmationDialog from "../models/DeleteInspectionConfirmationDialog";
 
 /* ================= Backend DTOs (inline, no shared files) ================= */
@@ -140,17 +142,17 @@ function determineImageStatus(dto: InspectionDTO): ImageStatus {
   if (!dto.image || !dto.image.type) {
     return "no image";
   }
-  
+
   // If the image type is explicitly baseline, return baseline
   if (dto.image.type === "baseline") {
     return "baseline";
   }
-  
+
   // If the image type is thermal/maintenance, return maintenance
   if (dto.image.type === "thermal" || dto.image.type === "maintenance") {
     return "maintenance";
   }
-  
+
   // Default fallback - treat any other image as maintenance
   return "maintenance";
 }
@@ -261,7 +263,8 @@ export default function TransformerInspection() {
 
   // edit dialog
   const [editOpen, setEditOpen] = React.useState(false);
-  const [editingInspection, setEditingInspection] = React.useState<EditInspectionRow | null>(null);
+  const [editingInspection, setEditingInspection] =
+    React.useState<EditInspectionRow | null>(null);
   const [saving, setSaving] = React.useState(false);
 
   // delete dialog
@@ -313,7 +316,11 @@ export default function TransformerInspection() {
       });
       setRows((prev) => [dtoToRow(created), ...prev]);
       setAddOpen(false);
-      navigate(`/${encodeURIComponent(inspectionData.transformerNo)}/${pad8(created.inspectionId)}`);
+      navigate(
+        `/${encodeURIComponent(inspectionData.transformerNo)}/${pad8(
+          created.inspectionId
+        )}`
+      );
     } catch {
       setError("Failed to create inspection");
       throw new Error("Failed to create inspection"); // Re-throw so dialog can handle error state
@@ -352,7 +359,6 @@ export default function TransformerInspection() {
     closeRowMenu();
   };
 
-
   const handleConfirmEdit = async (
     id: number,
     inspectionData: {
@@ -370,9 +376,7 @@ export default function TransformerInspection() {
         json: inspectionData,
       });
 
-      setRows((prev) =>
-        prev.map((r) => (r.id === id ? dtoToRow(updated) : r))
-      );
+      setRows((prev) => prev.map((r) => (r.id === id ? dtoToRow(updated) : r)));
       setEditOpen(false);
       setEditingInspection(null);
     } catch {
@@ -837,6 +841,8 @@ export default function TransformerInspection() {
         onClose={handleCloseAdd}
         onConfirm={handleConfirmAdd}
         isCreating={creating}
+        defaultTransformerNo={transformerNo}
+        defaultBranch={transformer?.region}
       />
 
       {/* ---------- Edit Inspection Dialog ---------- */}
