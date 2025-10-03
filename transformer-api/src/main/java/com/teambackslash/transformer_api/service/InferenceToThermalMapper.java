@@ -63,7 +63,8 @@ public class InferenceToThermalMapper {
             prediction.getTimestamp(),
             issues,
             score,
-            processingMs
+            processingMs,
+            null // predictionId set later after persistence
         );
     }
 
