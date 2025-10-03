@@ -16,3 +16,8 @@ target/
 # Editors and OS
 .vscode/
 .DS_Store
+
+
+### ML model ###
+anomaly-detector\*\.venv
+anomaly-detector\*\runs_yolo\test_preds*

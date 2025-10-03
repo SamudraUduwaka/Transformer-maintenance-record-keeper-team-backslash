@@ -1,0 +1,6 @@
+yolo segment predict `
+   model="C:\Users\admin\Desktop\Semester 7\Fault Detection v11\runs_yolo\tx_seg_5c_v11_cpu2\weights\best.pt" `
+   source="C:\Users\admin\Desktop\Semester 7\Fault Detection v11\train\images" `
+   device=cpu imgsz=640 conf=0.25 iou=0.025 max_det=300 save=True `
+   project="C:\Users\admin\Desktop\Semester 7\Fault Detection v11\runs_yolo" `
+   name="test_preds_v11_recall"
