@@ -273,6 +273,12 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Track which image URLs have already triggered an analysis to avoid
+  // duplicate calls (e.g., React StrictMode double effect invocation or
+  // parent prop identity changes). Also track an in-flight request to
+  // prevent overlap.
+  const analyzedImagesRef = useRef<Set<string>>(new Set());
+  const inFlightRef = useRef<string | null>(null);
 
   // API call to analyze thermal image
   const analyzeThermalImage = async (
@@ -322,24 +328,37 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
   // Trigger analysis when thermal image URL changes
   useEffect(() => {
-    if (thermalImageUrl && !loading) {
-      setIsAnalyzing(true);
-      setError(null);
+    if (!thermalImageUrl) return;
+    if (loading) return; // respect external loading gate
 
-      analyzeThermalImage(thermalImageUrl)
-        .then((data) => {
-          setAnalysisData(data);
-          onAnalysisComplete?.(data);
-        })
-        .catch((err) => {
-          console.error("Thermal analysis failed:", err.message);
-          setError(`Failed to analyze thermal image: ${err.message}`);
-        })
-        .finally(() => {
-          setIsAnalyzing(false);
-        });
-    }
-  }, [thermalImageUrl, loading, onAnalysisComplete]);
+    // If already analyzing this exact URL, skip.
+    if (inFlightRef.current === thermalImageUrl) return;
+
+    // If we've already successfully analyzed this URL in this component lifecycle, skip.
+    if (analyzedImagesRef.current.has(thermalImageUrl)) return;
+
+    // Mark as in-flight early to avoid race if effect fires twice quickly.
+    inFlightRef.current = thermalImageUrl;
+    setIsAnalyzing(true);
+    setError(null);
+
+    analyzeThermalImage(thermalImageUrl)
+      .then((data) => {
+        analyzedImagesRef.current.add(thermalImageUrl);
+        setAnalysisData(data);
+        onAnalysisComplete?.(data);
+      })
+      .catch((err) => {
+        console.error("Thermal analysis failed:", err.message);
+        setError(`Failed to analyze thermal image: ${err.message}`);
+      })
+      .finally(() => {
+        if (inFlightRef.current === thermalImageUrl) {
+          inFlightRef.current = null;
+        }
+        setIsAnalyzing(false);
+      });
+  }, [thermalImageUrl, loading]);
 
   // Draw bounding boxes on canvas
   const drawBoundingBoxes = () => {
