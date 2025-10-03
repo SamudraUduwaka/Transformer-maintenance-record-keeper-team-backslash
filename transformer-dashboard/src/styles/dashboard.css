@@ -4,8 +4,8 @@
 .dashboard-app-header {
   background-color: var(--mui-palette-background-paper);
   border-bottom: 1px solid var(--mui-palette-divider);
-  margin-left: 260px;
-  width: calc(100% - 260px);
+  margin-left: 200px;
+  width: calc(100% - 200px);
   border-radius: 0;
 }
 
@@ -50,7 +50,7 @@
 
 .dashboard-drawer-paper {
   box-sizing: border-box;
-  width: 260px;
+  width: 200px;
   border-radius: 0;
 }
 
@@ -69,9 +69,9 @@
 /* Main Content Styles */
 .dashboard-main-content {
   flex-grow: 1;
-  padding: 16px 8px;
+  padding: 16px 24px;
   margin-top: 72px;
-  margin-left: 260px;
+  margin-left: 200px;
 }
 
 @media (max-width: 600px) {
@@ -81,23 +81,8 @@
   }
 }
 
-/* Inspections Page Specific */
-.dashboard-inspections-content {
-  margin-top: 0;
-  width: 100%;
-}
-
-.dashboard-inspections-stack {
-  width: 100%;
-}
-
 /* Header Card Styles */
 .dashboard-header-card {
-  padding: 16px;
-  border-radius: 8px;
-}
-
-.dashboard-header-card-full-width {
   padding: 16px;
   border-radius: 8px;
   width: 100%;
@@ -280,6 +265,10 @@
 }
 
 /* Header responsive layout */
+.dashboard-header-stack {
+  width: 100%;
+}
+
 @media (max-width: 900px) {
   .dashboard-header-stack {
     flex-direction: column;
@@ -291,44 +280,5 @@
   .dashboard-header-stack {
     flex-direction: row;
     align-items: center;
-  }
-}
-
-/* Inspections Page Specific Styles */
-.dashboard-app-header-fixed {
-  background-color: var(--mui-palette-background-paper) !important;
-  border-bottom: 1px solid var(--mui-palette-divider) !important;
-  border-radius: 0 !important;
-  margin-left: 260px;
-  width: calc(100% - 260px);
-}
-
-@media (max-width: 600px) {
-  .dashboard-app-header-fixed {
-    margin-left: 0;
-    width: 100%;
-  }
-}
-
-.dashboard-toolbar-inspections {
-  min-height: 72px;
-  justify-content: space-between;
-}
-
-.dashboard-app-title {
-  font-weight: 800 !important;
-}
-
-.dashboard-user-info {
-  margin-left: 8px;
-}
-
-.dashboard-user-details {
-  display: block;
-}
-
-@media (max-width: 900px) {
-  .dashboard-user-details {
-    display: none;
   }
 }

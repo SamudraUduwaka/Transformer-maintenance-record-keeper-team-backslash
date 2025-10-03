@@ -1,8 +1,5 @@
 import * as React from "react";
 import {
-  AppBar,
-  Avatar,
-  Badge,
   Box,
   Button,
   Chip,
@@ -14,8 +11,6 @@ import {
   Stack,
   Switch,
   TextField,
-  Toolbar,
-  Tooltip,
   Typography,
   Table,
   TableBody,
@@ -37,15 +32,12 @@ import {
   Add as AddIcon,
   MoreVert as MoreVertIcon,
   Search as SearchIcon,
-  Menu as MenuIcon,
-  Notifications as NotificationsIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Star as StarIcon,
   StarBorder as StarBorderIcon,
 } from "@mui/icons-material";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+
 import { useNavigate } from "react-router-dom";
 import AddInspectionDialog from "../models/AddInspectionDialog";
 import EditInspectionDialog from "../models/EditInspectionDialog";
@@ -213,7 +205,10 @@ const convertDTOToRow = (dto: InspectionDTO): InspectionRow => {
   if (dto.image && dto.image.type) {
     if (dto.image.type === "baseline") {
       status = "baseline";
-    } else if (dto.image.type === "thermal" || dto.image.type === "maintenance") {
+    } else if (
+      dto.image.type === "thermal" ||
+      dto.image.type === "maintenance"
+    ) {
       status = "maintenance";
     }
     // Default fallback for any other image type
@@ -319,7 +314,8 @@ export default function Inspections({
 
   /* -------- Edit state -------- */
   const [editOpen, setEditOpen] = React.useState(false);
-  const [editingInspection, setEditingInspection] = React.useState<InspectionRow | null>(null);
+  const [editingInspection, setEditingInspection] =
+    React.useState<InspectionRow | null>(null);
   const [saving, setSaving] = React.useState(false);
 
   /* -------- Delete state -------- */
@@ -368,8 +364,6 @@ export default function Inspections({
     try {
       setCreating(true);
 
-      console.log("Creating inspection:", inspectionData); // Debug log
-
       await inspectionService.createInspection(inspectionData);
       await loadInspections();
       setAddOpen(false);
@@ -407,8 +401,6 @@ export default function Inspections({
   ) => {
     try {
       setSaving(true);
-
-      console.log("Updating inspection:", inspectionData); // Debug log
 
       await inspectionService.updateInspection(id, inspectionData);
       await loadInspections();
@@ -465,7 +457,9 @@ export default function Inspections({
 
       setRows((prevRows) =>
         prevRows.map((r) =>
-          r.id === row.id ? { ...r, favorite: updatedInspection.favorite || false } : r
+          r.id === row.id
+            ? { ...r, favorite: updatedInspection.favorite || false }
+            : r
         )
       );
 
@@ -541,328 +535,296 @@ export default function Inspections({
   }
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDayjs}>
-      {/* <CssBaseline /> */}
-
+    <>
       {/* Show error if any */}
       {error && (
-        <Alert severity="error" onClose={() => setError(null)} className="dashboard-error-alert">
+        <Alert
+          severity="error"
+          onClose={() => setError(null)}
+          className="dashboard-error-alert"
+        >
           {error}
         </Alert>
       )}
 
-      {/* Top App Header */}
-      <AppBar
-        position="fixed"
-        color="inherit"
-        elevation={0}
-        className="dashboard-app-header-fixed"
-      >
-        <Toolbar className="dashboard-toolbar-inspections">
-          <Stack direction="row" spacing={1.25} alignItems="center">
-            <IconButton>
-              <MenuIcon />
-            </IconButton>
-            <Typography variant="h6" className="dashboard-app-title">
-              Transformer &gt; All Inspections
-            </Typography>
-          </Stack>
-
-          <Box className="dashboard-flex-grow" />
-
-          <Tooltip title="Notifications">
-            <IconButton>
-              <Badge color="secondary" variant="dot">
-                <NotificationsIcon />
-              </Badge>
-            </IconButton>
-          </Tooltip>
+      <Stack spacing={2} sx={{ maxWidth: 1000, mx: "auto", width: "100%" }}>
+        {/* Section header card */}
+        <Paper elevation={3} className="dashboard-header-card">
           <Stack
-            direction="row"
-            spacing={1.25}
-            alignItems="center"
-            className="dashboard-user-info"
+            direction={{ xs: "column", md: "row" }}
+            spacing={2}
+            alignItems={{ xs: "stretch", md: "center" }}
+            className="dashboard-header-stack"
           >
-            <Avatar
-              src="./user.png"
-              sx={{ width: 36, height: 36 }}
-            />
-            <Box className="dashboard-user-details">
-              <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
-                Test User
+            <Stack direction="row" spacing={1.25} alignItems="center">
+              <Box className="dashboard-count-badge">{filtered.length}</Box>
+              <Typography variant="h6" className="dashboard-section-title">
+                All Inspections
               </Typography>
-              <Typography variant="caption" color="text.secondary">
-                testuser@gmail.com
-              </Typography>
-            </Box>
-          </Stack>
-        </Toolbar>
-      </AppBar>
-
-      {/* Push page content below fixed AppBar */}
-      <Box className="dashboard-inspections-content">
-        <Stack spacing={2} className="dashboard-inspections-stack">
-          {/* Header card */}
-          <Paper
-            elevation={3}
-            className="dashboard-header-card-full-width"
-          >
-            <Stack
-              direction={{ xs: "column", md: "row" }}
-              spacing={2}
-              alignItems={{ xs: "stretch", md: "center" }}
-              className="dashboard-header-stack"
-            >
-              <Stack direction="row" spacing={1.25} alignItems="center">
-                <Box className="dashboard-count-badge">
-                  {filtered.length}
-                </Box>
-                <Typography variant="h6" className="dashboard-section-title">
-                  All Inspections
-                </Typography>
-              </Stack>
-
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleOpenAdd}
-                className="dashboard-add-button"
-              >
-                Add Inspection
-              </Button>
-
-              <Box className="dashboard-flex-grow" />
-              <Paper elevation={3} className="dashboard-toggle-paper">
-                <ToggleButtonGroup
-                  value={view}
-                  exclusive
-                  onChange={(_, v) => v && onChangeView?.(v)}
-                >
-                  <ToggleButton
-                    value="transformers"
-                    className={`dashboard-toggle-button ${view === "transformers" ? "dashboard-toggle-button-active" : ""}`}
-                  >
-                    Transformers
-                  </ToggleButton>
-                  <ToggleButton
-                    value="inspections"
-                    className={`dashboard-toggle-button ${view === "inspections" ? "dashboard-toggle-button-active" : ""}`}
-                  >
-                    Inspections
-                  </ToggleButton>
-                </ToggleButtonGroup>
-              </Paper>
             </Stack>
 
-            {/* Filters row */}
-            <Stack
-              direction={{ xs: "column", lg: "row" }}
-              spacing={2}
-              alignItems="center"
-              className="dashboard-filter-container"
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleOpenAdd}
+              className="dashboard-add-button"
             >
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Search by Transformer / Inspection No / Branch / Inspector"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
+              Add Inspection
+            </Button>
+
+            {/* Pill toggle on the right side */}
+            <Box className="dashboard-flex-grow" />
+            <Paper elevation={3} className="dashboard-toggle-paper">
+              <ToggleButtonGroup
+                value={view}
+                exclusive
+                onChange={(_, v) => v && onChangeView?.(v)}
+                sx={{
+                  "& .MuiToggleButton-root": {
+                    border: 0,
+                    textTransform: "none",
+                    px: 2.2,
+                    py: 0.8,
+                    borderRadius: 999,
+                    fontWeight: 600,
+                  },
                 }}
-              />
-              <Select
-                size="small"
-                value={status}
-                onChange={(e) =>
-                  setStatus(e.target.value as ImageStatus | "All")
-                }
-                className="dashboard-filter-select"
               >
-                <MenuItem value="All">All Statuses</MenuItem>
-                <MenuItem value="baseline">Baseline</MenuItem>
-                <MenuItem value="maintenance">Maintenance</MenuItem>
-                <MenuItem value="no image">No Image</MenuItem>
-              </Select>
+                <ToggleButton
+                  value="transformers"
+                  className={`dashboard-toggle-button ${
+                    view === "transformers"
+                      ? "dashboard-toggle-button-active"
+                      : ""
+                  }`}
+                >
+                  Transformers
+                </ToggleButton>
+                <ToggleButton
+                  value="inspections"
+                  className={`dashboard-toggle-button ${
+                    view === "inspections"
+                      ? "dashboard-toggle-button-active"
+                      : ""
+                  }`}
+                >
+                  Inspections
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Paper>
+          </Stack>
 
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <StarIcon
-                  className="dashboard-star-icon"
-                  color={onlyFav ? "secondary" : "disabled"}
-                />
-                <Switch
-                  checked={onlyFav}
-                  onChange={(e) => setOnlyFav(e.target.checked)}
-                />
-                <Typography variant="body2" color="text.secondary">
-                  Favorites only
-                </Typography>
-              </Stack>
+          {/* Filter row */}
+          <Stack
+            direction={{ xs: "column", lg: "row" }}
+            spacing={2}
+            alignItems="center"
+            className="dashboard-filter-container"
+          >
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Search by Transformer / Inspection No / Branch / Inspector"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Select
+              size="small"
+              value={status}
+              onChange={(e) => setStatus(e.target.value as ImageStatus | "All")}
+              className="dashboard-filter-select"
+            >
+              <MenuItem value="All">All Statuses</MenuItem>
+              <MenuItem value="baseline">Baseline</MenuItem>
+              <MenuItem value="maintenance">Maintenance</MenuItem>
+              <MenuItem value="no image">No Image</MenuItem>
+            </Select>
 
-              <Button onClick={resetFilters} className="dashboard-reset-filters">
-                Reset Filters
-              </Button>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <StarIcon
+                className="dashboard-star-icon"
+                color={onlyFav ? "secondary" : "disabled"}
+              />
+              <Switch
+                checked={onlyFav}
+                onChange={(e) => setOnlyFav(e.target.checked)}
+              />
+              <Typography variant="body2" color="text.secondary">
+                Favorites only
+              </Typography>
             </Stack>
-          </Paper>
 
-          {/* Table */}
-          <Paper>
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell></TableCell>
-                    <TableCell
-                      sortDirection={
-                        orderBy === "transformerNo" ? order : false
-                      }
+            <Button onClick={resetFilters} className="dashboard-reset-filters">
+              Reset Filters
+            </Button>
+          </Stack>
+        </Paper>
+
+        {/* Table */}
+        <Paper>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell width={48}></TableCell>
+                  <TableCell
+                    sortDirection={orderBy === "transformerNo" ? order : false}
+                  >
+                    <TableSortLabel
+                      active={orderBy === "transformerNo"}
+                      direction={orderBy === "transformerNo" ? order : "asc"}
+                      onClick={() => handleSort("transformerNo")}
                     >
-                      <TableSortLabel
-                        active={orderBy === "transformerNo"}
-                        direction={orderBy === "transformerNo" ? order : "asc"}
-                        onClick={() => handleSort("transformerNo")}
-                      >
-                        <Typography fontWeight="bold">Transformer No.</Typography>
-                      </TableSortLabel>
-                    </TableCell>
-                    <TableCell
-                      sortDirection={orderBy === "branch" ? order : false}
+                      <Typography fontWeight="bold">Transformer No.</Typography>
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell
+                    sortDirection={orderBy === "branch" ? order : false}
+                  >
+                    <TableSortLabel
+                      active={orderBy === "branch"}
+                      direction={orderBy === "branch" ? order : "asc"}
+                      onClick={() => handleSort("branch")}
                     >
-                      <TableSortLabel
-                        active={orderBy === "branch"}
-                        direction={orderBy === "branch" ? order : "asc"}
-                        onClick={() => handleSort("branch")}
-                      >
-                        <Typography fontWeight="bold">Branch</Typography>
-                      </TableSortLabel>
-                    </TableCell>
-                    <TableCell
-                      sortDirection={orderBy === "inspector" ? order : false}
+                      <Typography fontWeight="bold">Branch</Typography>
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell
+                    sortDirection={orderBy === "inspector" ? order : false}
+                  >
+                    <TableSortLabel
+                      active={orderBy === "inspector"}
+                      direction={orderBy === "inspector" ? order : "asc"}
+                      onClick={() => handleSort("inspector")}
                     >
-                      <TableSortLabel
-                        active={orderBy === "inspector"}
-                        direction={orderBy === "inspector" ? order : "asc"}
-                        onClick={() => handleSort("inspector")}
-                      >
-                        <Typography fontWeight="bold">Inspector</Typography>
-                      </TableSortLabel>
-                    </TableCell>
-                    <TableCell><Typography fontWeight="bold">Inspection No.</Typography></TableCell>
-                    <TableCell
-                      sortDirection={
-                        orderBy === "inspectedDate" ? order : false
-                      }
+                      <Typography fontWeight="bold">Inspector</Typography>
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell>
+                    <Typography fontWeight="bold">Inspection No.</Typography>
+                  </TableCell>
+                  <TableCell
+                    sortDirection={orderBy === "inspectedDate" ? order : false}
+                  >
+                    <TableSortLabel
+                      active={orderBy === "inspectedDate"}
+                      direction={orderBy === "inspectedDate" ? order : "asc"}
+                      onClick={() => handleSort("inspectedDate")}
                     >
-                      <TableSortLabel
-                        active={orderBy === "inspectedDate"}
-                        direction={orderBy === "inspectedDate" ? order : "asc"}
-                        onClick={() => handleSort("inspectedDate")}
-                      >
-                        <Typography fontWeight="bold">Inspected Date</Typography>
-                      </TableSortLabel>
-                    </TableCell>
-                    <TableCell
-                      sortDirection={orderBy === "status" ? order : false}
+                      <Typography fontWeight="bold">Inspected Date</Typography>
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell
+                    sortDirection={orderBy === "status" ? order : false}
+                  >
+                    <TableSortLabel
+                      active={orderBy === "status"}
+                      direction={orderBy === "status" ? order : "asc"}
+                      onClick={() => handleSort("status")}
                     >
-                      <TableSortLabel
-                        active={orderBy === "status"}
-                        direction={orderBy === "status" ? order : "asc"}
-                        onClick={() => handleSort("status")}
+                      <Typography fontWeight="bold">Status</Typography>
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell align="right"></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paged.map((row) => (
+                  <TableRow key={row.id} hover>
+                    <TableCell width={48}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleToggleFavorite(row)}
+                        aria-label={row.favorite ? "unfavorite" : "favorite"}
                       >
-                        <Typography fontWeight="bold">Status</Typography>
-                      </TableSortLabel>
+                        {row.favorite ? (
+                          <StarIcon color="secondary" />
+                        ) : (
+                          <StarBorderIcon color="disabled" />
+                        )}
+                      </IconButton>
                     </TableCell>
-                    <TableCell align="right"></TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {paged.map((row) => (
-                    <TableRow key={row.id} hover>
-                      <TableCell>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleToggleFavorite(row)}
-                          aria-label={
-                            row.favorite ? "unfavorite" : "favorite"
-                          }
-                        >
-                          {row.favorite ? (
-                            <StarIcon color="secondary" />
-                          ) : (
-                            <StarBorderIcon color="disabled" />
-                          )}
-                        </IconButton>
-                      </TableCell>
-                      <TableCell>
-                        <Typography fontWeight={600}>
+                    <TableCell>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography className="dashboard-transformer-number">
                           {row.transformerNo}
                         </Typography>
-                      </TableCell>
-                      <TableCell>{row.branch}</TableCell>
-                      <TableCell>{row.inspector}</TableCell>
-                      <TableCell>{row.inspectionNo}</TableCell>
-                      <TableCell>{row.inspectedDate}</TableCell>
-                      <TableCell>{statusChip(row.status)}</TableCell>
-                      <TableCell align="right">
-                        <Stack
-                          direction="row"
-                          spacing={1}
-                          justifyContent="flex-end"
+                        <Chip
+                          size="small"
+                          label="↓"
+                          variant="outlined"
+                          className="dashboard-chip-arrow"
+                        />
+                      </Stack>
+                    </TableCell>
+                    <TableCell>{row.branch}</TableCell>
+                    <TableCell>{row.inspector}</TableCell>
+                    <TableCell>{row.inspectionNo}</TableCell>
+                    <TableCell>{row.inspectedDate}</TableCell>
+                    <TableCell>{statusChip(row.status)}</TableCell>
+                    <TableCell align="right">
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        justifyContent="flex-end"
+                      >
+                        <Button
+                          variant="contained"
+                          size="small"
+                          onClick={() =>
+                            navigate(
+                              `/${encodeURIComponent(
+                                row.transformerNo
+                              )}/${encodeURIComponent(row.inspectionNo)}`,
+                              { state: { from: "inspections-dashboard" } }
+                            )
+                          }
                         >
-                          <Button
-                            variant="contained"
-                            size="small"
-                            onClick={() =>
-                              navigate(
-                                `/${encodeURIComponent(
-                                  row.transformerNo
-                                )}/${encodeURIComponent(row.inspectionNo)}`
-                              )
-                            }
-                          >
-                            View
-                          </Button>
-                          <IconButton
-                            size="small"
-                            onClick={(e) => handleMenuClick(e, row.id)}
-                          >
-                            <MoreVertIcon />
-                          </IconButton>
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {paged.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={8}>
-                        <Box className="dashboard-no-results">
-                          <Typography>No results found</Typography>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            <TablePagination
-              component="div"
-              count={sorted.length}
-              page={page}
-              onPageChange={(_e, p) => setPage(p)}
-              rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={(e) => {
-                setRowsPerPage(parseInt(e.target.value, 10));
-                setPage(0);
-              }}
-              rowsPerPageOptions={[5, 10, 20, 50]}
-            />
-          </Paper>
-        </Stack>
-      </Box>
+                          View
+                        </Button>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => handleMenuClick(e, row.id)}
+                        >
+                          <MoreVertIcon />
+                        </IconButton>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {paged.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8}>
+                      <Box className="dashboard-no-results">
+                        <Typography>No results found</Typography>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination
+            component="div"
+            count={sorted.length}
+            page={page}
+            onPageChange={(_e, p) => setPage(p)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[5, 10, 20, 50]}
+          />
+        </Paper>
+      </Stack>
 
       {/* Actions Menu */}
       <Menu
@@ -922,6 +884,6 @@ export default function Inspections({
         inspectionId={deleteId}
         isDeleting={deleting}
       />
-      </LocalizationProvider>
+    </>
   );
 }

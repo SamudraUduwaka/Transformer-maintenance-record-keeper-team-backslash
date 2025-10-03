@@ -2,7 +2,6 @@ import * as React from "react";
 import {
   AppBar,
   Avatar,
-  Badge,
   Box,
   Button,
   Chip,
@@ -24,14 +23,12 @@ import {
   Select,
   Stack,
   Toolbar,
-  Tooltip,
   Typography,
 } from "@mui/material";
 import {
-  Menu as MenuIcon,
-  Notifications as NotificationsIcon,
+  ArrowBack as ArrowBackIcon,
   Settings as SettingsIcon,
-  Bolt as BoltIcon,
+  Search as SearchIcon,
   List as ListIcon,
   MoreVert as MoreVertIcon,
   Cloud as CloudIcon,
@@ -40,16 +37,21 @@ import {
   Upload as UploadIcon,
   Visibility as VisibilityIcon,
   DeleteOutline as DeleteOutlineIcon,
+  ZoomIn as ZoomInIcon,
+  ZoomOut as ZoomOutIcon,
+  CenterFocusStrong as CenterFocusStrongIcon,
 } from "@mui/icons-material";
 import { format } from "date-fns";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
+import PowerLensBranding from "../components/PowerLensBranding";
+import ThermalImageAnalysis from "../components/ThermalImageAnalysis";
 
 /* API Service */
 const API_BASE_URL = "http://localhost:8080/api";
 
 // ==== Cloudinary (UNSIGNED) helpers ====
 
-const CLOUD_NAME = "ddleqtgrj";//"djgapcqtj";
+const CLOUD_NAME = "ddleqtgrj"; //"djgapcqtj";
 const UNSIGNED_PRESET = "transformer_images_upload_unsigned";
 
 async function uploadUnsignedToCloudinary(file: File) {
@@ -108,7 +110,7 @@ async function fetchBaselineImage(transformerNo: string, weather: Weather) {
   }
 }
 
-const drawerWidth = 260;
+const drawerWidth = 200;
 
 /* Helpers */
 function StatPill({ top, bottom }: { top: string | number; bottom: string }) {
@@ -152,7 +154,24 @@ export default function InspectionDetails() {
   const inspectionId = Number(inspectionNo);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+
+  // Smart back navigation function
+  const handleBackNavigation = () => {
+    // Check if we came from transformer inspection page
+    const fromTransformerInspection =
+      location.state?.from === "transformer-inspection";
+    const transformerNo = location.state?.transformerNo;
+
+    if (fromTransformerInspection && transformerNo) {
+      // Navigate back to transformer inspection page
+      navigate(`/${transformerNo}`);
+    } else {
+      // Navigate back to main dashboard with inspections view
+      navigate("/?view=inspections");
+    }
+  };
 
   const [weather, setWeather] = React.useState<Weather>("Sunny");
 
@@ -262,6 +281,159 @@ export default function InspectionDetails() {
               : "transparent",
         }}
       />
+    );
+  };
+
+  /* ZoomableImage component with zoom and pan functionality */
+  interface ZoomableImageProps {
+    src: string;
+    alt: string;
+    style?: React.CSSProperties;
+    maxHeight?: number;
+  }
+
+  const ZoomableImage: React.FC<ZoomableImageProps> = ({
+    src,
+    alt,
+    style,
+    maxHeight = 400,
+  }) => {
+    const [scale, setScale] = React.useState(1);
+    const [position, setPosition] = React.useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = React.useState(false);
+    const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
+    const containerRef = React.useRef<HTMLDivElement>(null);
+
+    const handleZoomIn = () => {
+      setScale((prev) => Math.min(prev * 1.2, 5));
+    };
+
+    const handleZoomOut = () => {
+      setScale((prev) => Math.max(prev / 1.2, 0.5));
+    };
+
+    const handleReset = () => {
+      setScale(1);
+      setPosition({ x: 0, y: 0 });
+    };
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+      if (scale > 1) {
+        setIsDragging(true);
+        setDragStart({
+          x: e.clientX - position.x,
+          y: e.clientY - position.y,
+        });
+      }
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+      if (isDragging && scale > 1) {
+        setPosition({
+          x: e.clientX - dragStart.x,
+          y: e.clientY - dragStart.y,
+        });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    const handleWheel = (e: React.WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 1 / 1.1 : 1.1;
+      setScale((prev) => Math.min(Math.max(prev * delta, 0.5), 5));
+    };
+
+    return (
+      <Box sx={{ position: "relative", ...style }}>
+        {/* Image Container */}
+        <Box
+          ref={containerRef}
+          sx={{
+            width: "100%",
+            height: maxHeight,
+            overflow: "hidden",
+            borderRadius: 2,
+            cursor: scale > 1 ? (isDragging ? "grabbing" : "grab") : "default",
+            position: "relative",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            bgcolor: "#f5f5f5",
+          }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onWheel={handleWheel}
+        >
+          <img
+            src={src}
+            alt={alt}
+            style={{
+              maxWidth: "100%",
+              maxHeight: "100%",
+              transform: `scale(${scale}) translate(${position.x}px, ${position.y}px)`,
+              transition: isDragging ? "none" : "transform 0.2s ease",
+              borderRadius: 12,
+              objectFit: "contain",
+              userSelect: "none",
+              pointerEvents: "none",
+            }}
+            draggable={false}
+          />
+        </Box>
+
+        {/* Zoom Controls */}
+        <Box
+          sx={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            display: "flex",
+            flexDirection: "column",
+            gap: 1,
+            bgcolor: "rgba(255, 255, 255, 0.9)",
+            borderRadius: 1,
+            p: 0.5,
+            boxShadow: 1,
+          }}
+        >
+          <IconButton size="small" onClick={handleZoomIn} disabled={scale >= 5}>
+            <ZoomInIcon fontSize="small" />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={handleZoomOut}
+            disabled={scale <= 0.5}
+          >
+            <ZoomOutIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" onClick={handleReset}>
+            <CenterFocusStrongIcon fontSize="small" />
+          </IconButton>
+        </Box>
+
+        {/* Scale Indicator */}
+        <Box
+          sx={{
+            position: "absolute",
+            bottom: 8,
+            left: 8,
+            bgcolor: "rgba(0, 0, 0, 0.7)",
+            color: "white",
+            px: 1,
+            py: 0.5,
+            borderRadius: 1,
+            fontSize: 12,
+            fontWeight: 600,
+          }}
+        >
+          {Math.round(scale * 100)}%
+        </Box>
+      </Box>
     );
   };
 
@@ -530,12 +702,7 @@ export default function InspectionDetails() {
   /* Drawer */
   const drawer = (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ p: 2 }}>
-        <BoltIcon />
-        <Typography variant="h6" fontWeight={800}>
-          PowerLens
-        </Typography>
-      </Stack>
+      <PowerLensBranding />
       <Divider />
       <List sx={{ p: 1 }}>
         <ListItem disablePadding>
@@ -544,6 +711,14 @@ export default function InspectionDetails() {
               <ListIcon />
             </ListItemIcon>
             <ListItemText primary="Transformer" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton onClick={() => navigate("/?view=inspections")}>
+            <ListItemIcon>
+              <SearchIcon />
+            </ListItemIcon>
+            <ListItemText primary="Inspections" />
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>
@@ -576,21 +751,17 @@ export default function InspectionDetails() {
       >
         <Toolbar sx={{ minHeight: 64 }}>
           <Stack direction="row" spacing={1.25} alignItems="center">
-            <IconButton onClick={() => setMobileOpen(!mobileOpen)}>
-              <MenuIcon />
+            <IconButton
+              onClick={handleBackNavigation}
+              sx={{ color: "inherit" }}
+            >
+              <ArrowBackIcon />
             </IconButton>
             <Typography variant="h6" sx={{ fontWeight: 800 }}>
-              Transformer
+              Inspection Details
             </Typography>
           </Stack>
           <Box sx={{ flexGrow: 1 }} />
-          <Tooltip title="Notifications">
-            <IconButton>
-              <Badge color="secondary" variant="dot">
-                <NotificationsIcon />
-              </Badge>
-            </IconButton>
-          </Tooltip>
           <Stack
             direction="row"
             spacing={1.25}
@@ -876,46 +1047,11 @@ export default function InspectionDetails() {
             {inspection?.image ? (
               /* ===== Baseline + Thermal (if exists) ===== */
               inspection.image.type === "thermal" ? (
-                // Thermal + Baseline side by side
-                <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                  <Paper sx={{ p: 2.5, flex: 1 }}>
-                    <Typography variant="subtitle1" fontWeight={700}>
-                      Maintenance Image ({weather})
-                    </Typography>
-                    <Box mt={2}>
-                      {inspection.image ? (
-                        <img
-                          src={inspection.image.imageUrl}
-                          alt="Thermal"
-                          style={{ width: "100%", borderRadius: 12 }}
-                        />
-                      ) : (
-                        <Typography color="text.secondary">
-                          No maintenance image available
-                        </Typography>
-                      )}
-                    </Box>
-                  </Paper>
-
-                  <Paper sx={{ p: 2.5, flex: 1 }}>
-                    <Typography variant="subtitle1" fontWeight={700}>
-                      Baseline Image ({weather})
-                    </Typography>
-                    <Box mt={2}>
-                      {baselineImage?.url ? (
-                        <img
-                          src={baselineImage.url}
-                          alt="Baseline"
-                          style={{ width: "100%", borderRadius: 12 }}
-                        />
-                      ) : (
-                        <Typography color="text.secondary">
-                          No baseline image available
-                        </Typography>
-                      )}
-                    </Box>
-                  </Paper>
-                </Stack>
+                // Thermal analysis with intelligent bounding boxes
+                <ThermalImageAnalysis
+                  thermalImageUrl={inspection.image.imageUrl}
+                  baselineImageUrl={baselineImage?.url || ""}
+                />
               ) : (
                 // Baseline only
                 <Paper sx={{ p: 2.5 }}>
@@ -924,10 +1060,11 @@ export default function InspectionDetails() {
                   </Typography>
                   <Box mt={2}>
                     {inspection.image.imageUrl ? (
-                      <img
+                      <ZoomableImage
                         src={inspection.image.imageUrl}
                         alt="Baseline"
-                        style={{ width: "100%", borderRadius: 12 }}
+                        style={{ width: "100%" }}
+                        maxHeight={200}
                       />
                     ) : (
                       <Typography color="text.secondary">
@@ -1176,15 +1313,11 @@ export default function InspectionDetails() {
                   gap: 1.25,
                 }}
               >
-                <img
+                <ZoomableImage
                   src={preview}
                   alt="preview"
-                  style={{
-                    maxWidth: "100%",
-                    maxHeight: 200,
-                    borderRadius: 10,
-                    objectFit: "contain",
-                  }}
+                  style={{ width: "100%" }}
+                  maxHeight={200}
                 />
                 <Typography variant="body2" color="text.secondary">
                   {file?.name}
@@ -1285,26 +1418,18 @@ export default function InspectionDetails() {
             }}
           >
             {managePreview ? (
-              <img
+              <ZoomableImage
                 src={managePreview}
                 alt="baseline preview"
-                style={{
-                  maxWidth: "100%",
-                  maxHeight: 280,
-                  borderRadius: 10,
-                  objectFit: "contain",
-                }}
+                style={{ width: "100%" }}
+                maxHeight={280}
               />
             ) : baselines[manageWeather as Weather]?.url ? (
-              <img
+              <ZoomableImage
                 src={baselines[manageWeather as Weather]!.url}
                 alt="current baseline"
-                style={{
-                  maxWidth: "100%",
-                  maxHeight: 280,
-                  borderRadius: 10,
-                  objectFit: "contain",
-                }}
+                style={{ width: "100%" }}
+                maxHeight={280}
               />
             ) : (
               <Typography color="text.secondary">No image selected</Typography>
@@ -1352,15 +1477,11 @@ export default function InspectionDetails() {
         </DialogTitle>
         <DialogContent dividers>
           {viewer.url ? (
-            <img
+            <ZoomableImage
               src={viewer.url}
               alt="baseline"
-              style={{
-                width: "100%",
-                height: "auto",
-                display: "block",
-                borderRadius: 8,
-              }}
+              style={{ width: "100%" }}
+              maxHeight={window.innerHeight * 0.7}
             />
           ) : (
             <Typography>No image</Typography>

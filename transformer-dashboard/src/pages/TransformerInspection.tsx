@@ -2,7 +2,6 @@ import * as React from "react";
 import {
   AppBar,
   Avatar,
-  Badge,
   Box,
   Button,
   Divider,
@@ -16,7 +15,6 @@ import {
   Paper,
   Stack,
   Toolbar,
-  Tooltip,
   Typography,
   Table,
   TableBody,
@@ -29,10 +27,9 @@ import {
   MenuItem,
 } from "@mui/material";
 import {
-  Menu as MenuIcon,
-  Notifications as NotificationsIcon,
+  ArrowBack as ArrowBackIcon,
   Settings as SettingsIcon,
-  Bolt as BoltIcon,
+  Search as SearchIcon,
   List as ListIcon,
   MoreVert as MoreVertIcon,
   Star as StarIcon,
@@ -43,8 +40,11 @@ import {
   Delete as DeleteIcon,
 } from "@mui/icons-material";
 import { useParams, useNavigate } from "react-router-dom";
+import PowerLensBranding from "../components/PowerLensBranding";
 import AddInspectionDialog from "../models/AddInspectionDialog";
-import EditInspectionDialog, { type InspectionRow as EditInspectionRow } from "../models/EditInspectionDialog";
+import EditInspectionDialog, {
+  type InspectionRow as EditInspectionRow,
+} from "../models/EditInspectionDialog";
 import DeleteInspectionConfirmationDialog from "../models/DeleteInspectionConfirmationDialog";
 
 /* ================= Backend DTOs (inline, no shared files) ================= */
@@ -140,17 +140,17 @@ function determineImageStatus(dto: InspectionDTO): ImageStatus {
   if (!dto.image || !dto.image.type) {
     return "no image";
   }
-  
+
   // If the image type is explicitly baseline, return baseline
   if (dto.image.type === "baseline") {
     return "baseline";
   }
-  
+
   // If the image type is thermal/maintenance, return maintenance
   if (dto.image.type === "thermal" || dto.image.type === "maintenance") {
     return "maintenance";
   }
-  
+
   // Default fallback - treat any other image as maintenance
   return "maintenance";
 }
@@ -172,7 +172,7 @@ function dtoToRow(dto: InspectionDTO): InspectionRow {
   };
 }
 
-const drawerWidth = 260;
+const drawerWidth = 200;
 
 /* ---------------- Small UI helpers ---------------- */
 const statusChip = (s: ImageStatus) => {
@@ -261,7 +261,8 @@ export default function TransformerInspection() {
 
   // edit dialog
   const [editOpen, setEditOpen] = React.useState(false);
-  const [editingInspection, setEditingInspection] = React.useState<EditInspectionRow | null>(null);
+  const [editingInspection, setEditingInspection] =
+    React.useState<EditInspectionRow | null>(null);
   const [saving, setSaving] = React.useState(false);
 
   // delete dialog
@@ -313,7 +314,17 @@ export default function TransformerInspection() {
       });
       setRows((prev) => [dtoToRow(created), ...prev]);
       setAddOpen(false);
-      navigate(`/${encodeURIComponent(inspectionData.transformerNo)}/${pad8(created.inspectionId)}`);
+      navigate(
+        `/${encodeURIComponent(inspectionData.transformerNo)}/${pad8(
+          created.inspectionId
+        )}`,
+        {
+          state: {
+            from: "transformer-inspection",
+            transformerNo: inspectionData.transformerNo,
+          },
+        }
+      );
     } catch {
       setError("Failed to create inspection");
       throw new Error("Failed to create inspection"); // Re-throw so dialog can handle error state
@@ -352,7 +363,6 @@ export default function TransformerInspection() {
     closeRowMenu();
   };
 
-
   const handleConfirmEdit = async (
     id: number,
     inspectionData: {
@@ -370,9 +380,7 @@ export default function TransformerInspection() {
         json: inspectionData,
       });
 
-      setRows((prev) =>
-        prev.map((r) => (r.id === id ? dtoToRow(updated) : r))
-      );
+      setRows((prev) => prev.map((r) => (r.id === id ? dtoToRow(updated) : r)));
       setEditOpen(false);
       setEditingInspection(null);
     } catch {
@@ -416,12 +424,7 @@ export default function TransformerInspection() {
   /* Drawer */
   const drawer = (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ p: 2 }}>
-        <BoltIcon />
-        <Typography variant="h6" fontWeight={800}>
-          PowerLens
-        </Typography>
-      </Stack>
+      <PowerLensBranding />
       <Divider />
       <List sx={{ p: 1 }}>
         <ListItem disablePadding>
@@ -430,6 +433,14 @@ export default function TransformerInspection() {
               <ListIcon />
             </ListItemIcon>
             <ListItemText primary="Transformer" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton onClick={() => navigate("/")}>
+            <ListItemIcon>
+              <SearchIcon />
+            </ListItemIcon>
+            <ListItemText primary="Inspections" />
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>
@@ -460,25 +471,18 @@ export default function TransformerInspection() {
           borderRadius: 0,
         }}
       >
-        <Toolbar sx={{ minHeight: 72 }}>
+        <Toolbar sx={{ minHeight: 64 }}>
           <Stack direction="row" spacing={1.25} alignItems="center">
-            <IconButton onClick={() => setMobileOpen(!mobileOpen)}>
-              <MenuIcon />
+            <IconButton onClick={() => navigate("/")} sx={{ color: "inherit" }}>
+              <ArrowBackIcon />
             </IconButton>
             <Typography variant="h6" sx={{ fontWeight: 800 }}>
-              Transformers
+              Transformer Inspections
             </Typography>
           </Stack>
 
           <Box sx={{ flexGrow: 1 }} />
 
-          <Tooltip title="Notifications">
-            <IconButton>
-              <Badge color="secondary" variant="dot">
-                <NotificationsIcon />
-              </Badge>
-            </IconButton>
-          </Tooltip>
           <Stack
             direction="row"
             spacing={1.25}
@@ -751,7 +755,13 @@ export default function TransformerInspection() {
                                   navigate(
                                     `/${encodeURIComponent(
                                       row.transformerNo
-                                    )}/${encodeURIComponent(row.inspectionNo)}`
+                                    )}/${encodeURIComponent(row.inspectionNo)}`,
+                                    {
+                                      state: {
+                                        from: "transformer-inspection",
+                                        transformerNo: row.transformerNo,
+                                      },
+                                    }
                                   )
                                 }
                               >
@@ -837,6 +847,8 @@ export default function TransformerInspection() {
         onClose={handleCloseAdd}
         onConfirm={handleConfirmAdd}
         isCreating={creating}
+        defaultTransformerNo={transformerNo}
+        defaultBranch={transformer?.region}
       />
 
       {/* ---------- Edit Inspection Dialog ---------- */}
