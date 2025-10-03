@@ -81,6 +81,7 @@ def main():
     ap.add_argument("--outline_thickness", type=int, default=4, help="Polygon boundary thickness (px)")
     ap.add_argument("--halo", type=int, default=2, help="Extra halo around outline for visibility (px)")
     ap.add_argument("--label_scale", type=float, default=0.5, help="Label text scale")
+    ap.add_argument("--stdout_json", action="store_true", help="Also emit each prediction JSON object to stdout")
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
@@ -175,7 +176,10 @@ def main():
                 # Use timezone-aware UTC timestamp (avoid deprecated utcnow())
                 "timestamp": datetime.now(timezone.utc).isoformat()
             }
-            f.write(json.dumps(rec) + "\n")
+            line = json.dumps(rec)
+            f.write(line + "\n")
+            if args.stdout_json:
+                print(line, flush=True)
 
             img = cv2.imread(p)
             if img is not None:
