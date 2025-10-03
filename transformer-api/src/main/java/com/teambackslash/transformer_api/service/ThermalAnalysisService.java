@@ -3,7 +3,10 @@ package com.teambackslash.transformer_api.service;
 import com.teambackslash.transformer_api.dto.BoundingBoxDTO;
 import com.teambackslash.transformer_api.dto.ThermalAnalysisDTO;
 import com.teambackslash.transformer_api.dto.ThermalIssueDTO;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import lombok.RequiredArgsConstructor;
+import com.teambackslash.transformer_api.dto.PredictionDTO;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -15,7 +18,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Service
+@RequiredArgsConstructor
 public class ThermalAnalysisService {
+
+    private final PythonInferenceService pythonInferenceService;
+    private final InferenceToThermalMapper inferenceToThermalMapper;
+
+    @Value("${inference.real.enabled:false}")
+    private boolean realInferenceEnabled;
 
     private static final Random random = new Random();
     
@@ -51,19 +61,19 @@ public class ThermalAnalysisService {
 
     public ThermalAnalysisDTO analyzeThermalImage(String imageUrl) {
         long startTime = System.currentTimeMillis();
-        
+
+        if (realInferenceEnabled) {
+            PredictionDTO prediction = pythonInferenceService.runInferenceFromUrl(imageUrl);
+            long proc = System.currentTimeMillis() - startTime;
+            return inferenceToThermalMapper.adapt(imageUrl, prediction, proc);
+        }
+
+        // Fallback legacy random path
         try {
-            // Download and validate the image
             BufferedImage image = downloadImage(imageUrl);
-            
-            // Generate random thermal issues based on the image dimensions
             List<ThermalIssueDTO> issues = generateRandomThermalIssues(image.getWidth(), image.getHeight());
-            
-            // Calculate overall score based on issues
             double overallScore = calculateOverallScore(issues);
-            
             long processingTime = System.currentTimeMillis() - startTime;
-            
             return new ThermalAnalysisDTO(
                 imageUrl,
                 LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
@@ -71,7 +81,6 @@ public class ThermalAnalysisService {
                 overallScore,
                 processingTime
             );
-            
         } catch (IOException e) {
             throw new RuntimeException("Failed to download or process thermal image: " + e.getMessage(), e);
         }
