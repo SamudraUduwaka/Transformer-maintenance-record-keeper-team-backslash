@@ -15,4 +15,5 @@ public class ThermalAnalysisDTO {
     private List<ThermalIssueDTO> issues;
     private Double overallScore;
     private Long processingTime;
+    private Long predictionId; // null if not persisted
 }
