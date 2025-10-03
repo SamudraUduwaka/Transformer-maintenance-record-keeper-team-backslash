@@ -51,6 +51,7 @@ interface ThermalImageAnalysisProps {
   baselineImageUrl?: string;
   onAnalysisComplete?: (analysis: ThermalAnalysisData) => void;
   loading?: boolean;
+  transformerNo?: string; // new: required for backend persistence of predictions
 }
 
 const SEVERITY_COLORS = {
@@ -262,6 +263,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   baselineImageUrl,
   onAnalysisComplete,
   loading = false,
+  transformerNo,
 }) => {
   const [analysisData, setAnalysisData] = useState<ThermalAnalysisData | null>(
     null
@@ -276,6 +278,9 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   const analyzeThermalImage = async (
     imageUrl: string
   ): Promise<ThermalAnalysisData> => {
+    if (!transformerNo) {
+      console.warn("ThermalImageAnalysis: transformerNo not provided; prediction persistence will be skipped on backend.");
+    }
     // Try relative URL first (with proxy), then fall back to direct URL
     const apiUrls = [
       "/api/images/thermal-analysis",
@@ -292,6 +297,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
           body: JSON.stringify({
             imageUrl: imageUrl,
             analysisType: "thermal",
+            transformerNo: transformerNo || undefined,
           }),
         });
 
