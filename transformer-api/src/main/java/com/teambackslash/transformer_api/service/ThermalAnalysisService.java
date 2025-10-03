@@ -4,6 +4,9 @@ import com.teambackslash.transformer_api.dto.BoundingBoxDTO;
 import com.teambackslash.transformer_api.dto.ThermalAnalysisDTO;
 import com.teambackslash.transformer_api.dto.ThermalIssueDTO;
 import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
+import com.teambackslash.transformer_api.repository.TransformerRepository;
+import com.teambackslash.transformer_api.entity.Transformer;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import com.teambackslash.transformer_api.dto.PredictionDTO;
@@ -19,13 +22,22 @@ import java.util.*;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ThermalAnalysisService {
 
     private final PythonInferenceService pythonInferenceService;
     private final InferenceToThermalMapper inferenceToThermalMapper;
+    private final PredictionPersistenceService predictionPersistenceService;
+    private final TransformerRepository transformerRepository;
 
     @Value("${inference.real.enabled:false}")
     private boolean realInferenceEnabled;
+
+    @Value("${inference.persist.enabled:false}")
+    private boolean persistEnabled;
+
+    @Value("${inference.persist.autocreate.transformer:false}")
+    private boolean autoCreateTransformer;
 
     private static final Random random = new Random();
     
@@ -60,12 +72,32 @@ public class ThermalAnalysisService {
     );
 
     public ThermalAnalysisDTO analyzeThermalImage(String imageUrl) {
+        return analyzeThermalImage(imageUrl, null);
+    }
+
+    public ThermalAnalysisDTO analyzeThermalImage(String imageUrl, String transformerNo) {
         long startTime = System.currentTimeMillis();
 
         if (realInferenceEnabled) {
             PredictionDTO prediction = pythonInferenceService.runInferenceFromUrl(imageUrl);
             long proc = System.currentTimeMillis() - startTime;
-            return inferenceToThermalMapper.adapt(imageUrl, prediction, proc);
+            ThermalAnalysisDTO adapted = inferenceToThermalMapper.adapt(imageUrl, prediction, proc);
+            if (persistEnabled) {
+                String resolvedTransformer = transformerNo != null && !transformerNo.isBlank() ? transformerNo : extractTransformerNo(imageUrl);
+                try {
+                    if (!"UNKNOWN".equals(resolvedTransformer)) {
+                        ensureTransformerExists(resolvedTransformer);
+                        Long id = predictionPersistenceService.persistPrediction(resolvedTransformer, prediction);
+                        adapted.setPredictionId(id);
+                        log.info("Persisted prediction id={} transformer={} detections={}", id, resolvedTransformer, prediction.getDetections().size());
+                    } else {
+                        log.warn("Skipping persistence - unresolved transformer number for imageUrl={} (provide transformerNo)", imageUrl);
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to persist prediction for transformer={} imageUrl={} : {}", resolvedTransformer, imageUrl, e.getMessage());
+                }
+            }
+            return adapted;
         }
 
         // Fallback legacy random path
@@ -79,7 +111,8 @@ public class ThermalAnalysisService {
                 LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                 issues,
                 overallScore,
-                processingTime
+                processingTime,
+                null
             );
         } catch (IOException e) {
             throw new RuntimeException("Failed to download or process thermal image: " + e.getMessage(), e);
@@ -204,6 +237,43 @@ public class ThermalAnalysisService {
             this.severity = severity;
             this.description = description;
             this.recommendations = recommendations;
+        }
+    }
+
+    private String extractTransformerNo(String imageUrl) {
+        // Placeholder heuristic: look for '/T' followed by digits and optional underscore, else return 'UNKNOWN'.
+        // You should replace this with an explicit transformerNo parameter plumbed from controller/request DTO.
+        String upper = imageUrl.toUpperCase();
+        int idx = upper.indexOf("/T");
+        if (idx == -1) idx = upper.indexOf("T");
+        if (idx != -1) {
+            int start = idx + 1; // after 'T'
+            StringBuilder sb = new StringBuilder("T");
+            for (int i = start; i < upper.length(); i++) {
+                char c = upper.charAt(i);
+                if (Character.isDigit(c) || c=='-' ) { sb.append(c); }
+                else break;
+            }
+            if (sb.length() > 1) return sb.toString();
+        }
+        return "UNKNOWN";
+    }
+
+    private void ensureTransformerExists(String transformerNo) {
+        if (transformerRepository.existsById(transformerNo)) return;
+        if (!autoCreateTransformer) return;
+        try {
+            Transformer t = new Transformer();
+            t.setTransformerNo(transformerNo);
+            t.setPoleNo("AUTO");
+            t.setRegion("AUTO");
+            t.setType("AUTO");
+            t.setLocation("AUTO-CREATED");
+            t.setFavorite(false);
+            transformerRepository.save(t);
+            log.info("Auto-created transformer {} for prediction persistence", transformerNo);
+        } catch (Exception e) {
+            log.warn("Failed auto-create transformer {}: {}", transformerNo, e.getMessage());
         }
     }
 }
