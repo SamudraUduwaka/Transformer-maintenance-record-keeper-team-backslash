@@ -7,8 +7,6 @@ import com.teambackslash.transformer_api.dto.DetectionDTO;
 import com.teambackslash.transformer_api.dto.PredictionDTO;
 import com.teambackslash.transformer_api.entity.Prediction;
 import com.teambackslash.transformer_api.entity.PredictionDetection;
-import com.teambackslash.transformer_api.entity.Transformer;
-import com.teambackslash.transformer_api.exception.ResourceNotFoundException;
 import com.teambackslash.transformer_api.repository.PredictionRepository;
 import com.teambackslash.transformer_api.repository.TransformerRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,14 +26,16 @@ public class PredictionPersistenceService {
     @Transactional
     public Long persistPrediction(String transformerNo, PredictionDTO dto) {
     log.debug("Persisting prediction for transformer={} label={} detections={}", transformerNo, dto.getPredictedImageLabel(), dto.getDetections()==null?0:dto.getDetections().size());
-    Transformer transformer = transformerRepository.findById(transformerNo)
-        .orElseThrow(() -> {
-            log.warn("Transformer {} not found, cannot persist prediction", transformerNo);
-            return new ResourceNotFoundException("Transformer not found: " + transformerNo);
-        });
+    // Optional validation: ensure transformer exists; if not, either throw or just log and continue.
+    if (transformerNo != null && !transformerNo.isBlank()) {
+        boolean transformerExists = transformerRepository.existsById(transformerNo);
+        if (!transformerExists) {
+            log.warn("Transformer {} not found; persisting prediction (column removed)", transformerNo);
+        }
+    }
 
         Prediction p = new Prediction();
-        p.setTransformer(transformer);
+    // No transformer reference stored on prediction anymore
         p.setSourceImagePath(dto.getImagePath());
         p.setPredictedLabel(dto.getPredictedImageLabel());
         p.setModelTimestamp(dto.getTimestamp());

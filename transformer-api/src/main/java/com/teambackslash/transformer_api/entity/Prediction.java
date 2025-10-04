@@ -25,9 +25,7 @@ public class Prediction {
     @JoinColumn(name = "inspection_id")
     private Inspection inspection;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "transformer_no", nullable = false)
-    private Transformer transformer;
+    // transformer_no removed per request; predictions are no longer tied to a transformer column
 
     @Column(name = "source_image_path", length = 500)
     private String sourceImagePath;
