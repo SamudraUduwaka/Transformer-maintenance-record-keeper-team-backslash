@@ -42,8 +42,5 @@ public class PredictionDetection {
     @Column(name = "bbox_h")
     private Integer bboxH;
 
-    // Polygon stored as JSON. Use LONGTEXT to avoid truncation for large masks.
-    @Lob
-    @Column(name = "polygon_json", columnDefinition = "LONGTEXT")
-    private String polygonJson;
+    // polygon_json removed per request; not stored in DB anymore
 }

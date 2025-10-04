@@ -1,7 +1,5 @@
 package com.teambackslash.transformer_api.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.teambackslash.transformer_api.dto.BoundingBoxDTO;
 import com.teambackslash.transformer_api.dto.DetectionDTO;
 import com.teambackslash.transformer_api.dto.PredictionDTO;
@@ -23,7 +21,7 @@ public class PredictionPersistenceService {
     private final PredictionRepository predictionRepository;
     private final TransformerRepository transformerRepository;
     private final InspectionRepository inspectionRepository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    // Removed ObjectMapper; polygon_json no longer stored
 
     @Transactional
     public Long persistPrediction(String transformerNo, PredictionDTO dto, Integer inspectionId) {
@@ -62,21 +60,7 @@ public class PredictionPersistenceService {
                     pd.setBboxW(b.getWidth());
                     pd.setBboxH(b.getHeight());
                 }
-                // store polygon
-                try {
-                    // Reduce JSON size: round coordinates to 2 decimals
-                    var rounded = d.getPolygon().stream().map(pair -> {
-                        if (pair.size() >= 2) {
-                            double x = Math.round(pair.get(0) * 100.0) / 100.0;
-                            double y = Math.round(pair.get(1) * 100.0) / 100.0;
-                            return java.util.List.of(x, y);
-                        }
-                        return pair;
-                    }).toList();
-                    pd.setPolygonJson(objectMapper.writeValueAsString(rounded));
-                } catch (JsonProcessingException e) {
-                    pd.setPolygonJson("[]");
-                }
+                // polygon_json removed; not persisted
                 p.addDetection(pd);
             }
         }
