@@ -36,7 +36,7 @@ public class PredictionPersistenceService {
 
         Prediction p = new Prediction();
     // No transformer reference stored on prediction anymore
-        p.setSourceImagePath(dto.getImagePath());
+    // No longer storing source image path on predictions
         p.setPredictedLabel(dto.getPredictedImageLabel());
         p.setModelTimestamp(dto.getTimestamp());
         p.setIssueCount(dto.getDetections() != null ? dto.getDetections().size() : 0);

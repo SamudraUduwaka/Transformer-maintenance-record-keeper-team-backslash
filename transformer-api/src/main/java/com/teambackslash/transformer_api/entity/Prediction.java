@@ -27,8 +27,7 @@ public class Prediction {
 
     // transformer_no removed per request; predictions are no longer tied to a transformer column
 
-    @Column(name = "source_image_path", length = 500)
-    private String sourceImagePath;
+    // source_image_path removed per request; not stored in DB anymore
 
     @Column(name = "predicted_label", length = 100)
     private String predictedLabel;
