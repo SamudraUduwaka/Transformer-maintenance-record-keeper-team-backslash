@@ -35,8 +35,7 @@ public class Prediction {
     @Column(name = "model_timestamp", length = 50)
     private String modelTimestamp; // keep original string from Python
 
-    @Column(name = "overall_score")
-    private Double overallScore; // optional aggregate (can be null for now)
+    // overall_score removed; we don’t persist it on predictions anymore
 
     @Column(name = "issue_count")
     private Integer issueCount;
