@@ -1,0 +1,15 @@
+yolo segment predict `
+   model="C:\Users\admin\Desktop\Semester 7\Fault Detection v11\runs_yolo\tx_seg_5c_v11_cpu2\weights\best.pt" `
+   source="C:\Users\admin\Desktop\Semester 7\Fault Detection v11\train\images" `
+   device=cpu imgsz=640 conf=0.25 iou=0.025 max_det=300 save=True `
+   project="C:\Users\admin\Desktop\Semester 7\Fault Detection v11\runs_yolo" `
+   name="test_preds_v11_recall"
+
+
+python ".\seg_infer_and_label_5c.py" `
+  --weights "runs_yolo\tx_seg_5c_v11_cpu2\weights\best.pt" `
+  --source  "test\images" `
+  --out "predictions_outline_v11_dedup" `
+  --conf 0.25 --iou 0.025 --imgsz 640 `
+  --nms_mask_iou 0.60 --suppress_yellow_with_red `
+  --outline_thickness 4 --halo 2 --label_scale 0.55

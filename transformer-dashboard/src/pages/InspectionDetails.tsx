@@ -217,6 +217,8 @@ export default function InspectionDetails() {
     branch?: string;
     inspector?: string;
     // Add other fields as needed
+    transformerNo?: string;
+    transformer?: { transformerNo?: string };
   };
 
   /* Helper function to determine image status */
@@ -1051,6 +1053,7 @@ export default function InspectionDetails() {
                 <ThermalImageAnalysis
                   thermalImageUrl={inspection.image.imageUrl}
                   baselineImageUrl={baselineImage?.url || ""}
+                  transformerNo={inspection.transformerNo || inspection.transformer?.transformerNo || transformerNo}
                 />
               ) : (
                 // Baseline only
