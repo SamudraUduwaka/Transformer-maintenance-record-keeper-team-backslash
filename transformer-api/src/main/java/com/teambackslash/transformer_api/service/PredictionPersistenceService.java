@@ -54,8 +54,6 @@ public class PredictionPersistenceService {
             for (DetectionDTO d : dto.getDetections()) {
                 PredictionDetection pd = new PredictionDetection();
                 pd.setClassId(d.getClassId());
-                pd.setClassName(d.getClassName());
-                pd.setReason(d.getReason());
                 pd.setConfidence(d.getConfidence());
                 if (d.getBoundingBox() != null) {
                     BoundingBoxDTO b = d.getBoundingBox();

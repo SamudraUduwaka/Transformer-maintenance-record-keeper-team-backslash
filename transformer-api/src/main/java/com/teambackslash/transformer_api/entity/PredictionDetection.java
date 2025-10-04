@@ -24,11 +24,10 @@ public class PredictionDetection {
     @Column(name = "class_id")
     private Integer classId;
 
-    @Column(name = "class_name", length = 100)
-    private String className;
 
-    @Column(name = "reason", length = 300)
-    private String reason;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "class_id", referencedColumnName = "class_id", insertable = false, updatable = false)
+    private DetectionClass detectionClass;
 
     @Column(name = "confidence")
     private Double confidence;
