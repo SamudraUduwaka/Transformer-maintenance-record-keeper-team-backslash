@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -47,7 +48,7 @@ public class Prediction {
     private LocalDateTime createdAt;
 
     @PrePersist
-    void onCreate(){ this.createdAt = LocalDateTime.now(); }
+    void onCreate(){ this.createdAt = LocalDateTime.now(ZoneId.of("Asia/Colombo")); }
 
     public void addDetection(PredictionDetection d){
         d.setPrediction(this);
