@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,12 +26,9 @@ public class Prediction {
     @JoinColumn(name = "inspection_id")
     private Inspection inspection;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "transformer_no", nullable = false)
-    private Transformer transformer;
+    // transformer_no removed per request; predictions are no longer tied to a transformer column
 
-    @Column(name = "source_image_path", length = 500)
-    private String sourceImagePath;
+    // source_image_path removed per request; not stored in DB anymore
 
     @Column(name = "predicted_label", length = 100)
     private String predictedLabel;
@@ -38,8 +36,7 @@ public class Prediction {
     @Column(name = "model_timestamp", length = 50)
     private String modelTimestamp; // keep original string from Python
 
-    @Column(name = "overall_score")
-    private Double overallScore; // optional aggregate (can be null for now)
+    // overall_score removed; we don’t persist it on predictions anymore
 
     @Column(name = "issue_count")
     private Integer issueCount;
@@ -51,7 +48,7 @@ public class Prediction {
     private LocalDateTime createdAt;
 
     @PrePersist
-    void onCreate(){ this.createdAt = LocalDateTime.now(); }
+    void onCreate(){ this.createdAt = LocalDateTime.now(ZoneId.of("Asia/Colombo")); }
 
     public void addDetection(PredictionDetection d){
         d.setPrediction(this);

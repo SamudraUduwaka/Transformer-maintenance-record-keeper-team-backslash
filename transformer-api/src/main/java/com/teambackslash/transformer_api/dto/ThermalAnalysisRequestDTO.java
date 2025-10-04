@@ -9,4 +9,5 @@ public class ThermalAnalysisRequestDTO {
     private String imageUrl;
     private String analysisType;
     private String transformerNo; // new: used for persistence of predictions
+    private Integer inspectionId; // optional: link prediction to an inspection
 }

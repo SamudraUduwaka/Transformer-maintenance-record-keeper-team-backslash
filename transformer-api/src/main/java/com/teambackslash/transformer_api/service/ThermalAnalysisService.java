@@ -6,7 +6,11 @@ import com.teambackslash.transformer_api.dto.ThermalIssueDTO;
 import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
 import com.teambackslash.transformer_api.repository.TransformerRepository;
+import com.teambackslash.transformer_api.repository.ImageRepository;
+import com.teambackslash.transformer_api.repository.PredictionRepository;
 import com.teambackslash.transformer_api.entity.Transformer;
+import com.teambackslash.transformer_api.entity.Prediction;
+import com.teambackslash.transformer_api.entity.PredictionDetection;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import com.teambackslash.transformer_api.dto.PredictionDTO;
@@ -29,6 +33,8 @@ public class ThermalAnalysisService {
     private final InferenceToThermalMapper inferenceToThermalMapper;
     private final PredictionPersistenceService predictionPersistenceService;
     private final TransformerRepository transformerRepository;
+    private final ImageRepository imageRepository;
+    private final PredictionRepository predictionRepository;
 
     @Value("${inference.real.enabled:false}")
     private boolean realInferenceEnabled;
@@ -72,11 +78,32 @@ public class ThermalAnalysisService {
     );
 
     public ThermalAnalysisDTO analyzeThermalImage(String imageUrl) {
-        return analyzeThermalImage(imageUrl, null);
+        return analyzeThermalImage(imageUrl, null, null);
     }
 
     public ThermalAnalysisDTO analyzeThermalImage(String imageUrl, String transformerNo) {
+        return analyzeThermalImage(imageUrl, transformerNo, null);
+    }
+
+    public ThermalAnalysisDTO analyzeThermalImage(String imageUrl, String transformerNo, Integer inspectionId) {
         long startTime = System.currentTimeMillis();
+
+        // 1) Resolve inspection id upfront
+        Integer finalInspectionId = resolveInspectionId(imageUrl, inspectionId);
+
+        // 2) If we already have a prediction for this inspection, short‑circuit and return it
+        if (finalInspectionId != null) {
+            var existingOpt = predictionRepository.findTopByInspection_InspectionIdOrderByCreatedAtDesc(finalInspectionId);
+            if (existingOpt.isPresent()) {
+                Prediction existing = existingOpt.get();
+                PredictionDTO dto = mapPredictionEntityToDTO(existing);
+                long proc = System.currentTimeMillis() - startTime;
+                ThermalAnalysisDTO adapted = inferenceToThermalMapper.adapt(imageUrl, dto, proc);
+                adapted.setPredictionId(existing.getId());
+                log.info("Reuse existing prediction id={} for inspectionId={} (no model run)", existing.getId(), finalInspectionId);
+                return adapted;
+            }
+        }
 
         if (realInferenceEnabled) {
             PredictionDTO prediction = pythonInferenceService.runInferenceFromUrl(imageUrl);
@@ -87,7 +114,8 @@ public class ThermalAnalysisService {
                 try {
                     if (!"UNKNOWN".equals(resolvedTransformer)) {
                         ensureTransformerExists(resolvedTransformer);
-                        Long id = predictionPersistenceService.persistPrediction(resolvedTransformer, prediction);
+                        // Persist with resolved inspection id (if any)
+                        Long id = predictionPersistenceService.persistPrediction(resolvedTransformer, prediction, finalInspectionId);
                         adapted.setPredictionId(id);
                         log.info("Persisted prediction id={} transformer={} detections={}", id, resolvedTransformer, prediction.getDetections().size());
                     } else {
@@ -117,6 +145,44 @@ public class ThermalAnalysisService {
         } catch (IOException e) {
             throw new RuntimeException("Failed to download or process thermal image: " + e.getMessage(), e);
         }
+    }
+
+    private Integer resolveInspectionId(String imageUrl, Integer inspectionId) {
+        if (inspectionId != null) return inspectionId;
+        return imageRepository.findFirstByImageUrl(imageUrl)
+            .map(img -> img.getInspection() != null ? img.getInspection().getInspectionId() : null)
+            .orElse(null);
+    }
+
+    private PredictionDTO mapPredictionEntityToDTO(Prediction p) {
+        var dto = new PredictionDTO();
+        dto.setPredictedImageLabel(p.getPredictedLabel());
+        dto.setTimestamp(p.getModelTimestamp());
+        var detDtos = new ArrayList<com.teambackslash.transformer_api.dto.DetectionDTO>();
+        if (p.getDetections() != null) {
+            for (PredictionDetection d : p.getDetections()) {
+                Integer classId = d.getClassId();
+                String className = d.getDetectionClass() != null ? d.getDetectionClass().getClassName() : null;
+                String reason = d.getDetectionClass() != null ? d.getDetectionClass().getReason() : null;
+                var bbox = new BoundingBoxDTO(
+                    d.getBboxX() != null ? d.getBboxX() : 0,
+                    d.getBboxY() != null ? d.getBboxY() : 0,
+                    d.getBboxW() != null ? d.getBboxW() : 0,
+                    d.getBboxH() != null ? d.getBboxH() : 0
+                );
+                // polygon no longer stored; return empty list
+                detDtos.add(new com.teambackslash.transformer_api.dto.DetectionDTO(
+                    classId,
+                    className,
+                    reason,
+                    d.getConfidence(),
+                    java.util.List.of(),
+                    bbox
+                ));
+            }
+        }
+        dto.setDetections(detDtos);
+        return dto;
     }
 
     private BufferedImage downloadImage(String imageUrl) throws IOException {

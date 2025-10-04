@@ -11,6 +11,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { Autocomplete } from "@mui/material";
 import { Close as CloseIcon } from "@mui/icons-material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { TimePicker } from "@mui/x-date-pickers/TimePicker";
@@ -56,6 +57,17 @@ export const AddInspectionDialog: React.FC<AddInspectionDialogProps> = ({
   const [time, setTime] = React.useState("");
   const [inspector, setInspector] = React.useState("");
 
+  // API base (env override first)
+  const API_BASE =
+    (import.meta.env as { VITE_API_BASE_URL?: string }).VITE_API_BASE_URL ??
+    "http://localhost:8080/api";
+
+  // Transformers list for dropdown
+  type Transformer = { transformerNo: string; region?: string };
+  const [transformers, setTransformers] = React.useState<Transformer[]>([]);
+  const [loadingTransformers, setLoadingTransformers] = React.useState(false);
+  const [transformersError, setTransformersError] = React.useState<string | null>(null);
+
   // Validation
   const canConfirm =
     branch.trim() && transformerNo.trim() && date && time && inspector.trim();
@@ -84,6 +96,40 @@ export const AddInspectionDialog: React.FC<AddInspectionDialogProps> = ({
       setBranch(defaultBranch);
     }
   }, [defaultBranch]);
+
+  // Fetch transformers when dialog opens (only if user needs to choose)
+  React.useEffect(() => {
+    let abort = false;
+    async function loadTransformers() {
+      if (!open || !!defaultTransformerNo) return;
+      setLoadingTransformers(true);
+      setTransformersError(null);
+      try {
+        const res = await fetch(`${API_BASE}/transformers`, { credentials: "include" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as Array<Transformer & { region?: string }>;
+        if (!abort) setTransformers(data);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!abort) setTransformersError(msg || "Failed to load transformers");
+      } finally {
+        if (!abort) setLoadingTransformers(false);
+      }
+    }
+    loadTransformers();
+    return () => {
+      abort = true;
+    };
+  }, [open, defaultTransformerNo, API_BASE]);
+
+  const handleSelectTransformer = (value: string) => {
+    setTransformerNo(value);
+    // Optional UX: auto-fill branch from selected transformer if branch empty
+    if (!branch) {
+      const t = transformers.find((x) => x.transformerNo === value);
+      if (t?.region) setBranch(t.region);
+    }
+  };
 
   const handleClose = () => {
     onClose();
@@ -148,12 +194,31 @@ export const AddInspectionDialog: React.FC<AddInspectionDialogProps> = ({
           />
 
           {!defaultTransformerNo && (
-            <TextField
-              label="Transformer No"
-              placeholder="Transformer No"
+            <Autocomplete
               fullWidth
-              value={transformerNo}
-              onChange={(e) => setTransformerNo(e.target.value)}
+              options={transformers}
+              getOptionLabel={(option) => option.transformerNo}
+              value={
+                transformers.find((t) => t.transformerNo === transformerNo) ??
+                undefined
+              }
+              onChange={(_, newValue) => {
+                if (newValue) handleSelectTransformer(newValue.transformerNo);
+              }}
+              loading={loadingTransformers}
+              loadingText="Loading transformers…"
+              noOptionsText={
+                transformersError || "No transformers found"
+              }
+              disableClearable
+              autoHighlight
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Transformer No"
+                  placeholder="Search or select transformer"
+                />
+              )}
             />
           )}
 

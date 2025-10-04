@@ -1,16 +1,13 @@
 package com.teambackslash.transformer_api.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.teambackslash.transformer_api.dto.BoundingBoxDTO;
 import com.teambackslash.transformer_api.dto.DetectionDTO;
 import com.teambackslash.transformer_api.dto.PredictionDTO;
 import com.teambackslash.transformer_api.entity.Prediction;
 import com.teambackslash.transformer_api.entity.PredictionDetection;
-import com.teambackslash.transformer_api.entity.Transformer;
-import com.teambackslash.transformer_api.exception.ResourceNotFoundException;
 import com.teambackslash.transformer_api.repository.PredictionRepository;
 import com.teambackslash.transformer_api.repository.TransformerRepository;
+import com.teambackslash.transformer_api.repository.InspectionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import lombok.extern.slf4j.Slf4j;
@@ -23,20 +20,30 @@ public class PredictionPersistenceService {
 
     private final PredictionRepository predictionRepository;
     private final TransformerRepository transformerRepository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final InspectionRepository inspectionRepository;
+    // Removed ObjectMapper; polygon_json no longer stored
 
     @Transactional
-    public Long persistPrediction(String transformerNo, PredictionDTO dto) {
+    public Long persistPrediction(String transformerNo, PredictionDTO dto, Integer inspectionId) {
     log.debug("Persisting prediction for transformer={} label={} detections={}", transformerNo, dto.getPredictedImageLabel(), dto.getDetections()==null?0:dto.getDetections().size());
-    Transformer transformer = transformerRepository.findById(transformerNo)
-        .orElseThrow(() -> {
-            log.warn("Transformer {} not found, cannot persist prediction", transformerNo);
-            return new ResourceNotFoundException("Transformer not found: " + transformerNo);
-        });
+    // Optional validation: ensure transformer exists; if not, either throw or just log and continue.
+    if (transformerNo != null && !transformerNo.isBlank()) {
+        boolean transformerExists = transformerRepository.existsById(transformerNo);
+        if (!transformerExists) {
+            log.warn("Transformer {} not found; persisting prediction (column removed)", transformerNo);
+        }
+    }
 
         Prediction p = new Prediction();
-        p.setTransformer(transformer);
-        p.setSourceImagePath(dto.getImagePath());
+        // Link to inspection if provided
+        if (inspectionId != null) {
+            inspectionRepository.findById(inspectionId).ifPresentOrElse(
+                p::setInspection,
+                () -> log.warn("Inspection {} not found; prediction will not link to inspection", inspectionId)
+            );
+        }
+    // No transformer reference stored on prediction anymore
+    // No longer storing source image path on predictions
         p.setPredictedLabel(dto.getPredictedImageLabel());
         p.setModelTimestamp(dto.getTimestamp());
         p.setIssueCount(dto.getDetections() != null ? dto.getDetections().size() : 0);
@@ -45,8 +52,6 @@ public class PredictionPersistenceService {
             for (DetectionDTO d : dto.getDetections()) {
                 PredictionDetection pd = new PredictionDetection();
                 pd.setClassId(d.getClassId());
-                pd.setClassName(d.getClassName());
-                pd.setReason(d.getReason());
                 pd.setConfidence(d.getConfidence());
                 if (d.getBoundingBox() != null) {
                     BoundingBoxDTO b = d.getBoundingBox();
@@ -55,21 +60,7 @@ public class PredictionPersistenceService {
                     pd.setBboxW(b.getWidth());
                     pd.setBboxH(b.getHeight());
                 }
-                // store polygon
-                try {
-                    // Reduce JSON size: round coordinates to 2 decimals
-                    var rounded = d.getPolygon().stream().map(pair -> {
-                        if (pair.size() >= 2) {
-                            double x = Math.round(pair.get(0) * 100.0) / 100.0;
-                            double y = Math.round(pair.get(1) * 100.0) / 100.0;
-                            return java.util.List.of(x, y);
-                        }
-                        return pair;
-                    }).toList();
-                    pd.setPolygonJson(objectMapper.writeValueAsString(rounded));
-                } catch (JsonProcessingException e) {
-                    pd.setPolygonJson("[]");
-                }
+                // polygon_json removed; not persisted
                 p.addDetection(pd);
             }
         }

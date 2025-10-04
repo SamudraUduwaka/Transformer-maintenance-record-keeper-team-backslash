@@ -12,4 +12,6 @@ public interface ImageRepository extends JpaRepository<Image, Integer> {
     Optional<Image> findFirstByTransformer_TransformerNoAndTypeAndWeatherCondition(
         String transformerNo, String type, String weatherCondition);
 
+    Optional<Image> findFirstByImageUrl(String imageUrl);
+
 }

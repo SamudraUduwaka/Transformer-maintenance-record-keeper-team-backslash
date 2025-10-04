@@ -38,12 +38,16 @@ public class PythonInferenceService {
     @Value("${inference.temp.dir:inference-uploads}")
     private String uploadDir;
 
+    @Value("${inference.keep.artifacts:false}")
+    private boolean keepArtifacts;
+
     public PredictionDTO runInference(MultipartFile file) {
         try {
             // Ensure upload dir exists
             Path uploadRoot = Path.of(uploadDir);
             Files.createDirectories(uploadRoot);
-            String savedName = UUID.randomUUID() + "-" + file.getOriginalFilename();
+            String runId = UUID.randomUUID().toString();
+            String savedName = runId + "-" + file.getOriginalFilename();
             Path savedPath = uploadRoot.resolve(savedName);
             try (InputStream in = file.getInputStream()) {
                 Files.copy(in, savedPath, StandardCopyOption.REPLACE_EXISTING);
@@ -67,8 +71,11 @@ public class PythonInferenceService {
             cmd.add(weightsPath);
             cmd.add("--source");
             cmd.add(savedPath.toString());
+            // All artifacts for this run go under a dedicated folder
+            String outFolder = "pred-" + runId;
+            Path outPath = uploadRoot.resolve(outFolder);
             cmd.add("--out");
-            cmd.add(uploadDir + "/pred-" + UUID.randomUUID());
+            cmd.add(outPath.toString());
             cmd.add("--conf");
             cmd.add("0.25");
             cmd.add("--iou");
@@ -132,7 +139,15 @@ public class PythonInferenceService {
                 detections.add(new DetectionDTO(classId, className, reason, conf, polygon, box));
             }
 
-            return new PredictionDTO(image, predLabel, detections, timestamp, line);
+            PredictionDTO result = new PredictionDTO(image, predLabel, detections, timestamp, line);
+
+            // Cleanup artifacts unless explicitly kept for debugging
+            if (!keepArtifacts) {
+                safeDelete(savedPath);
+                safeDeleteRecursive(outPath);
+            }
+
+            return result;
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException("Inference error: " + e.getMessage(), e);
         }
@@ -187,5 +202,22 @@ public class PythonInferenceService {
         @Override public byte[] getBytes() { return content.clone(); }
         @Override public InputStream getInputStream() { return new ByteArrayInputStream(content); }
         @Override public void transferTo(File dest) throws IOException { try (FileOutputStream fos = new FileOutputStream(dest)) { fos.write(content); } }
+    }
+
+    private void safeDelete(Path p) {
+        if (p == null) return;
+        try { Files.deleteIfExists(p); } catch (IOException ignored) {}
+    }
+
+    private void safeDeleteRecursive(Path dir) {
+        if (dir == null) return;
+        try {
+            if (Files.notExists(dir)) return;
+            // Walk file tree and delete children first
+            Files.walk(dir)
+                .sorted((a,b) -> b.getNameCount() - a.getNameCount())
+                .forEach(path -> { try { Files.deleteIfExists(path); } catch (IOException ignored) {} });
+        } catch (IOException ignored) {
+        }
     }
 }
