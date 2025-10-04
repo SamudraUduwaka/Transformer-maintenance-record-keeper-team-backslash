@@ -9,6 +9,7 @@ import com.teambackslash.transformer_api.entity.Prediction;
 import com.teambackslash.transformer_api.entity.PredictionDetection;
 import com.teambackslash.transformer_api.repository.PredictionRepository;
 import com.teambackslash.transformer_api.repository.TransformerRepository;
+import com.teambackslash.transformer_api.repository.InspectionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import lombok.extern.slf4j.Slf4j;
@@ -21,10 +22,11 @@ public class PredictionPersistenceService {
 
     private final PredictionRepository predictionRepository;
     private final TransformerRepository transformerRepository;
+    private final InspectionRepository inspectionRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
-    public Long persistPrediction(String transformerNo, PredictionDTO dto) {
+    public Long persistPrediction(String transformerNo, PredictionDTO dto, Integer inspectionId) {
     log.debug("Persisting prediction for transformer={} label={} detections={}", transformerNo, dto.getPredictedImageLabel(), dto.getDetections()==null?0:dto.getDetections().size());
     // Optional validation: ensure transformer exists; if not, either throw or just log and continue.
     if (transformerNo != null && !transformerNo.isBlank()) {
@@ -35,6 +37,13 @@ public class PredictionPersistenceService {
     }
 
         Prediction p = new Prediction();
+        // Link to inspection if provided
+        if (inspectionId != null) {
+            inspectionRepository.findById(inspectionId).ifPresentOrElse(
+                p::setInspection,
+                () -> log.warn("Inspection {} not found; prediction will not link to inspection", inspectionId)
+            );
+        }
     // No transformer reference stored on prediction anymore
     // No longer storing source image path on predictions
         p.setPredictedLabel(dto.getPredictedImageLabel());

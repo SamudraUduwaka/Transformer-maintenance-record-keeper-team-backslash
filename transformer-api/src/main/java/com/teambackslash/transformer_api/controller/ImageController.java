@@ -77,7 +77,7 @@ public class ImageController {
     @PostMapping("/thermal-analysis")
     public ResponseEntity<ThermalAnalysisDTO> analyzeThermalImage(@RequestBody ThermalAnalysisRequestDTO request) {
         try {
-            ThermalAnalysisDTO analysis = thermalAnalysisService.analyzeThermalImage(request.getImageUrl(), request.getTransformerNo());
+            ThermalAnalysisDTO analysis = thermalAnalysisService.analyzeThermalImage(request.getImageUrl(), request.getTransformerNo(), request.getInspectionId());
             return ResponseEntity.ok(analysis);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().build();

@@ -6,6 +6,7 @@ import com.teambackslash.transformer_api.dto.ThermalIssueDTO;
 import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
 import com.teambackslash.transformer_api.repository.TransformerRepository;
+import com.teambackslash.transformer_api.repository.ImageRepository;
 import com.teambackslash.transformer_api.entity.Transformer;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ public class ThermalAnalysisService {
     private final InferenceToThermalMapper inferenceToThermalMapper;
     private final PredictionPersistenceService predictionPersistenceService;
     private final TransformerRepository transformerRepository;
+    private final ImageRepository imageRepository;
 
     @Value("${inference.real.enabled:false}")
     private boolean realInferenceEnabled;
@@ -72,10 +74,14 @@ public class ThermalAnalysisService {
     );
 
     public ThermalAnalysisDTO analyzeThermalImage(String imageUrl) {
-        return analyzeThermalImage(imageUrl, null);
+        return analyzeThermalImage(imageUrl, null, null);
     }
 
     public ThermalAnalysisDTO analyzeThermalImage(String imageUrl, String transformerNo) {
+        return analyzeThermalImage(imageUrl, transformerNo, null);
+    }
+
+    public ThermalAnalysisDTO analyzeThermalImage(String imageUrl, String transformerNo, Integer inspectionId) {
         long startTime = System.currentTimeMillis();
 
         if (realInferenceEnabled) {
@@ -87,7 +93,21 @@ public class ThermalAnalysisService {
                 try {
                     if (!"UNKNOWN".equals(resolvedTransformer)) {
                         ensureTransformerExists(resolvedTransformer);
-                        Long id = predictionPersistenceService.persistPrediction(resolvedTransformer, prediction);
+                        // Attempt to resolve inspectionId automatically from the imageUrl if not provided
+                        Integer finalInspectionId = inspectionId;
+                        if (finalInspectionId == null) {
+                            imageRepository.findFirstByImageUrl(imageUrl)
+                                .map(img -> img.getInspection() != null ? img.getInspection().getInspectionId() : null)
+                                .ifPresent(idVal -> {
+                                    if (idVal != null) {
+                                        log.info("Resolved inspectionId={} from imageUrl", idVal);
+                                    }
+                                });
+                            finalInspectionId = imageRepository.findFirstByImageUrl(imageUrl)
+                                .map(img -> img.getInspection() != null ? img.getInspection().getInspectionId() : null)
+                                .orElse(null);
+                        }
+                        Long id = predictionPersistenceService.persistPrediction(resolvedTransformer, prediction, finalInspectionId);
                         adapted.setPredictionId(id);
                         log.info("Persisted prediction id={} transformer={} detections={}", id, resolvedTransformer, prediction.getDetections().size());
                     } else {
