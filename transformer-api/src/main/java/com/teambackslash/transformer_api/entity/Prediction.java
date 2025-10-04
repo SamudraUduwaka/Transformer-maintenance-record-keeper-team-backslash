@@ -1,0 +1,60 @@
+package com.teambackslash.transformer_api.entity;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.NoArgsConstructor;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Table(name = "prediction")
+@Getter
+@Setter
+@NoArgsConstructor
+public class Prediction {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "prediction_id")
+    private Long id;
+
+    // Optional link to an inspection if later desired
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "inspection_id")
+    private Inspection inspection;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "transformer_no", nullable = false)
+    private Transformer transformer;
+
+    @Column(name = "source_image_path", length = 500)
+    private String sourceImagePath;
+
+    @Column(name = "predicted_label", length = 100)
+    private String predictedLabel;
+
+    @Column(name = "model_timestamp", length = 50)
+    private String modelTimestamp; // keep original string from Python
+
+    @Column(name = "overall_score")
+    private Double overallScore; // optional aggregate (can be null for now)
+
+    @Column(name = "issue_count")
+    private Integer issueCount;
+
+    @OneToMany(mappedBy = "prediction", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PredictionDetection> detections = new ArrayList<>();
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    void onCreate(){ this.createdAt = LocalDateTime.now(); }
+
+    public void addDetection(PredictionDetection d){
+        d.setPrediction(this);
+        detections.add(d);
+    }
+}

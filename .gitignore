@@ -21,3 +21,4 @@ target/
 ### ML model ###
 anomaly-detector\*\.venv
 anomaly-detector\*\runs_yolo\test_preds*
+anomaly-detector/inference-uploads/
