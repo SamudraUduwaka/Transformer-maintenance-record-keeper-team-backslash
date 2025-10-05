@@ -26,6 +26,9 @@ import {
   Toolbar,
   Typography,
 } from "@mui/material";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
+import CircularProgress from "@mui/material/CircularProgress";
 import {
   ArrowBack as ArrowBackIcon,
   Settings as SettingsIcon,
@@ -189,6 +192,32 @@ export default function InspectionDetails() {
   // After upload: prompt for percentage
   const [rulesetOpen, setRulesetOpen] = React.useState(false);
   const [percentage, setPercentage] = React.useState<string>("25");
+  // Track dialog open state only (no separate awaiting flag needed now)
+  // Track that backend upload/metadata is done; we'll show ruleset after progress hits 100
+  const [uploadCompleted, setUploadCompleted] = React.useState(false);
+  // Ref to analysis section for smooth scroll after saving
+  const analysisRef = React.useRef<HTMLDivElement | null>(null);
+  // Save threshold state and snackbar
+  const [savingThreshold, setSavingThreshold] = React.useState(false);
+  const [snackbar, setSnackbar] = React.useState<{
+    open: boolean;
+    message: string;
+    severity: "success" | "error" | "info" | "warning";
+  }>({ open: false, message: "", severity: "success" });
+  // Latch to ensure the ruleset dialog opens only once per upload cycle
+  const hasShownRulesetRef = React.useRef(false);
+
+  // Centralized close that also resets the effect conditions
+  const handleCloseRuleset = React.useCallback(() => {
+    setRulesetOpen(false);
+    // stop the uploading overlay and progress (inline to avoid order issues)
+    if (tickRef.current) window.clearInterval(tickRef.current);
+    setIsUploading(false);
+    setProgress(0);
+    // reset markers so the effect won't reopen the dialog
+    setUploadCompleted(false);
+    hasShownRulesetRef.current = false; // ready for next upload cycle
+  }, []);
 
   // Baselines state
   const [baselines, setBaselines] = React.useState<Baselines>({
@@ -487,11 +516,11 @@ export default function InspectionDetails() {
     }, 120);
   };
 
-  const cancelUploadProgress = () => {
+  const cancelUploadProgress = React.useCallback(() => {
     if (tickRef.current) window.clearInterval(tickRef.current);
     setIsUploading(false);
     setProgress(0);
-  };
+  }, []);
 
   const handleConfirmUpload = async () => {
     if (!file) return;
@@ -515,10 +544,8 @@ export default function InspectionDetails() {
       if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
       setFile(null);
       setPreview(null);
-      // 4) Open ruleset dialog to set temperature difference percentage
-      setPercentage("25");
-      setRulesetOpen(true);
-      // Your existing effect will navigate once progress reaches 100%
+      // Mark upload completed; ruleset will open once progress UI reaches 100
+      setUploadCompleted(true);
     } catch (e) {
       console.error(e);
       alert((e as Error).message || "Upload failed");
@@ -531,6 +558,7 @@ export default function InspectionDetails() {
   async function saveThreshold() {
     const val = Math.max(0, Math.min(100, Number(percentage) || 0));
     try {
+      setSavingThreshold(true);
       const res = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/inference/config/class-threshold`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -539,9 +567,23 @@ export default function InspectionDetails() {
       if (!res.ok && res.status !== 204) {
         throw new Error(`Failed: ${res.status} ${res.statusText}`);
       }
-      setRulesetOpen(false);
+      setSnackbar({ open: true, message: `Ruleset saved: ${val}%`, severity: "success" });
+      // Refresh inspection details to pick up new image URL and then scroll to analysis
+      try {
+        const res2 = await fetch(`${API_BASE_URL}/inspections/${inspectionNo}`);
+        if (res2.ok) {
+          const data = await res2.json();
+          setInspection(data);
+          // Smooth scroll to analysis section
+          setTimeout(() => analysisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+        }
+  } catch { console.warn('Failed to refresh inspection after saving threshold'); }
     } catch (err) {
-      alert(`Failed to update threshold: ${(err as Error).message}`);
+      setSnackbar({ open: true, message: `Failed to update threshold: ${(err as Error).message}` , severity: "error"});
+    } finally {
+      setSavingThreshold(false);
+      // Close dialog and reset the upload flags so effect doesn't reopen
+      handleCloseRuleset();
     }
   }
 
@@ -619,17 +661,17 @@ export default function InspectionDetails() {
     fetchInspectionDetails();
   }, [transformerNo, inspectionNo]);
 
-  // When progress finishes, refresh and stay on this page
+  // When progress finishes, show ruleset if upload done; don't reload automatically
   React.useEffect(() => {
     if (!isUploading || progress < 100) return;
-
-    const t = setTimeout(() => {
-      // Refresh the page to show the newly uploaded image
-      window.location.reload();
-    }, 650);
-
-    return () => clearTimeout(t);
-  }, [isUploading, progress]);
+    if (rulesetOpen) return;
+    if (uploadCompleted && !hasShownRulesetRef.current) {
+      hasShownRulesetRef.current = true; // latch so it won't reopen
+      setPercentage("25");
+      setRulesetOpen(true);
+      // Keep the uploading overlay visible at 100% until user saves the ruleset
+    }
+  }, [isUploading, progress, uploadCompleted, rulesetOpen]);
   React.useEffect(() => {
     return () => {
       if (tickRef.current) window.clearInterval(tickRef.current);
@@ -1075,11 +1117,13 @@ export default function InspectionDetails() {
               /* ===== Baseline + Thermal (if exists) ===== */
               inspection.image.type === "thermal" ? (
                 // Thermal analysis with intelligent bounding boxes
-                <ThermalImageAnalysis
-                  thermalImageUrl={inspection.image.imageUrl}
-                  baselineImageUrl={baselineImage?.url || ""}
-                  transformerNo={inspection.transformerNo || inspection.transformer?.transformerNo || transformerNo}
-                />
+                <div ref={analysisRef}>
+                  <ThermalImageAnalysis
+                    thermalImageUrl={inspection.image.imageUrl}
+                    baselineImageUrl={baselineImage?.url || ""}
+                    transformerNo={inspection.transformerNo || inspection.transformer?.transformerNo || transformerNo}
+                  />
+                </div>
               ) : (
                 // Baseline only
                 <Paper sx={{ p: 2.5 }}>
@@ -1155,12 +1199,16 @@ export default function InspectionDetails() {
                       {progress}%
                     </Box>
                   </Box>
-                  <Button
-                    onClick={cancelUploadProgress}
-                    sx={{ mt: 3, borderRadius: 999 }}
-                  >
-                    Cancel
-                  </Button>
+
+                  {/* Show Cancel button only while uploading is in progress (<100%) */}
+                  {progress < 100 && (
+                    <Button
+                      onClick={cancelUploadProgress}
+                      sx={{ mt: 3, borderRadius: 999 }}
+                    >
+                      Cancel
+                    </Button>
+                  )}
                 </Box>
               </Paper>
             ) : (
@@ -1423,7 +1471,7 @@ export default function InspectionDetails() {
       {/* ===== Error Ruleset (Temperature Difference) ===== */}
       <Dialog
         open={rulesetOpen}
-        onClose={() => setRulesetOpen(false)}
+        onClose={handleCloseRuleset}
         fullWidth
         maxWidth="xs"
         PaperProps={{ sx: { borderRadius: 2 } }}
@@ -1432,7 +1480,7 @@ export default function InspectionDetails() {
           <Typography fontWeight={800} fontSize={18} color="text.primary">
             Error Ruleset
           </Typography>
-          <IconButton size="small" onClick={() => setRulesetOpen(false)}>
+          <IconButton size="small" onClick={handleCloseRuleset}>
             <CloseIcon />
           </IconButton>
         </DialogTitle>
@@ -1457,10 +1505,27 @@ export default function InspectionDetails() {
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 1.5 }}>
-          <Button onClick={() => setRulesetOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={saveThreshold}>Save</Button>
+          <Button onClick={handleCloseRuleset}>Cancel</Button>
+          <Button variant="contained" onClick={saveThreshold} disabled={savingThreshold} startIcon={savingThreshold ? <CircularProgress size={16} /> : undefined}>Save</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
 
       {/* ===== Manage Baseline Upload Dialog ===== */}
       <Dialog
