@@ -52,6 +52,8 @@ python -c "import cv2; print('OpenCV version:', cv2.__version__)"
 
 ### 3) Create the Database (MySQL)
 
+Optional: You can skip manual creation if the backend auto-creates the database on first run. This happens when your JDBC URL includes createDatabaseIfNotExist=true (default in application.properties) and the MySQL user has CREATE privileges. If auto-creation is not desired or fails, create it manually as shown below.
+
 Use your favorite MySQL client or the MySQL shell:
 ```sql
 CREATE DATABASE transformer_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
