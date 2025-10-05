@@ -250,19 +250,25 @@ const ZoomableImage: React.FC<ZoomableImageProps> = ({
           boxShadow: 1,
         }}
       >
-        <IconButton size="small" onClick={handleZoomIn} disabled={scale >= 5}>
-          <ZoomInIcon fontSize="small" />
-        </IconButton>
-        <IconButton
-          size="small"
-          onClick={handleZoomOut}
-          disabled={scale <= 0.5}
-        >
-          <ZoomOutIcon fontSize="small" />
-        </IconButton>
-        <IconButton size="small" onClick={handleReset}>
-          <CenterFocusStrongIcon fontSize="small" />
-        </IconButton>
+        <Tooltip title="Zoom In" arrow>
+          <IconButton size="small" onClick={handleZoomIn} disabled={scale >= 5}>
+            <ZoomInIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Zoom Out" arrow>
+          <IconButton
+            size="small"
+            onClick={handleZoomOut}
+            disabled={scale <= 0.5}
+          >
+            <ZoomOutIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Reset Zoom" arrow>
+          <IconButton size="small" onClick={handleReset}>
+            <CenterFocusStrongIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       </Box>
 
       {/* Scale Indicator */}
@@ -505,14 +511,11 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                 </Typography>
               )}
             </Box>
-            
+
             {/* Baseline Image Controls */}
             <Box mt={2} display="flex" justifyContent="flex-end">
               <Tooltip title="Reupload" arrow>
-                <IconButton
-                  size="small"
-                  sx={{ color: "primary.main" }}
-                >
+                <IconButton size="small" sx={{ color: "primary.main" }}>
                   <UploadIcon />
                 </IconButton>
               </Tooltip>
@@ -597,19 +600,13 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
                   <Box display="flex" gap={0.5} alignItems="center">
                     <Tooltip title="Reupload" arrow>
-                      <IconButton
-                        size="small"
-                        sx={{ color: "primary.main" }}
-                      >
+                      <IconButton size="small" sx={{ color: "primary.main" }}>
                         <UploadIcon />
                       </IconButton>
                     </Tooltip>
-                    
+
                     <Tooltip title="Edit" arrow>
-                      <IconButton
-                        size="small"
-                        sx={{ color: "primary.main" }}
-                      >
+                      <IconButton size="small" sx={{ color: "primary.main" }}>
                         <EditIcon />
                       </IconButton>
                     </Tooltip>
