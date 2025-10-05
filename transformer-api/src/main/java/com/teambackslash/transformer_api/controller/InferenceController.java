@@ -20,4 +20,12 @@ public class InferenceController {
         PredictionDTO dto = inferenceService.runInference(file);
         return ResponseEntity.ok(dto);
     }
+
+    public static record ThresholdRequest(double percentage) {}
+
+    @PostMapping("/config/class-threshold")
+    public ResponseEntity<Void> setClassThreshold(@RequestBody ThresholdRequest req) {
+        inferenceService.updateClassThresholdPercentage(req.percentage());
+        return ResponseEntity.noContent().build();
+    }
 }
