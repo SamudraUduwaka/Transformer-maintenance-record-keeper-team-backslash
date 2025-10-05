@@ -17,6 +17,7 @@ import {
   Button,
   TextField,
   Divider,
+  Tooltip,
 } from "@mui/material";
 import {
   FilterList as FilterListIcon,
@@ -29,6 +30,7 @@ import {
   Comment as CommentIcon,
   Person as PersonIcon,
   Timer as TimerIcon,
+  Upload as UploadIcon,
 } from "@mui/icons-material";
 
 // TypeScript interfaces matching the API response
@@ -503,6 +505,18 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                 </Typography>
               )}
             </Box>
+            
+            {/* Baseline Image Controls */}
+            <Box mt={2} display="flex" justifyContent="flex-end">
+              <Tooltip title="Reupload" arrow>
+                <IconButton
+                  size="small"
+                  sx={{ color: "primary.main" }}
+                >
+                  <UploadIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Paper>
         </Box>
 
@@ -559,42 +573,47 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                   flexWrap="wrap"
                   justifyContent="space-between"
                 >
-                  <Box
-                    display="flex"
-                    gap={1}
-                    alignItems="center"
-                    flexWrap="wrap"
-                  >
-                    <FormControl size="small" sx={{ minWidth: 120 }}>
-                      <Select
-                        value={selectedIssueFilter}
-                        onChange={(e) => setSelectedIssueFilter(e.target.value)}
-                        startAdornment={
-                          <FilterListIcon sx={{ mr: 1, fontSize: 16 }} />
-                        }
+                  <FormControl size="small" sx={{ minWidth: 120 }}>
+                    <Select
+                      value={selectedIssueFilter}
+                      onChange={(e) => setSelectedIssueFilter(e.target.value)}
+                      startAdornment={
+                        <FilterListIcon sx={{ mr: 1, fontSize: 16 }} />
+                      }
+                    >
+                      <MenuItem value="all">All Issues</MenuItem>
+                      {Object.keys(ISSUE_TYPE_LABELS).map((type) => (
+                        <MenuItem key={type} value={type}>
+                          {ISSUE_TYPE_LABELS[type]}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <Typography variant="caption" color="text.secondary">
+                    {filteredIssues.length} of {analysisData.issues.length}{" "}
+                    issues shown
+                  </Typography>
+
+                  <Box display="flex" gap={0.5} alignItems="center">
+                    <Tooltip title="Reupload" arrow>
+                      <IconButton
+                        size="small"
+                        sx={{ color: "primary.main" }}
                       >
-                        <MenuItem value="all">All Issues</MenuItem>
-                        {Object.keys(ISSUE_TYPE_LABELS).map((type) => (
-                          <MenuItem key={type} value={type}>
-                            {ISSUE_TYPE_LABELS[type]}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-
-                    <Typography variant="caption" color="text.secondary">
-                      {filteredIssues.length} of {analysisData.issues.length}{" "}
-                      issues shown
-                    </Typography>
+                        <UploadIcon />
+                      </IconButton>
+                    </Tooltip>
+                    
+                    <Tooltip title="Edit" arrow>
+                      <IconButton
+                        size="small"
+                        sx={{ color: "primary.main" }}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
                   </Box>
-
-                  <Button
-                    size="small"
-                    startIcon={<EditIcon />}
-                    sx={{ textTransform: "none" }}
-                  >
-                    Edit
-                  </Button>
                 </Box>
               </Box>
             )}
