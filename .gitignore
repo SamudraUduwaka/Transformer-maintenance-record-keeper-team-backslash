@@ -16,6 +16,7 @@ target/
 # Editors and OS
 .vscode/
 .DS_Store
+.idea/
 
 
 ### ML model ###

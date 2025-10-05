@@ -1,0 +1,26 @@
+# Transformer Maintenance Record Keeper - Python Dependencies
+# AI/ML Detection Service Requirements
+
+# Core AI/ML packages
+ultralytics==8.0.196          # YOLOv11 for object detection and segmentation
+opencv-python==4.8.0.74       # Computer vision operations
+numpy==1.24.3                 # Numerical computing
+torch>=2.0.0                  # PyTorch for deep learning (ultralytics dependency)
+torchvision>=0.15.0           # PyTorch vision utilities
+
+# Image processing and utilities
+Pillow>=9.5.0                 # Image processing library
+matplotlib>=3.7.0             # Plotting and visualization
+pandas>=2.0.0                 # Data manipulation (for training logs)
+
+# System utilities
+argparse                      # Command line argument parsing (built-in)
+datetime                      # Date and time handling (built-in)
+json                          # JSON data handling (built-in)
+glob                          # File pattern matching (built-in)
+os                            # Operating system interface (built-in)
+
+# Optional: Development and debugging
+jupyter>=1.0.0                # Jupyter notebooks for analysis
+ipykernel>=6.0.0              # Jupyter kernel
+seaborn>=0.12.0               # Statistical data visualization

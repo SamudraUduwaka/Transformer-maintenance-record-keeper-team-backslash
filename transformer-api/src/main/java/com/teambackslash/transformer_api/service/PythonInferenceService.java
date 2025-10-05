@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import java.net.URL;
+import java.net.URI;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -154,7 +154,7 @@ public class PythonInferenceService {
     }
 
     public PredictionDTO runInferenceFromUrl(String imageUrl) {
-        try (InputStream in = new URL(imageUrl).openStream()) {
+        try (InputStream in = URI.create(imageUrl).toURL().openStream()) {
             byte[] data = in.readAllBytes();
             String originalName = extractName(imageUrl);
             String contentType = guessContentType(originalName);
