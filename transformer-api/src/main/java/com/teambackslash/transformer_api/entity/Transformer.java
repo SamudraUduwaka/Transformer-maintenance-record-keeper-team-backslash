@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 @Entity
@@ -42,8 +43,8 @@ public class Transformer {
     private LocalDateTime updatedAt;
 
     @PrePersist
-    protected void onCreate() { this.createdAt = LocalDateTime.now(); }
+    protected void onCreate() { this.createdAt = LocalDateTime.now(ZoneId.of("Asia/Colombo")); }
 
     @PreUpdate
-    protected void onUpdate() { this.updatedAt = LocalDateTime.now(); }
+    protected void onUpdate() { this.updatedAt = LocalDateTime.now(ZoneId.of("Asia/Colombo")); }
 }

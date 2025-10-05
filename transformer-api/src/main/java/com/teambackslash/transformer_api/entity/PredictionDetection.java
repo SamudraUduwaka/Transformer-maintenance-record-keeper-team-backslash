@@ -24,11 +24,10 @@ public class PredictionDetection {
     @Column(name = "class_id")
     private Integer classId;
 
-    @Column(name = "class_name", length = 100)
-    private String className;
 
-    @Column(name = "reason", length = 300)
-    private String reason;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "class_id", referencedColumnName = "class_id", insertable = false, updatable = false)
+    private DetectionClass detectionClass;
 
     @Column(name = "confidence")
     private Double confidence;
@@ -43,8 +42,5 @@ public class PredictionDetection {
     @Column(name = "bbox_h")
     private Integer bboxH;
 
-    // Polygon stored as JSON. Use LONGTEXT to avoid truncation for large masks.
-    @Lob
-    @Column(name = "polygon_json", columnDefinition = "LONGTEXT")
-    private String polygonJson;
+    // polygon_json removed per request; not stored in DB anymore
 }

@@ -1,3 +1,11 @@
+-- ===== Detection Classes (idempotent) =====
+INSERT IGNORE INTO classes (class_id, class_name, reason) VALUES
+(0, 'loose_joint_red', 'Loose joint overheating (reddish core).'),
+(1, 'loose_joint_yellow', 'Loose joint warming (yellow core).'),
+(2, 'point_overload_red', 'Localized critical hot spot.'),
+(3, 'point_overload_yellow', 'Localized warm spot.'),
+(4, 'full_wire_yellow', 'Entire wire overheated.');
+
 -- ===== Transformers (5) - idempotent =====
 INSERT IGNORE INTO transformer
   (transformer_no, pole_no, region, type, location, favorite, created_at, updated_at)
