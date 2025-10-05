@@ -552,28 +552,49 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
             {/* Analysis Controls */}
             {analysisData && (
               <Box mt={2}>
-                <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
-                  <FormControl size="small" sx={{ minWidth: 120 }}>
-                    <Select
-                      value={selectedIssueFilter}
-                      onChange={(e) => setSelectedIssueFilter(e.target.value)}
-                      startAdornment={
-                        <FilterListIcon sx={{ mr: 1, fontSize: 16 }} />
-                      }
-                    >
-                      <MenuItem value="all">All Issues</MenuItem>
-                      {Object.keys(ISSUE_TYPE_LABELS).map((type) => (
-                        <MenuItem key={type} value={type}>
-                          {ISSUE_TYPE_LABELS[type]}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                <Box
+                  display="flex"
+                  gap={1}
+                  alignItems="center"
+                  flexWrap="wrap"
+                  justifyContent="space-between"
+                >
+                  <Box
+                    display="flex"
+                    gap={1}
+                    alignItems="center"
+                    flexWrap="wrap"
+                  >
+                    <FormControl size="small" sx={{ minWidth: 120 }}>
+                      <Select
+                        value={selectedIssueFilter}
+                        onChange={(e) => setSelectedIssueFilter(e.target.value)}
+                        startAdornment={
+                          <FilterListIcon sx={{ mr: 1, fontSize: 16 }} />
+                        }
+                      >
+                        <MenuItem value="all">All Issues</MenuItem>
+                        {Object.keys(ISSUE_TYPE_LABELS).map((type) => (
+                          <MenuItem key={type} value={type}>
+                            {ISSUE_TYPE_LABELS[type]}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
 
-                  <Typography variant="caption" color="text.secondary">
-                    {filteredIssues.length} of {analysisData.issues.length}{" "}
-                    issues shown
-                  </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {filteredIssues.length} of {analysisData.issues.length}{" "}
+                      issues shown
+                    </Typography>
+                  </Box>
+
+                  <Button
+                    size="small"
+                    startIcon={<EditIcon />}
+                    sx={{ textTransform: "none" }}
+                  >
+                    Edit
+                  </Button>
                 </Box>
               </Box>
             )}
@@ -878,13 +899,6 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                   sx={{ textTransform: "none" }}
                 >
                   Add Comment
-                </Button>
-                <Button
-                  size="small"
-                  startIcon={<EditIcon />}
-                  sx={{ textTransform: "none" }}
-                >
-                  Edit Analysis
                 </Button>
                 <Box sx={{ flexGrow: 1 }} />
                 <Typography variant="caption" color="text.secondary">
