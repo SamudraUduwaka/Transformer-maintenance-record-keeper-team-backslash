@@ -21,6 +21,7 @@ import {
   MenuItem,
   Paper,
   Select,
+  TextField,
   Stack,
   Toolbar,
   Typography,
@@ -40,6 +41,7 @@ import {
   ZoomIn as ZoomInIcon,
   ZoomOut as ZoomOutIcon,
   CenterFocusStrong as CenterFocusStrongIcon,
+  Close as CloseIcon,
 } from "@mui/icons-material";
 import { format } from "date-fns";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
@@ -184,6 +186,9 @@ export default function InspectionDetails() {
   const [isUploading, setIsUploading] = React.useState(false);
   const [progress, setProgress] = React.useState(0);
   const tickRef = React.useRef<number | null>(null);
+  // After upload: prompt for percentage
+  const [rulesetOpen, setRulesetOpen] = React.useState(false);
+  const [percentage, setPercentage] = React.useState<string>("25");
 
   // Baselines state
   const [baselines, setBaselines] = React.useState<Baselines>({
@@ -510,6 +515,9 @@ export default function InspectionDetails() {
       if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
       setFile(null);
       setPreview(null);
+      // 4) Open ruleset dialog to set temperature difference percentage
+      setPercentage("25");
+      setRulesetOpen(true);
       // Your existing effect will navigate once progress reaches 100%
     } catch (e) {
       console.error(e);
@@ -519,6 +527,23 @@ export default function InspectionDetails() {
   };
 
   const handleCloseUpload = () => setUploadOpen(false);
+
+  async function saveThreshold() {
+    const val = Math.max(0, Math.min(100, Number(percentage) || 0));
+    try {
+      const res = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/inference/config/class-threshold`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ percentage: val }),
+      });
+      if (!res.ok && res.status !== 204) {
+        throw new Error(`Failed: ${res.status} ${res.statusText}`);
+      }
+      setRulesetOpen(false);
+    } catch (err) {
+      alert(`Failed to update threshold: ${(err as Error).message}`);
+    }
+  }
 
   React.useEffect(() => {
     if (inspectionDetails.image && inspectionDetails.image.weatherCondition) {
@@ -1392,6 +1417,48 @@ export default function InspectionDetails() {
           >
             Upload
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ===== Error Ruleset (Temperature Difference) ===== */}
+      <Dialog
+        open={rulesetOpen}
+        onClose={() => setRulesetOpen(false)}
+        fullWidth
+        maxWidth="xs"
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Typography fontWeight={800} fontSize={18} color="text.primary">
+            Error Ruleset
+          </Typography>
+          <IconButton size="small" onClick={() => setRulesetOpen(false)}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers sx={{ bgcolor: "#FBFBFE" }}>
+          <Stack spacing={1.5}>
+            <Typography fontWeight={700}>Temperature Difference</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Temperature difference between baseline and maintenance images.
+            </Typography>
+            <Box display="flex" alignItems="center" gap={1}>
+              <TextField
+                size="small"
+                value={percentage}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setPercentage(e.target.value.replace(/[^0-9.]/g, ""))
+                }
+                inputProps={{ inputMode: 'decimal', pattern: '[0-9.]*' }}
+                sx={{ width: 120 }}
+              />
+              <Typography color="text.secondary">%</Typography>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <Button onClick={() => setRulesetOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={saveThreshold}>Save</Button>
         </DialogActions>
       </Dialog>
 

@@ -25,7 +25,14 @@ COLORS = {
 }
 
 # Per-class thresholds if you want recall-first behavior (enabled with --use_class_thresh)
-CLASS_THRESH = {1: 0.25, 3: 0.25, 0: 0.25, 2: 0.25, 4: 0.25}
+DEFAULT_CLASS_THRESH = 0.25
+CLASS_THRESH = {
+    1: DEFAULT_CLASS_THRESH,
+    3: DEFAULT_CLASS_THRESH,
+    0: DEFAULT_CLASS_THRESH,
+    2: DEFAULT_CLASS_THRESH,
+    4: DEFAULT_CLASS_THRESH,
+}
 
 def image_label_from_classes(classes):
     if any(c in FAULTY for c in classes): return "Faulty"

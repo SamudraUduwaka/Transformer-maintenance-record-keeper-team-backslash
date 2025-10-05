@@ -41,6 +41,56 @@ public class PythonInferenceService {
     @Value("${inference.keep.artifacts:false}")
     private boolean keepArtifacts;
 
+    /**
+     * Update the CLASS_THRESH mapping in the Python segmentation script so that all five classes
+     * use the same threshold derived from a percentage (e.g. 25 -> 0.25).
+     */
+    public void updateClassThresholdPercentage(double percentage) {
+        double pct = Math.max(0.0, Math.min(100.0, percentage));
+        double fraction = pct / 100.0;
+        String value = String.format(java.util.Locale.US, "%.2f", fraction);
+
+        Path script = Path.of(scriptPath);
+        if (!Files.exists(script)) {
+            throw new RuntimeException("Script not found: " + script.toAbsolutePath());
+        }
+        try {
+            List<String> lines = Files.readAllLines(script, StandardCharsets.UTF_8);
+            boolean updated = false;
+            // 1) Prefer updating DEFAULT_CLASS_THRESH if present
+            for (int i = 0; i < lines.size(); i++) {
+                String trimmed = lines.get(i).strip();
+                if (trimmed.startsWith("DEFAULT_CLASS_THRESH")) {
+                    lines.set(i, "DEFAULT_CLASS_THRESH = " + value);
+                    updated = true;
+                    break;
+                }
+            }
+            // 2) Fallback: update CLASS_THRESH mapping values if DEFAULT_CLASS_THRESH not found
+            if (!updated) {
+                String targetPrefix = "CLASS_THRESH";
+                String replacement = "CLASS_THRESH = {1: " + value + ", 3: " + value + ", 0: " + value + ", 2: " + value + ", 4: " + value + "}";
+                for (int i = 0; i < lines.size(); i++) {
+                    String trimmed = lines.get(i).stripLeading();
+                    if (trimmed.startsWith(targetPrefix)) {
+                        lines.set(i, replacement);
+                        updated = true;
+                        break;
+                    }
+                }
+            }
+            // 3) If neither found, insert DEFAULT_CLASS_THRESH and build CLASS_THRESH mapping using it
+            if (!updated) {
+                int insertAt = 0;
+                lines.add(insertAt, "DEFAULT_CLASS_THRESH = " + value);
+                lines.add(insertAt + 1, "CLASS_THRESH = {1: DEFAULT_CLASS_THRESH, 3: DEFAULT_CLASS_THRESH, 0: DEFAULT_CLASS_THRESH, 2: DEFAULT_CLASS_THRESH, 4: DEFAULT_CLASS_THRESH}");
+            }
+            Files.write(script, lines, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to update CLASS_THRESH: " + e.getMessage(), e);
+        }
+    }
+
     public PredictionDTO runInference(MultipartFile file) {
         try {
             // Ensure upload dir exists
