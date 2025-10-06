@@ -43,21 +43,7 @@ Run the following commands to install the required Python packages:
 cd anomaly-detector
 pip install -r requirements.txt
 ```
-
-#### Verify Installation
-```bash
-python -c "from ultralytics import YOLO; print('YOLOv11 installed successfully')"
-python -c "import cv2; print('OpenCV version:', cv2.__version__)"
-```
-
-### 3) Create the Database (MySQL)
-
-Use your favorite MySQL client or the MySQL shell:
-```sql
-CREATE DATABASE transformer_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
-
-### 4) Backend Configuration (transformer-api)
+### 3) Backend Configuration (transformer-api)
 
 #### Application Properties Configuration
 
@@ -116,6 +102,15 @@ The API will start on `http://localhost:8080`
 - **Inspections**: `GET/POST/PUT/DELETE /api/inspections`
 - **Images**: `GET/POST /api/images`
 - **AI Inference**: `POST /api/inference/predict`
+
+### 4) (Optional) Create the Database (MySQL)
+
+You can skip manual creation if the backend auto-creates the database on first run. If auto-creation is not desired or fails, create it manually as shown below.
+
+Use your favorite MySQL client or the MySQL shell:
+```sql
+CREATE DATABASE transformer_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
 
 ### 5) Cloudinary Configuration (Image Management)
 
@@ -264,7 +259,6 @@ curl -X POST -F "file=@thermal_image.jpg" http://localhost:8080/api/inference/pr
 - **Processing Time**: ~2-5 seconds per image (depending on hardware)
 - **File Support**: JPG, PNG formats recommended
 - **Image Size**: Optimal at 640x640, automatically resized if needed
-- **Concurrent Processing**: Single-threaded inference (can be scaled)
 
 ## Implemented Features
 
@@ -281,15 +275,13 @@ curl -X POST -F "file=@thermal_image.jpg" http://localhost:8080/api/inference/pr
 - **Thermal Analysis View**: Interactive thermal image analysis with AI detection results
 - **Tooltip System**: Comprehensive help tooltips for all interactive elements
 - **Status Indicators**: Visual status indicators for equipment condition
-- **Data Visualization**: Charts and graphs for trend analysis
-- **Real-time Updates**: Live status updates and notifications
 
 ### Backend Features (transformer-api)
 
 #### REST API Services
 - **RESTful Endpoints**: Complete API coverage for all entities
 - **CORS Configuration**: Configured for local development environment
-- **Real-time Processing**: Live AI inference integration
+- **AI Inference Integration**: Seamless AI-powered processing
 - **Data Persistence**: MySQL with JPA/Hibernate ORM
 
 #### AI Integration
@@ -302,14 +294,13 @@ curl -X POST -F "file=@thermal_image.jpg" http://localhost:8080/api/inference/pr
 - **Entity Relationships**: Well-designed entity relationships with DTOs
 - **Mapping Services**: MapStruct-based entity-DTO mapping
 - **Validation**: Comprehensive input validation and error handling
-- **Performance**: Optimized queries and caching strategies
 
 
 ### Anomaly Detection Service (anomaly-detector)
 
 #### AI Model Architecture
 - **YOLOv11 Segmentation**: State-of-the-art instance segmentation for precise anomaly detection
-- **Real-time Processing**: Optimized for fast inference on thermal images
+- **Optimized Inference**: High-speed processing of thermal images
 - **Multi-class Detection**: Simultaneous detection of 5 distinct thermal anomaly types
 - **Confidence Analysis**: Statistical confidence scoring for each detection
 
@@ -317,7 +308,6 @@ curl -X POST -F "file=@thermal_image.jpg" http://localhost:8080/api/inference/pr
 - **Python Integration**: Seamless integration with Java backend via subprocess execution
 - **Artifact Management**: Configurable retention of processing artifacts
 - **Flexible Configuration**: Adjustable confidence and IoU thresholds
-- **Batch Processing**: Support for batch image processing capabilities
 
 ## Getting Started
 
@@ -326,12 +316,12 @@ curl -X POST -F "file=@thermal_image.jpg" http://localhost:8080/api/inference/pr
 1. **Clone and Setup Database**
    ```bash
    git clone [repository-url]
-   mysql -u root -p -e "CREATE DATABASE transformer_db CHARACTER SET utf8mb4;"
    ```
 
 2. **Install Python Dependencies**
-   ```bash
-   pip install ultralytics opencv-python numpy torch torchvision
+  ```bash
+   cd anomaly-detector
+   pip install -r requirements.txt
    ```
 
 3. **Configure Backend**
@@ -417,73 +407,3 @@ npm install
 # Check environment variables
 cat .env  # Verify VITE_* variables are set
 ```
-
-## API Documentation
-
-### Core Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/transformers` | List all transformers |
-| POST | `/api/transformers` | Create new transformer |
-| GET | `/api/transformers/{id}` | Get transformer details |
-| PUT | `/api/transformers/{id}` | Update transformer |
-| DELETE | `/api/transformers/{id}` | Delete transformer |
-| GET | `/api/inspections` | List all inspections |
-| POST | `/api/inspections` | Create new inspection |
-| GET | `/api/inspections/{id}` | Get inspection details |
-| POST | `/api/inference/predict` | Run AI thermal analysis |
-
-### Authentication
-Currently, the API is **open for development**. Authentication and authorization will be implemented in future releases.
-
-## Known Limitations & Future Enhancements
-
-### Current Limitations
-
-- **No Authentication**: All API endpoints are publicly accessible
-- **CORS Configuration**: Currently configured for local development only
-- **Single-threaded AI**: Inference processing is not parallelized
-- **Limited Analytics**: Basic reporting functionality
-- **No Real-time Updates**: No WebSocket or SSE implementation
-
-### Planned Enhancements
-
-- **User Authentication**: JWT-based authentication system
-- **Role-based Access**: Different permission levels for users
-- **Advanced Analytics**: Comprehensive reporting and trend analysis
-- **Real-time Features**: Live updates and notifications
-- **Mobile App**: Native mobile application
-- **Cloud Deployment**: Production-ready cloud deployment guides
-- **Performance Optimization**: Caching and optimization strategies
-
-## Contributing
-
-### Development Workflow
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
-
-### Code Standards
-- **Java**: Follow Spring Boot best practices and Google Java Style Guide
-- **TypeScript**: Use ESLint and Prettier for code formatting
-- **Python**: Follow PEP 8 style guide
-- **Database**: Use meaningful column names and proper indexing
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support
-
-For support and questions:
-- **Documentation**: Check this README and inline code documentation
-- **Issues**: Open GitHub issues for bugs and feature requests
-- **Discussions**: Use GitHub Discussions for general questions
-
----
-
-**Team Backslash** - Transformer Maintenance Record Keeper
-*Empowering predictive maintenance through AI-powered thermal analysis*

@@ -1486,9 +1486,9 @@ export default function InspectionDetails() {
         </DialogTitle>
         <DialogContent dividers sx={{ bgcolor: "#FBFBFE" }}>
           <Stack spacing={1.5}>
-            <Typography fontWeight={700}>Temperature Difference</Typography>
+            <Typography fontWeight={700}>Temperature Rules</Typography>
             <Typography variant="body2" color="text.secondary">
-              Temperature difference between baseline and maintenance images.
+              Confident threshold for fault detection.
             </Typography>
             <Box display="flex" alignItems="center" gap={1}>
               <TextField

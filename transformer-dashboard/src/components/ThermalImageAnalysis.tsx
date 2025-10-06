@@ -167,13 +167,50 @@ const ZoomableImage: React.FC<ZoomableImageProps> = ({
 
   const handleImageLoad = () => {
     if (imageRef.current && canvasRef?.current) {
-      // Set canvas dimensions BEFORE any context acquisition or drawing
-      canvasRef.current.width = imageRef.current.naturalWidth;
-      canvasRef.current.height = imageRef.current.naturalHeight;
-      // If you have drawing logic or context acquisition, do it after setting dimensions
-      // Example:
-      // const ctx = canvasRef.current.getContext("2d");
-      // ...drawing logic here...
+      // Get the actual displayed image dimensions (not natural dimensions)
+      const imgElement = imageRef.current;
+      const containerElement = containerRef.current;
+
+      if (containerElement) {
+        // Calculate the actual displayed size of the image within the container
+        const containerRect = containerElement.getBoundingClientRect();
+        // Set canvas to match the actual displayed image size, not natural size
+        const displayWidth = Math.min(
+          imgElement.naturalWidth,
+          containerRect.width
+        );
+        const displayHeight = Math.min(
+          imgElement.naturalHeight,
+          containerRect.height
+        );
+
+        // Maintain aspect ratio
+        const aspectRatio = imgElement.naturalWidth / imgElement.naturalHeight;
+        let finalWidth = displayWidth;
+        let finalHeight = displayHeight;
+
+        if (displayWidth / displayHeight > aspectRatio) {
+          finalWidth = displayHeight * aspectRatio;
+        } else {
+          finalHeight = displayWidth / aspectRatio;
+        }
+
+        // Set canvas dimensions to match the actual displayed image
+        canvasRef.current.width = finalWidth;
+        canvasRef.current.height = finalHeight;
+
+        console.log("Image Load Debug:", {
+          naturalSize: {
+            width: imgElement.naturalWidth,
+            height: imgElement.naturalHeight,
+          },
+          displaySize: { width: finalWidth, height: finalHeight },
+          containerSize: {
+            width: containerRect.width,
+            height: containerRect.height,
+          },
+        });
+      }
     }
     onImageLoad?.();
   };
@@ -223,13 +260,14 @@ const ZoomableImage: React.FC<ZoomableImageProps> = ({
             ref={canvasRef}
             style={{
               position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              pointerEvents: "none",
-              transform: `scale(${scale}) translate(${position.x}px, ${position.y}px)`,
+              top: "50%",
+              left: "50%",
+              transform: `translate(-50%, -50%) scale(${scale}) translate(${position.x}px, ${position.y}px)`,
               transition: isDragging ? "none" : "transform 0.2s ease",
+              pointerEvents: "none",
+              maxWidth: "100%",
+              maxHeight: "100%",
+              objectFit: "contain",
             }}
           />
         )}
@@ -413,6 +451,24 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Get the actual displayed image dimensions from canvas
+    const displayedImageWidth = canvas.width;
+    const displayedImageHeight = canvas.height;
+
+    console.log("Drawing bounding boxes:", {
+      canvasSize: { width: displayedImageWidth, height: displayedImageHeight },
+      issuesCount: analysisData.issues.length,
+    });
+
+    // AI model processes images at 640x640, so coordinates are relative to that size
+    const AI_MODEL_SIZE = 640;
+
+    // Calculate scaling factors
+    const scaleX = displayedImageWidth / AI_MODEL_SIZE;
+    const scaleY = displayedImageHeight / AI_MODEL_SIZE;
+
+    console.log("Scaling factors:", { scaleX, scaleY });
+
     // Filter issues based on selected filter
     const filteredIssues = analysisData.issues.filter(
       (issue) =>
@@ -420,8 +476,47 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     );
 
     // Draw bounding boxes
-    filteredIssues.forEach((issue) => {
+    filteredIssues.forEach((issue, index) => {
       const { x, y, width, height } = issue.boundingBox;
+
+      // Scale the coordinates to match the actual displayed image size
+      const scaledX = x * scaleX;
+      const scaledY = y * scaleY;
+      const scaledWidth = width * scaleX;
+      const scaledHeight = height * scaleY;
+
+      console.log(`Issue ${index + 1}:`, {
+        original: { x, y, width, height },
+        scaled: {
+          x: scaledX,
+          y: scaledY,
+          width: scaledWidth,
+          height: scaledHeight,
+        },
+        canvasBounds: {
+          width: displayedImageWidth,
+          height: displayedImageHeight,
+        },
+      });
+
+      // Clamp coordinates to canvas bounds to prevent drawing outside
+      const clampedX = Math.max(0, Math.min(scaledX, displayedImageWidth));
+      const clampedY = Math.max(0, Math.min(scaledY, displayedImageHeight));
+      const clampedWidth = Math.min(
+        scaledWidth,
+        displayedImageWidth - clampedX
+      );
+      const clampedHeight = Math.min(
+        scaledHeight,
+        displayedImageHeight - clampedY
+      );
+
+      // Skip drawing if the box is completely outside the canvas
+      if (clampedWidth <= 0 || clampedHeight <= 0) {
+        console.warn(`Skipping issue ${index + 1} - outside canvas bounds`);
+        return;
+      }
+
       const color =
         SEVERITY_COLORS[issue.severity as keyof typeof SEVERITY_COLORS] ||
         "#ff9800"; // fallback to warning color
@@ -432,14 +527,14 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       const fontSize = Math.max(8, 10 * scaleFactor);
       const badgeSize = Math.max(12, 14 * scaleFactor);
 
-      // Draw rectangle
+      // Draw rectangle using clamped coordinates
       ctx.strokeStyle = color;
       ctx.lineWidth = boxLineWidth;
-      ctx.strokeRect(x, y, width, height);
+      ctx.strokeRect(clampedX, clampedY, clampedWidth, clampedHeight);
 
       // Draw filled background with transparency
       ctx.fillStyle = color + BOUNDING_BOX_OPACITY;
-      ctx.fillRect(x, y, width, height);
+      ctx.fillRect(clampedX, clampedY, clampedWidth, clampedHeight);
 
       // Draw small number in top-left corner
       const originalIndex = analysisData.issues.findIndex(
@@ -447,33 +542,33 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       );
       const issueNumber = (originalIndex + 1).toString();
 
-      // Draw small circular badge for number in top-left corner
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(
-        x + badgeSize / 2,
-        y + badgeSize / 2,
-        badgeSize / 2,
-        0,
-        2 * Math.PI
-      );
-      ctx.fill();
+      // Draw small circular badge for number in top-left corner (using clamped coordinates)
+      const badgeX = clampedX + badgeSize / 2;
+      const badgeY = clampedY + badgeSize / 2;
 
-      // Draw white border around circle
-      ctx.strokeStyle = "white";
-      ctx.lineWidth = Math.max(0.5, 1 * scaleFactor);
-      ctx.stroke();
+      // Only draw badge if it's within canvas bounds
+      if (badgeX <= displayedImageWidth && badgeY <= displayedImageHeight) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(badgeX, badgeY, badgeSize / 2, 0, 2 * Math.PI);
+        ctx.fill();
 
-      // Draw number text
-      ctx.fillStyle = "white";
-      ctx.font = `bold ${fontSize}px Arial`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(issueNumber, x + badgeSize / 2, y + badgeSize / 2);
+        // Draw white border around circle
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = Math.max(0.5, 1 * scaleFactor);
+        ctx.stroke();
 
-      // Reset text alignment for future drawings
-      ctx.textAlign = "start";
-      ctx.textBaseline = "alphabetic";
+        // Draw number text
+        ctx.fillStyle = "white";
+        ctx.font = `bold ${fontSize}px Arial`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(issueNumber, badgeX, badgeY);
+
+        // Reset text alignment for future drawings
+        ctx.textAlign = "start";
+        ctx.textBaseline = "alphabetic";
+      }
     });
   };
 
@@ -868,10 +963,10 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                                     mt: 0.125,
                                   }}
                                 >
-                                  Location: ({issue.boundingBox.x},{" "}
+                                  AI Model Coordinates: ({issue.boundingBox.x},{" "}
                                   {issue.boundingBox.y}) -{" "}
                                   {issue.boundingBox.width}×
-                                  {issue.boundingBox.height}px
+                                  {issue.boundingBox.height}px (640×640 basis)
                                 </Typography>
                               </CardContent>
                             </Card>
