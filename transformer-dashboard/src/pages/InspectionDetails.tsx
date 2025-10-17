@@ -45,6 +45,7 @@ import {
   ZoomOut as ZoomOutIcon,
   CenterFocusStrong as CenterFocusStrongIcon,
   Close as CloseIcon,
+  Logout as LogoutIcon,
 } from "@mui/icons-material";
 import { format } from "date-fns";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
@@ -894,7 +895,7 @@ export default function InspectionDetails() {
                   </Typography>
                 </Box>
                 <IconButton size="small" onClick={logout} title="Logout">
-                  <SettingsIcon />
+                  <LogoutIcon />
                 </IconButton>
               </>
             )}

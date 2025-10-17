@@ -47,6 +47,7 @@ import {
   MoreVert as MoreVertIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  Logout as LogoutIcon,
 } from "@mui/icons-material";
 import PowerLensBranding from "../components/PowerLensBranding";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -622,7 +623,7 @@ export default function Dashboard() {
         sx={{ ml: 1 }}
         title="Logout"
       >
-        <SettingsIcon />
+        <LogoutIcon />
       </IconButton>
     </>
   )}

@@ -38,6 +38,7 @@ import {
   Place as PlaceIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  Logout as LogoutIcon,
 } from "@mui/icons-material";
 import { useParams, useNavigate } from "react-router-dom";
 import PowerLensBranding from "../components/PowerLensBranding";
@@ -523,8 +524,8 @@ export default function TransformerInspection() {
                     {user?.email}
                   </Typography>
                 </Box>
-                <IconButton size="small" onClick={logout} title="Logout">
-                  <SettingsIcon />
+                <IconButton size="small" onClick={logout} title="Logout" aria-label="logout">
+                  <LogoutIcon />
                 </IconButton>
               </>
             )}
