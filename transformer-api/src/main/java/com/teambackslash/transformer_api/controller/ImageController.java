@@ -77,20 +77,27 @@ public class ImageController {
     @PostMapping("/thermal-analysis")
     public ResponseEntity<ThermalAnalysisDTO> analyzeThermalImage(@RequestBody ThermalAnalysisRequestDTO request) {
         try {
-            ThermalAnalysisDTO analysis = thermalAnalysisService.analyzeThermalImage(request.getImageUrl(), request.getTransformerNo(), request.getInspectionId());
+            ThermalAnalysisDTO analysis = thermalAnalysisService.analyzeThermalImage(
+                request.getThermalImageUrl(), 
+                request.getTransformerNo(),
+                request.getInspectionId()
+            );
             return ResponseEntity.ok(analysis);
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
     @GetMapping("/thermal-analysis")
-    public ResponseEntity<ThermalAnalysisDTO> analyzeThermalImageByUrl(@RequestParam String imageUrl, @RequestParam(required = false) String transformerNo) {
+    public ResponseEntity<ThermalAnalysisDTO> analyzeThermalImageByUrl(
+        @RequestParam String imageUrl, 
+        @RequestParam(required = false) String transformerNo
+    ) {
         try {
             ThermalAnalysisDTO analysis = thermalAnalysisService.analyzeThermalImage(imageUrl, transformerNo);
             return ResponseEntity.ok(analysis);
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 }
