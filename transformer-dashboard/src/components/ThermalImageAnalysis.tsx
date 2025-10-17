@@ -32,6 +32,7 @@ import {
   Timer as TimerIcon,
   Upload as UploadIcon,
 } from "@mui/icons-material";
+import { authService } from "../services/authService";
 
 // TypeScript interfaces matching the API response
 interface BoundingBox {
@@ -64,7 +65,8 @@ interface ThermalImageAnalysisProps {
   baselineImageUrl?: string;
   onAnalysisComplete?: (analysis: ThermalAnalysisData) => void;
   loading?: boolean;
-  transformerNo?: string; // new: required for backend persistence of predictions
+  transformerNo?: string;
+  inspectionId?: number; // Add inspectionId prop
 }
 
 const SEVERITY_COLORS = {
@@ -336,6 +338,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   onAnalysisComplete,
   loading = false,
   transformerNo,
+  inspectionId, // Receive inspectionId
 }) => {
   const [analysisData, setAnalysisData] = useState<ThermalAnalysisData | null>(
     null
@@ -358,51 +361,44 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   const inFlightRef = useRef<string | null>(null);
 
   // API call to analyze thermal image
-  const analyzeThermalImage = async (
-    imageUrl: string
-  ): Promise<ThermalAnalysisData> => {
+  const analyzeThermalImage = async (): Promise<ThermalAnalysisData> => {
     if (!transformerNo) {
       console.warn(
         "ThermalImageAnalysis: transformerNo not provided; prediction persistence will be skipped on backend."
       );
     }
-    // Try relative URL first (with proxy), then fall back to direct URL
-    const apiUrls = [
-      "/api/images/thermal-analysis",
-      "http://localhost:8080/api/images/thermal-analysis",
-    ];
+    
+    // Use direct backend URL to avoid proxy issues
+    const apiUrl = "http://localhost:8080/api/images/thermal-analysis";
 
-    let lastError: Error | null = null;
+    try {
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authService.getAuthHeader(),
+        },
+        body: JSON.stringify({
+          thermalImageUrl,
+          baselineImageUrl,
+          transformerNo,
+          inspectionId, // Include inspectionId in request
+        }),
+      });
 
-    for (const apiUrl of apiUrls) {
-      try {
-        const response = await fetch(apiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            imageUrl: imageUrl,
-            analysisType: "thermal",
-            transformerNo: transformerNo || undefined,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(
-            `Analysis failed: ${response.status} ${response.statusText}`
-          );
-        }
-
-        const data = await response.json();
-        return data;
-      } catch (error) {
-        console.warn(`Failed to connect to ${apiUrl}:`, error);
-        lastError = error as Error;
-        // Continue to try next URL
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        throw new Error(
+          `Analysis failed: ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ''}`
+        );
       }
-    }
 
-    // If all URLs failed, throw the last error
-    throw lastError || new Error("All API endpoints failed");
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Thermal analysis error:", error);
+      throw error;
+    }
   };
 
   // Trigger analysis when thermal image URL changes
@@ -421,7 +417,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     setIsAnalyzing(true);
     setError(null);
 
-    analyzeThermalImage(thermalImageUrl)
+    analyzeThermalImage()
       .then((data) => {
         analyzedImagesRef.current.add(thermalImageUrl);
         setAnalysisData(data);
