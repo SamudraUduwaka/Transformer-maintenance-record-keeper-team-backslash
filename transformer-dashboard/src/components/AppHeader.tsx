@@ -1,5 +1,8 @@
 import React from "react";
-import { AppBar, Toolbar, Stack, Typography, Box, Avatar } from "@mui/material";
+import { AppBar, Toolbar, Stack, Typography, Box, Avatar, IconButton, Button } from "@mui/material";
+import { Settings as SettingsIcon } from "@mui/icons-material";
+import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 interface AppHeaderProps {
   title: string;
@@ -12,6 +15,9 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   drawerWidth,
   leftContent,
 }) => {
+  const { user, isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
+
   return (
     <AppBar
       position="fixed"
@@ -39,15 +45,48 @@ const AppHeader: React.FC<AppHeaderProps> = ({
           alignItems="center"
           sx={{ ml: 1 }}
         >
-          <Avatar src="./user.png" sx={{ width: 36, height: 36 }} />
-          <Box sx={{ display: { xs: "none", md: "block" } }}>
-            <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
-              Test User
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              testuser@gmail.com
-            </Typography>
-          </Box>
+          {!isAuthenticated ? (
+            <Button
+              variant="outlined"
+              size="small"
+              sx={{
+                textTransform: "none",
+                borderRadius: 999,
+                px: 2,
+                py: 0.5,
+                fontWeight: 600,
+                borderColor: "primary.main",
+                color: "primary.main",
+                "&:hover": {
+                  borderColor: "primary.dark",
+                  bgcolor: "primary.50",
+                },
+              }}
+              onClick={() => navigate('/login')}
+            >
+              Login
+            </Button>
+          ) : (
+            <>
+              <Avatar src={user?.avatar || "./user.png"} sx={{ width: 36, height: 36 }} />
+              <Box sx={{ display: { xs: "none", md: "block" } }}>
+                <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
+                  {user?.name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {user?.email}
+                </Typography>
+              </Box>
+              <IconButton
+                size="small"
+                onClick={logout}
+                sx={{ ml: 1 }}
+                title="Logout"
+              >
+                <SettingsIcon />
+              </IconButton>
+            </>
+          )}
         </Stack>
       </Toolbar>
     </AppBar>
