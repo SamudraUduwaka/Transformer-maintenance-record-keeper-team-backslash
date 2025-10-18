@@ -1,13 +1,17 @@
 package com.teambackslash.transformer_api.dto;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
-import lombok.ToString;
+import lombok.NoArgsConstructor;
 
 @Data
-@ToString
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ThermalAnalysisRequestDTO {
-    private String imageUrl;
-    private String analysisType;
-    private String transformerNo; // new: used for persistence of predictions
-    private Integer inspectionId; // optional: link prediction to an inspection
+    private String thermalImageUrl;
+    private String baselineImageUrl;
+    private String transformerNo;
+    private Integer inspectionId; // Make it nullable/optional
 }

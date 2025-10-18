@@ -47,9 +47,12 @@ import {
   MoreVert as MoreVertIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  Logout as LogoutIcon,
 } from "@mui/icons-material";
 import PowerLensBranding from "../components/PowerLensBranding";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { authService } from "../services/authService";
 import Inspections from "./Inspections";
 import {
   AddTransformerDialog,
@@ -77,14 +80,23 @@ const API_BASE_URL = "http://localhost:8080/api";
 /* API Service Functions */
 const transformersAPI = {
   getAll: async (): Promise<Transformer[]> => {
-    const response = await fetch(`${API_BASE_URL}/transformers`);
+    const response = await fetch(`${API_BASE_URL}/transformers`, {
+      headers: {
+        ...authService.getAuthHeader(),
+      },
+    });
     if (!response.ok) throw new Error("Failed to fetch transformers");
     return response.json();
   },
 
   getById: async (transformerNo: string): Promise<Transformer> => {
     const response = await fetch(
-      `${API_BASE_URL}/transformers/${transformerNo}`
+      `${API_BASE_URL}/transformers/${transformerNo}`,
+      {
+        headers: {
+          ...authService.getAuthHeader(),
+        },
+      }
     );
     if (!response.ok) throw new Error("Failed to fetch transformer");
     return response.json();
@@ -95,7 +107,10 @@ const transformersAPI = {
   ): Promise<Transformer> => {
     const response = await fetch(`${API_BASE_URL}/transformers`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...authService.getAuthHeader(),
+      },
       body: JSON.stringify(transformer),
     });
     if (!response.ok) throw new Error("Failed to create transformer");
@@ -110,7 +125,10 @@ const transformersAPI = {
       `${API_BASE_URL}/transformers/${transformerNo}`,
       {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...authService.getAuthHeader(),
+        },
         body: JSON.stringify(transformer),
       }
     );
@@ -123,6 +141,9 @@ const transformersAPI = {
       `${API_BASE_URL}/transformers/${transformerNo}`,
       {
         method: "DELETE",
+        headers: {
+          ...authService.getAuthHeader(),
+        },
       }
     );
     if (!response.ok) throw new Error("Failed to delete transformer");
@@ -136,7 +157,10 @@ const transformersAPI = {
       `${API_BASE_URL}/transformers/${transformerNo}`,
       {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...authService.getAuthHeader(),
+        },
         body: JSON.stringify(updates),
       }
     );
@@ -182,11 +206,20 @@ function stableSort<T>(
 const drawerWidth = 200;
 
 export default function Dashboard() {
+  const { user, isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
+
+  // Redirect to login if not authenticated
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+    }
+  }, [isAuthenticated, navigate]);
+
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [view, setView] = React.useState<"transformers" | "inspections">(
     "transformers"
   );
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   // Effect to handle URL view parameter
@@ -516,7 +549,7 @@ export default function Dashboard() {
             alignItems="center"
             sx={{ ml: 1 }}
           >
-            <Avatar src="./user.png" sx={{ width: 36, height: 36 }} />
+            {/* <Avatar src="./user.png" sx={{ width: 36, height: 36 }} />
             <Box sx={{ display: { xs: "none", md: "block" } }}>
               <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
                 Test User
@@ -524,7 +557,76 @@ export default function Dashboard() {
               <Typography variant="caption" color="text.secondary">
                 testuser@gmail.com
               </Typography>
-            </Box>
+            </Box> */}
+            {/* Login Button */}
+      {/* <Button
+        variant="outlined"
+        size="small"
+        sx={{
+          textTransform: "none",
+          borderRadius: 999,
+          px: 2,
+          py: 0.5,
+          fontWeight: 600,
+          borderColor: "primary.main",
+          color: "primary.main",
+          "&:hover": {
+            borderColor: "primary.dark",
+            bgcolor: "primary.50",
+          },
+        }}
+        onClick={() => {
+          // Add login functionality here
+          console.log("Login clicked");
+        }}
+      >
+        Login
+      </Button> */}
+      {/* Conditionally show Login button or User info */}
+  {!isAuthenticated ? (
+    // Show Login button when not logged in
+    <Button
+      variant="outlined"
+      size="small"
+      sx={{
+        textTransform: "none",
+        borderRadius: 999,
+        px: 2,
+        py: 0.5,
+        fontWeight: 600,
+        borderColor: "primary.main",
+        color: "primary.main",
+        "&:hover": {
+          borderColor: "primary.dark",
+          bgcolor: "primary.50",
+        },
+      }}
+      onClick={() => navigate('/login')}
+    >
+      Login
+    </Button>
+  ) : (
+    // Show user info when logged in
+    <>
+      <Avatar src={user?.avatar || "./user.png"} sx={{ width: 36, height: 36 }} />
+      <Box sx={{ display: { xs: "none", md: "block" } }}>
+        <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
+          {user?.name}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {user?.email}
+        </Typography>
+      </Box>
+      <IconButton
+        size="small"
+        onClick={logout}
+        sx={{ ml: 1 }}
+        title="Logout"
+      >
+        <LogoutIcon />
+      </IconButton>
+    </>
+  )}
           </Stack>
         </Toolbar>
       </AppBar>

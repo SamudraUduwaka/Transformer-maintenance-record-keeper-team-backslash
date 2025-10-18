@@ -45,11 +45,14 @@ import {
   ZoomOut as ZoomOutIcon,
   CenterFocusStrong as CenterFocusStrongIcon,
   Close as CloseIcon,
+  Logout as LogoutIcon,
 } from "@mui/icons-material";
 import { format } from "date-fns";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import PowerLensBranding from "../components/PowerLensBranding";
 import ThermalImageAnalysis from "../components/ThermalImageAnalysis";
+import { authService } from "../services/authService";
+import { useAuth } from "../context/AuthContext";
 
 /* API Service */
 const API_BASE_URL = "http://localhost:8080/api";
@@ -87,7 +90,10 @@ async function saveImageMetadata(body: {
 }) {
   const res = await fetch(`${API_BASE_URL}/images`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...authService.getAuthHeader(),
+    },
     body: JSON.stringify(body),
   });
   if (!res.ok)
@@ -100,7 +106,12 @@ async function fetchBaselineImage(transformerNo: string, weather: Weather) {
     const res = await fetch(
       `${API_BASE_URL}/images/baseline?transformerNo=${encodeURIComponent(
         transformerNo
-      )}&weatherCondition=${encodeURIComponent(weather)}`
+      )}&weatherCondition=${encodeURIComponent(weather)}`,
+      {
+        headers: {
+          ...authService.getAuthHeader(),
+        },
+      }
     );
     if (!res.ok) return null;
     const data = await res.json();
@@ -154,12 +165,11 @@ type ImageStatus = "baseline" | "maintenance" | "no image";
 /* ----- Page ----- */
 export default function InspectionDetails() {
   const { transformerNo = "AZ-8801", inspectionNo = "000123589" } = useParams();
-
-  // Adjust this if your route param isn't the DB primary key.
   const inspectionId = Number(inspectionNo);
-
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, isAuthenticated, logout } = useAuth();
+  
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   // Smart back navigation function
@@ -561,7 +571,10 @@ export default function InspectionDetails() {
       setSavingThreshold(true);
       const res = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/inference/config/class-threshold`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...authService.getAuthHeader(),
+        },
         body: JSON.stringify({ percentage: val }),
       });
       if (!res.ok && res.status !== 204) {
@@ -570,14 +583,18 @@ export default function InspectionDetails() {
       setSnackbar({ open: true, message: `Ruleset saved: ${val}%`, severity: "success" });
       // Refresh inspection details to pick up new image URL and then scroll to analysis
       try {
-        const res2 = await fetch(`${API_BASE_URL}/inspections/${inspectionNo}`);
+        const res2 = await fetch(`${API_BASE_URL}/inspections/${inspectionNo}`, {
+          headers: {
+            ...authService.getAuthHeader(),
+          },
+        });
         if (res2.ok) {
           const data = await res2.json();
           setInspection(data);
           // Smooth scroll to analysis section
           setTimeout(() => analysisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
         }
-  } catch { console.warn('Failed to refresh inspection after saving threshold'); }
+      } catch { console.warn('Failed to refresh inspection after saving threshold'); }
     } catch (err) {
       setSnackbar({ open: true, message: `Failed to update threshold: ${(err as Error).message}` , severity: "error"});
     } finally {
@@ -597,7 +614,11 @@ export default function InspectionDetails() {
     async function getInspection() {
       if (!inspectionNo) return;
       try {
-        const res = await fetch(`${API_BASE_URL}/inspections/${inspectionNo}`);
+        const res = await fetch(`${API_BASE_URL}/inspections/${inspectionNo}`, {
+          headers: {
+            ...authService.getAuthHeader(),
+          },
+        });
         if (!res.ok) throw new Error("Failed to fetch inspection");
         const data = await res.json();
         setInspection(data);
@@ -623,12 +644,22 @@ export default function InspectionDetails() {
       if (!transformerNo) return;
       try {
         const res1 = await fetch(
-          `${API_BASE_URL}/transformers/${encodeURIComponent(transformerNo)}`
+          `${API_BASE_URL}/transformers/${encodeURIComponent(transformerNo)}`,
+          {
+            headers: {
+              ...authService.getAuthHeader(),
+            },
+          }
         );
         if (!res1.ok) throw new Error("Failed to fetch transformer details");
         const transformerData = await res1.json();
         const res2 = await fetch(
-          `${API_BASE_URL}/inspections/${encodeURIComponent(inspectionNo)}`
+          `${API_BASE_URL}/inspections/${encodeURIComponent(inspectionNo)}`,
+          {
+            headers: {
+              ...authService.getAuthHeader(),
+            },
+          }
         );
         if (!res2.ok) throw new Error("Failed to fetch inspection details");
         const inspectionData = await res2.json();
@@ -837,15 +868,37 @@ export default function InspectionDetails() {
             alignItems="center"
             sx={{ ml: 1 }}
           >
-            <Avatar src="./user.png" sx={{ width: 36, height: 36 }} />
-            <Box sx={{ display: { xs: "none", md: "block" } }}>
-              <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
-                Test User
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                testuser@gmail.com
-              </Typography>
-            </Box>
+            {!isAuthenticated ? (
+              <Button
+                variant="outlined"
+                size="small"
+                sx={{
+                  textTransform: "none",
+                  borderRadius: 999,
+                  px: 2,
+                  py: 0.5,
+                  fontWeight: 600,
+                }}
+                onClick={() => navigate('/login')}
+              >
+                Login
+              </Button>
+            ) : (
+              <>
+                <Avatar src={user?.avatar || "./user.png"} sx={{ width: 36, height: 36 }} />
+                <Box sx={{ display: { xs: "none", md: "block" } }}>
+                  <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
+                    {user?.name}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {user?.email}
+                  </Typography>
+                </Box>
+                <IconButton size="small" onClick={logout} title="Logout">
+                  <LogoutIcon />
+                </IconButton>
+              </>
+            )}
           </Stack>
         </Toolbar>
       </AppBar>
@@ -1122,6 +1175,7 @@ export default function InspectionDetails() {
                     thermalImageUrl={inspection.image.imageUrl}
                     baselineImageUrl={baselineImage?.url || ""}
                     transformerNo={inspection.transformerNo || inspection.transformer?.transformerNo || transformerNo}
+                    inspectionId={inspectionId} // Pass inspectionId prop
                   />
                 </div>
               ) : (

@@ -38,9 +38,12 @@ import {
   Place as PlaceIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  Logout as LogoutIcon,
 } from "@mui/icons-material";
 import { useParams, useNavigate } from "react-router-dom";
 import PowerLensBranding from "../components/PowerLensBranding";
+import { authService } from "../services/authService";
+import { useAuth } from "../context/AuthContext";
 import AddInspectionDialog from "../models/AddInspectionDialog";
 import EditInspectionDialog, {
   type InspectionRow as EditInspectionRow,
@@ -101,10 +104,15 @@ async function http<T>(
   const headers = new Headers(init?.headers || {});
   if (init?.json !== undefined) headers.set("Content-Type", "application/json");
 
+  // Add authentication headers
+  const authHeaders = authService.getAuthHeader();
+  Object.entries(authHeaders).forEach(([key, value]) => {
+    headers.set(key, value);
+  });
+
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers,
-    credentials: "include",
     body: init?.json !== undefined ? JSON.stringify(init.json) : init?.body,
   });
 
@@ -232,6 +240,7 @@ function StatPill({ top, bottom }: { top: string | number; bottom: string }) {
 export default function TransformerInspection() {
   const { transformerNo = "AZ-8801" } = useParams();
   const navigate = useNavigate();
+  const { user, isAuthenticated, logout } = useAuth();
 
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
@@ -489,15 +498,37 @@ export default function TransformerInspection() {
             alignItems="center"
             sx={{ ml: 1 }}
           >
-            <Avatar src="./user.png" sx={{ width: 36, height: 36 }} />
-            <Box sx={{ display: { xs: "none", md: "block" } }}>
-              <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
-                Test User
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                testuser@gmail.com
-              </Typography>
-            </Box>
+            {!isAuthenticated ? (
+              <Button
+                variant="outlined"
+                size="small"
+                sx={{
+                  textTransform: "none",
+                  borderRadius: 999,
+                  px: 2,
+                  py: 0.5,
+                  fontWeight: 600,
+                }}
+                onClick={() => navigate('/login')}
+              >
+                Login
+              </Button>
+            ) : (
+              <>
+                <Avatar src={user?.avatar || "./user.png"} sx={{ width: 36, height: 36 }} />
+                <Box sx={{ display: { xs: "none", md: "block" } }}>
+                  <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
+                    {user?.name}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {user?.email}
+                  </Typography>
+                </Box>
+                <IconButton size="small" onClick={logout} title="Logout" aria-label="logout">
+                  <LogoutIcon />
+                </IconButton>
+              </>
+            )}
           </Stack>
         </Toolbar>
       </AppBar>

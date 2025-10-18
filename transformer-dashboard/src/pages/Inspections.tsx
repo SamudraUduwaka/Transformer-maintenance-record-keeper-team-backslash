@@ -43,6 +43,7 @@ import AddInspectionDialog from "../models/AddInspectionDialog";
 import EditInspectionDialog from "../models/EditInspectionDialog";
 import DeleteInspectionConfirmationDialog from "../models/DeleteInspectionConfirmationDialog";
 import "../styles/dashboard.css";
+import { authService } from "../services/authService";
 
 /* Props controlled by Dashboard */
 type Props = {
@@ -96,9 +97,13 @@ const inspectionService = {
   async getAllInspections(): Promise<InspectionDTO[]> {
     const response = await fetch(`${API_BASE_URL}/inspections`, {
       method: "GET",
+      // headers: {
+      //   "Content-Type": "application/json",
+      // },
       headers: {
-        "Content-Type": "application/json",
-      },
+                "Content-Type": "application/json",
+                ...authService.getAuthHeader(),
+              },
       credentials: "include",
     });
 
@@ -124,6 +129,7 @@ const inspectionService = {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...authService.getAuthHeader(),
       },
       credentials: "include",
       body: JSON.stringify(formattedData),
@@ -151,6 +157,7 @@ const inspectionService = {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
+        ...authService.getAuthHeader(),
       },
       credentials: "include",
       body: JSON.stringify(updates),
@@ -168,6 +175,7 @@ const inspectionService = {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
+        ...authService.getAuthHeader(),
       },
       credentials: "include",
     });
@@ -185,6 +193,7 @@ const inspectionService = {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
+        ...authService.getAuthHeader(),
       },
       credentials: "include",
       body: JSON.stringify(updates),
