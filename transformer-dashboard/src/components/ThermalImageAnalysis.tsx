@@ -12,11 +12,11 @@ import {
   IconButton,
   Card,
   CardContent,
-  Collapse,
-  CardActions,
-  Button,
-  TextField,
-  Divider,
+  // Collapse,
+  // CardActions,
+  // Button,
+  // TextField,
+  // Divider,
   Tooltip,
   Snackbar,
 } from "@mui/material";
@@ -25,12 +25,12 @@ import {
   ZoomIn as ZoomInIcon,
   ZoomOut as ZoomOutIcon,
   CenterFocusStrong as CenterFocusStrongIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
+  // ExpandMore as ExpandMoreIcon,
+  // ExpandLess as ExpandLessIcon,
   Edit as EditIcon,
-  Comment as CommentIcon,
+  // Comment as CommentIcon,
   Person as PersonIcon,
-  Timer as TimerIcon,
+  // Timer as TimerIcon,
   Upload as UploadIcon,
 } from "@mui/icons-material";
 import { authService } from "../services/authService";
@@ -371,10 +371,10 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentScale, setCurrentScale] = useState(1);
-  const [isLogExpanded, setIsLogExpanded] = useState(false);
-  const [newComment, setNewComment] = useState("");
-  const [selectedLogEntry, setSelectedLogEntry] =
-    useState<string>("ai-analysis");
+  // const [isLogExpanded, setIsLogExpanded] = useState(false);
+  // const [newComment, setNewComment] = useState("");
+  // const [selectedLogEntry, setSelectedLogEntry] =
+  //   useState<string>("ai-analysis");
 
   // const [showAiPredictions, setShowAiPredictions] = React.useState(true);
   // const [showManualAnnotations, setShowManualAnnotations] = React.useState(true);
@@ -821,9 +821,17 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
   // ADD: Filter activity log based on selected filter
   const filteredActivityLog = activityLog.filter((entry) => {
-    if (activityLogFilter === "ai") return entry.source === "AI_GENERATED";
-    if (activityLogFilter === "manual") return entry.source === "MANUALLY_ADDED";
-    return true; // "all"
+    // Filter by action type first (exclude deleted unless specifically requested)
+    if (activityLogFilter !== "deleted" && entry.actionType === "DELETED") {
+      return false;
+    }
+    
+    // Then filter by source
+    if (activityLogFilter === "ai") return entry.source === "AI_GENERATED" && entry.actionType !== "DELETED";
+    if (activityLogFilter === "manual") return entry.source === "MANUALLY_ADDED" && entry.actionType !== "DELETED";
+    if (activityLogFilter === "deleted") return entry.actionType === "DELETED";
+    
+    return entry.actionType !== "DELETED"; // "all" - show all except deleted
   });
 
   // ADD: Manual refresh handler for activity log
@@ -1018,11 +1026,10 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
             <Paper sx={{ p: 2.5, mt: 3 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                 <Typography variant="subtitle1" fontWeight={700}>
-                  Activity Log ({filteredActivityLog.length} of {activityLog.length} entries)
+                  Activity Log ({filteredActivityLog.length} {activityLogFilter === "deleted" ? "deleted" : "active"} entries)
                 </Typography>
                 
                 <Box display="flex" gap={1} alignItems="center">
-                  {/* ADD: Refresh button */}
                   <Tooltip title="Refresh activity log" arrow>
                     <IconButton 
                       size="small" 
@@ -1042,9 +1049,10 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                       onChange={(e) => setActivityLogFilter(e.target.value)}
                       displayEmpty
                     >
-                      <MenuItem value="all">All Detections</MenuItem>
+                      <MenuItem value="all">All Active</MenuItem>
                       <MenuItem value="ai">AI Only</MenuItem>
                       <MenuItem value="manual">Manual Only</MenuItem>
+                      <MenuItem value="deleted">Deleted Only</MenuItem>
                     </Select>
                   </FormControl>
                 </Box>
