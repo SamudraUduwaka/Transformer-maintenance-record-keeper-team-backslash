@@ -706,8 +706,11 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
         severity: "success",
       });
 
-      // Exit drawing mode and return to analysis view
+      // Exit drawing mode
       setIsDrawingMode(false);
+
+      // ADD: Refresh activity log immediately after saving
+      await fetchActivityLog();
 
       // Refresh analysis to show new annotation
       analyzedImagesRef.current.delete(thermalImageUrl || '');
@@ -784,35 +787,37 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
   const [loadingActivityLog, setLoadingActivityLog] = useState(false);
-  const [activityLogFilter, setActivityLogFilter] = useState<string>("all"); // ADD: Activity log filter
+  const [activityLogFilter, setActivityLogFilter] = useState<string>("all");
+
+  // MODIFIED: Extract fetchActivityLog as a separate function for reusability
+  const fetchActivityLog = useCallback(async () => {
+    if (!predictionId) return;
+
+    setLoadingActivityLog(true);
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/predictions/${predictionId}/activity-log`,
+        {
+          headers: authService.getAuthHeader(),
+        }
+      );
+
+      if (response.ok) {
+        const data: ActivityLogEntry[] = await response.json();
+        setActivityLog(data);
+        console.log("Activity log refreshed:", data.length, "entries");
+      }
+    } catch (err) {
+      console.error("Failed to fetch activity log:", err);
+    } finally {
+      setLoadingActivityLog(false);
+    }
+  }, [predictionId]);
 
   // Fetch activity log when predictionId is available
   useEffect(() => {
-    if (!predictionId) return;
-
-    const fetchActivityLog = async () => {
-      setLoadingActivityLog(true);
-      try {
-        const response = await fetch(
-          `http://localhost:8080/api/predictions/${predictionId}/activity-log`,
-          {
-            headers: authService.getAuthHeader(),
-          }
-        );
-
-        if (response.ok) {
-          const data: ActivityLogEntry[] = await response.json();
-          setActivityLog(data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch activity log:", err);
-      } finally {
-        setLoadingActivityLog(false);
-      }
-    };
-
     fetchActivityLog();
-  }, [predictionId]);
+  }, [fetchActivityLog]);
 
   // ADD: Filter activity log based on selected filter
   const filteredActivityLog = activityLog.filter((entry) => {
@@ -820,6 +825,11 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     if (activityLogFilter === "manual") return entry.source === "MANUALLY_ADDED";
     return true; // "all"
   });
+
+  // ADD: Manual refresh handler for activity log
+  const handleRefreshActivityLog = () => {
+    fetchActivityLog();
+  };
 
   return (
     <Box>
@@ -1011,18 +1021,33 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                   Activity Log ({filteredActivityLog.length} of {activityLog.length} entries)
                 </Typography>
                 
-                {/* ADD: Filter dropdown */}
-                <FormControl size="small" sx={{ minWidth: 150 }}>
-                  <Select
-                    value={activityLogFilter}
-                    onChange={(e) => setActivityLogFilter(e.target.value)}
-                    displayEmpty
-                  >
-                    <MenuItem value="all">All Detections</MenuItem>
-                    <MenuItem value="ai">AI Only</MenuItem>
-                    <MenuItem value="manual">Manual Only</MenuItem>
-                  </Select>
-                </FormControl>
+                <Box display="flex" gap={1} alignItems="center">
+                  {/* ADD: Refresh button */}
+                  <Tooltip title="Refresh activity log" arrow>
+                    <IconButton 
+                      size="small" 
+                      onClick={handleRefreshActivityLog}
+                      disabled={loadingActivityLog}
+                      sx={{ color: 'primary.main' }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                      </svg>
+                    </IconButton>
+                  </Tooltip>
+
+                  <FormControl size="small" sx={{ minWidth: 150 }}>
+                    <Select
+                      value={activityLogFilter}
+                      onChange={(e) => setActivityLogFilter(e.target.value)}
+                      displayEmpty
+                    >
+                      <MenuItem value="all">All Detections</MenuItem>
+                      <MenuItem value="ai">AI Only</MenuItem>
+                      <MenuItem value="manual">Manual Only</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
               </Box>
 
               {loadingActivityLog ? (
