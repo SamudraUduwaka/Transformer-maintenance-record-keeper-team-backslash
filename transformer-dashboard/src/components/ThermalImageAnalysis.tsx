@@ -18,6 +18,7 @@ import {
   TextField,
   Divider,
   Tooltip,
+  Snackbar,
 } from "@mui/material";
 import {
   FilterList as FilterListIcon,
@@ -33,6 +34,8 @@ import {
   Upload as UploadIcon,
 } from "@mui/icons-material";
 import { authService } from "../services/authService";
+// import AnnotationToolbar from "./AnnotationToolbar";
+import DrawingCanvas from "./DrawingCanvas";
 
 // TypeScript interfaces matching the API response
 interface BoundingBox {
@@ -58,6 +61,7 @@ interface ThermalAnalysisData {
   issues: ThermalIssue[];
   overallScore: number;
   processingTime: number;
+  predictionId?: number; // ADD THIS LINE
 }
 
 interface ThermalImageAnalysisProps {
@@ -338,7 +342,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   onAnalysisComplete,
   loading = false,
   transformerNo,
-  inspectionId, // Receive inspectionId
+  inspectionId,
 }) => {
   const [analysisData, setAnalysisData] = useState<ThermalAnalysisData | null>(
     null
@@ -352,6 +356,24 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   const [selectedLogEntry, setSelectedLogEntry] =
     useState<string>("ai-analysis");
 
+  // const [showAiPredictions, setShowAiPredictions] = React.useState(true);
+  // const [showManualAnnotations, setShowManualAnnotations] = React.useState(true);
+  // const [isEditMode, setIsEditMode] = React.useState(false);
+  // const [isDeleteMode, setIsDeleteMode] = React.useState(false);
+
+  const [isDrawingMode, setIsDrawingMode] = useState(false); // NEW: Drawing mode state
+
+  // ADD: Snackbar state
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: "success" | "error" | "info" | "warning";
+  }>({
+    open: false,
+    message: "",
+    severity: "success",
+  });
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // Track which image URLs have already triggered an analysis to avoid
   // duplicate calls (e.g., React StrictMode double effect invocation or
@@ -360,6 +382,10 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   const analyzedImagesRef = useRef<Set<string>>(new Set());
   const inFlightRef = useRef<string | null>(null);
 
+  // Mock counts (will be replaced with real data from backend later)
+  // const aiPredictionsCount = analysisData?.issues.length || 0;
+  // const manualAnnotationsCount = 0; // Will fetch from backend
+
   // API call to analyze thermal image
   const analyzeThermalImage = async (): Promise<ThermalAnalysisData> => {
     if (!transformerNo) {
@@ -367,7 +393,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
         "ThermalImageAnalysis: transformerNo not provided; prediction persistence will be skipped on backend."
       );
     }
-    
+
     // Use direct backend URL to avoid proxy issues
     const apiUrl = "http://localhost:8080/api/images/thermal-analysis";
 
@@ -387,9 +413,10 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       });
 
       if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
+        const errorText = await response.text().catch(() => "");
         throw new Error(
-          `Analysis failed: ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ''}`
+          `Analysis failed: ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ""
+          }`
         );
       }
 
@@ -446,6 +473,9 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Only draw if AI predictions are visible
+    // if (!showAiPredictions) return;
 
     // Get the actual displayed image dimensions from canvas
     const displayedImageWidth = canvas.width;
@@ -569,9 +599,9 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   };
 
   // Update canvas when image loads or bounding box settings change
-  useEffect(() => {
-    drawBoundingBoxes();
-  }, [analysisData, selectedIssueFilter, currentScale]);
+  // useEffect(() => {
+  //   drawBoundingBoxes();
+  // }, [analysisData, selectedIssueFilter, currentScale, showAiPredictions]);
 
   const filteredIssues =
     analysisData?.issues.filter(
@@ -579,489 +609,713 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
         selectedIssueFilter === "all" || issue.type === selectedIssueFilter
     ) || [];
 
+  // NEW: Annotation toolbar handlers
+  const handleAddAnnotation = () => {
+    setIsDrawingMode(true);
+    // setIsEditMode(false);
+    // setIsDeleteMode(false);
+  };
+
+  const handleCancelDrawing = () => {
+    setIsDrawingMode(false);
+  };
+
+  const handleSaveDrawing = async (
+    box: { x: number; y: number; width: number; height: number },
+    faultType: string,
+    comments: string
+  ) => {
+    if (!predictionId) {
+      setSnackbar({
+        open: true,
+        message: "No prediction found. Please run thermal analysis first.",
+        severity: "error",
+      });
+      return;
+    }
+
+    console.log("Saving manual annotation:", { box, faultType, comments, predictionId });
+
+    try {
+      // Map fault type to class_id
+      const faultTypeToClassId: Record<string, number> = {
+        'Loose Joint (Faulty)': 1,
+        'Loose Joint (Potential)': 3,
+        'Point Overload (Faulty)': 0,
+        'Point Overload (Potential)': 2,
+        'Full Wire Overload': 4,
+      };
+
+      const classId = faultTypeToClassId[faultType];
+
+      if (classId === undefined) {
+        throw new Error(`Unknown fault type: ${faultType}`);
+      }
+
+      // Call backend API to save manual annotation
+      const response = await fetch('http://localhost:8080/api/detections', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authService.getAuthHeader(),
+        },
+        body: JSON.stringify({
+          predictionId: predictionId,
+          classId: classId,
+          confidence: 1.0,
+          x1: Math.round(box.x),
+          y1: Math.round(box.y),
+          x2: Math.round(box.x + box.width),
+          y2: Math.round(box.y + box.height),
+          comments: comments || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to save annotation: ${response.status} ${errorText}`);
+      }
+
+      const savedAnnotation = await response.json();
+      console.log('Annotation saved successfully:', savedAnnotation);
+
+      // REPLACE: Show success snackbar instead of alert
+      setSnackbar({
+        open: true,
+        message: `Manual annotation saved successfully!`,
+        severity: "success",
+      });
+
+      // Exit drawing mode and return to analysis view
+      setIsDrawingMode(false);
+
+      // Refresh analysis to show new annotation
+      analyzedImagesRef.current.delete(thermalImageUrl || '');
+      if (thermalImageUrl) {
+        setIsAnalyzing(true);
+        analyzeThermalImage()
+          .then((data) => {
+            setAnalysisData(data);
+            onAnalysisComplete?.(data);
+          })
+          .catch((err) => {
+            setError(`Failed to refresh analysis: ${err.message}`);
+          })
+          .finally(() => {
+            setIsAnalyzing(false);
+          });
+      }
+
+    } catch (error) {
+      console.error("Failed to save annotation:", error);
+      // REPLACE: Show error snackbar instead of alert
+      setSnackbar({
+        open: true,
+        message: `Failed to save annotation: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        severity: "error",
+      });
+    }
+  };
+
+  // const handleEditMode = () => {
+  //   setIsEditMode(!isEditMode);
+  //   setIsDeleteMode(false);
+  //   console.log("Edit mode:", !isEditMode);
+  // };
+
+  // const handleDeleteMode = () => {
+  //   setIsDeleteMode(!isDeleteMode);
+  //   setIsEditMode(false);
+  //   console.log("Delete mode:", !isDeleteMode);
+  // };
+
+  // const handleExportFeedback = () => {
+  //   console.log("Export feedback clicked");
+  //   alert("Export functionality will be implemented next");
+  // };
+
+  // const handleRefresh = () => {
+  //   console.log("Refresh annotations clicked");
+  //   // Re-trigger analysis
+  //   if (thermalImageUrl) {
+  //     analyzedImagesRef.current.delete(thermalImageUrl);
+  //     setIsAnalyzing(true);
+  //     analyzeThermalImage()
+  //       .then((data) => {
+  //         setAnalysisData(data);
+  //         onAnalysisComplete?.(data);
+  //       })
+  //       .catch((err) => {
+  //         setError(`Failed to analyze thermal image: ${err.message}`);
+  //       })
+  //       .finally(() => {
+  //         setIsAnalyzing(false);
+  //       });
+  //   }
+  // };
+
+  // ADD: Snackbar close handler
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  // ADD THIS LINE - Extract predictionId from analysisData
+  const predictionId = analysisData?.predictionId;
+
   return (
     <Box>
-      {/* Main Analysis Display */}
-      <Box display="flex" flexDirection={{ xs: "column", md: "row" }} gap={3}>
-        {/* Baseline Image */}
-        <Box flex={1}>
-          <Paper sx={{ p: 2.5 }}>
-            <Typography variant="subtitle1" fontWeight={700}>
-              Baseline Image
-            </Typography>
-            <Box mt={2} sx={{ position: "relative" }}>
-              {baselineImageUrl ? (
-                <ZoomableImage
-                  src={baselineImageUrl}
-                  alt="Baseline"
-                  maxHeight={300}
-                />
-              ) : (
-                <Typography color="text.secondary">
-                  No baseline image available
+      {/* REMOVED: Annotation Toolbar - Only show when in drawing mode now */}
+      {/* The toolbar will be shown inside the DrawingCanvas component */}
+
+      {/* Existing: annotations error */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* NEW: Drawing Mode - Replace thermal image with DrawingCanvas */}
+      {isDrawingMode && thermalImageUrl ? (
+        <Paper sx={{ p: 2.5, mb: 3 }}>
+          <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
+            Draw Bounding Box
+          </Typography>
+
+          {/* Show annotation toolbar in drawing mode */}
+          {/* {inspectionId && (
+            <AnnotationToolbar
+              aiPredictionsCount={aiPredictionsCount}
+              manualAnnotationsCount={manualAnnotationsCount}
+              showAiPredictions={showAiPredictions}
+              showManualAnnotations={showManualAnnotations}
+              onToggleAiPredictions={() => setShowAiPredictions(!showAiPredictions)}
+              onToggleManualAnnotations={() => setShowManualAnnotations(!showManualAnnotations)}
+              onAddAnnotation={handleAddAnnotation}
+              onEditMode={handleEditMode}
+              onDeleteMode={handleDeleteMode}
+              onExportFeedback={handleExportFeedback}
+              onRefresh={handleRefresh}
+              isEditMode={isEditMode}
+              isDeleteMode={isDeleteMode}
+              disabled={isAnalyzing || loading}
+            />
+          )} */}
+
+          <DrawingCanvas
+            imageUrl={thermalImageUrl}
+            onSave={handleSaveDrawing}
+            onCancel={handleCancelDrawing}
+            isActive={isDrawingMode}
+            predictionId={predictionId}
+          />
+        </Paper>
+      ) : (
+        /* Existing: Main Analysis Display - Only show when NOT in drawing mode */
+        <>
+          <Box display="flex" flexDirection={{ xs: "column", md: "row" }} gap={3}>
+            {/* Baseline Image */}
+            <Box flex={1}>
+              <Paper sx={{ p: 2.5 }}>
+                <Typography variant="subtitle1" fontWeight={700}>
+                  Baseline Image
                 </Typography>
-              )}
-            </Box>
-
-            {/* Baseline Image Controls */}
-            <Box mt={2} display="flex" justifyContent="flex-end">
-              <Tooltip title="Reupload" arrow>
-                <IconButton size="small" sx={{ color: "primary.main" }}>
-                  <UploadIcon />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          </Paper>
-        </Box>
-
-        {/* Thermal Image with Analysis */}
-        <Box flex={1}>
-          <Paper sx={{ p: 2.5 }}>
-            <Box
-              display="flex"
-              justifyContent="space-between"
-              alignItems="center"
-              mb={2}
-            >
-              <Typography variant="subtitle1" fontWeight={700}>
-                Maintenance Image Analysis
-              </Typography>
-            </Box>
-
-            <Box sx={{ position: "relative" }}>
-              {isAnalyzing ? (
-                <Box
-                  display="flex"
-                  justifyContent="center"
-                  alignItems="center"
-                  minHeight={200}
-                >
-                  <CircularProgress />
-                  <Typography ml={2}>Analyzing thermal image...</Typography>
+                <Box mt={2} sx={{ position: "relative" }}>
+                  {baselineImageUrl ? (
+                    <ZoomableImage
+                      src={baselineImageUrl}
+                      alt="Baseline"
+                      maxHeight={300}
+                    />
+                  ) : (
+                    <Typography color="text.secondary">
+                      No baseline image available
+                    </Typography>
+                  )}
                 </Box>
-              ) : error ? (
-                <Alert severity="error">{error}</Alert>
-              ) : thermalImageUrl ? (
-                <ZoomableImage
-                  src={thermalImageUrl}
-                  alt="Thermal"
-                  maxHeight={300}
-                  canvasRef={canvasRef}
-                  onImageLoad={drawBoundingBoxes}
-                  onScaleChange={setCurrentScale}
-                />
-              ) : (
-                <Typography color="text.secondary">
-                  No thermal image available
-                </Typography>
-              )}
+
+                {/* Baseline Image Controls */}
+                <Box mt={2} display="flex" justifyContent="flex-end">
+                  <Tooltip title="Reupload" arrow>
+                    <IconButton size="small" sx={{ color: "primary.main" }}>
+                      <UploadIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              </Paper>
             </Box>
 
-            {/* Analysis Controls */}
-            {analysisData && (
-              <Box mt={2}>
+            {/* Thermal Image with Analysis */}
+            <Box flex={1}>
+              <Paper sx={{ p: 2.5 }}>
                 <Box
                   display="flex"
-                  gap={1}
-                  alignItems="center"
-                  flexWrap="wrap"
                   justifyContent="space-between"
+                  alignItems="center"
+                  mb={2}
                 >
-                  <FormControl size="small" sx={{ minWidth: 120 }}>
-                    <Select
-                      value={selectedIssueFilter}
-                      onChange={(e) => setSelectedIssueFilter(e.target.value)}
-                      startAdornment={
-                        <FilterListIcon sx={{ mr: 1, fontSize: 16 }} />
-                      }
-                    >
-                      <MenuItem value="all">All Issues</MenuItem>
-                      {Object.keys(ISSUE_TYPE_LABELS).map((type) => (
-                        <MenuItem key={type} value={type}>
-                          {ISSUE_TYPE_LABELS[type]}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <Typography variant="caption" color="text.secondary">
-                    {filteredIssues.length} of {analysisData.issues.length}{" "}
-                    issues shown
+                  <Typography variant="subtitle1" fontWeight={700}>
+                    Maintenance Image Analysis
                   </Typography>
-
-                  <Box display="flex" gap={0.5} alignItems="center">
-                    <Tooltip title="Reupload" arrow>
-                      <IconButton size="small" sx={{ color: "primary.main" }}>
-                        <UploadIcon />
-                      </IconButton>
-                    </Tooltip>
-
-                    <Tooltip title="Edit" arrow>
-                      <IconButton size="small" sx={{ color: "primary.main" }}>
-                        <EditIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
                 </Box>
-              </Box>
-            )}
-          </Paper>
-        </Box>
-      </Box>
 
-      {/* Analysis Log */}
-      {analysisData && (
-        <Paper sx={{ p: 2.5, mt: 3 }}>
-          <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-            mb={2}
-          >
-            <Typography variant="subtitle1" fontWeight={700}>
-              Activity Log
-            </Typography>
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <Select
-                value={selectedLogEntry}
-                onChange={(e) => setSelectedLogEntry(e.target.value)}
-                displayEmpty
-              >
-                <MenuItem value="all">All Entries</MenuItem>
-                <MenuItem value="ai-analysis">
-                  AI Analysis -{" "}
-                  {new Date(
-                    analysisData.analysisTimestamp
-                  ).toLocaleDateString()}
-                </MenuItem>
-                {/* Future log entries can be added here */}
-              </Select>
-            </FormControl>
+                <Box sx={{ position: "relative" }}>
+                  {isAnalyzing ? (
+                    <Box
+                      display="flex"
+                      justifyContent="center"
+                      alignItems="center"
+                      minHeight={200}
+                    >
+                      <CircularProgress />
+                      <Typography ml={2}>Analyzing thermal image...</Typography>
+                    </Box>
+                  ) : error ? (
+                    <Alert severity="error">{error}</Alert>
+                  ) : thermalImageUrl ? (
+                    <ZoomableImage
+                      src={thermalImageUrl}
+                      alt="Thermal"
+                      maxHeight={300}
+                      canvasRef={canvasRef}
+                      onImageLoad={drawBoundingBoxes}
+                      onScaleChange={setCurrentScale}
+                    />
+                  ) : (
+                    <Typography color="text.secondary">
+                      No thermal image available
+                    </Typography>
+                  )}
+                </Box>
+
+                {/* Analysis Controls */}
+                {analysisData && (
+                  <Box mt={2}>
+                    <Box
+                      display="flex"
+                      gap={1}
+                      alignItems="center"
+                      flexWrap="wrap"
+                      justifyContent="space-between"
+                    >
+                      <FormControl size="small" sx={{ minWidth: 120 }}>
+                        <Select
+                          value={selectedIssueFilter}
+                          onChange={(e) => setSelectedIssueFilter(e.target.value)}
+                          startAdornment={
+                            <FilterListIcon sx={{ mr: 1, fontSize: 16 }} />
+                          }
+                        >
+                          <MenuItem value="all">All Issues</MenuItem>
+                          {Object.keys(ISSUE_TYPE_LABELS).map((type) => (
+                            <MenuItem key={type} value={type}>
+                              {ISSUE_TYPE_LABELS[type]}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <Typography variant="caption" color="text.secondary">
+                        {filteredIssues.length} of {analysisData.issues.length}{" "}
+                        issues shown
+                      </Typography>
+
+                      <Box display="flex" gap={0.5} alignItems="center">
+                        <Tooltip title="Reupload" arrow>
+                          <IconButton size="small" sx={{ color: "primary.main" }}>
+                            <UploadIcon />
+                          </IconButton>
+                        </Tooltip>
+
+                        {/* MODIFIED: Edit button triggers drawing mode */}
+                        <Tooltip title="Add manual annotations" arrow>
+                          <IconButton
+                            size="small"
+                            sx={{ color: "primary.main" }}
+                            onClick={handleAddAnnotation}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </Box>
+                  </Box>
+                )}
+              </Paper>
+            </Box>
           </Box>
 
-          {/* AI Analysis Log Entry */}
-          {(selectedLogEntry === "ai-analysis" ||
-            selectedLogEntry === "all") && (
-            <Card
-              variant="outlined"
-              sx={{
-                bgcolor: "#f8f9fa",
-                borderLeft: 4,
-                borderLeftColor: "#2196f3",
-                transition: "all 0.2s ease",
-                "&:hover": {
-                  boxShadow: 2,
-                },
-              }}
-            >
-              <CardContent sx={{ py: 1.5, px: 2, pb: 0.5 }}>
-                <Box
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="space-between"
-                  mb={1}
+          {/* Analysis Log */}
+          {analysisData && (
+            <Paper sx={{ p: 2.5, mt: 3 }}>
+              <Box
+                display="flex"
+                justifyContent="space-between"
+                alignItems="center"
+                mb={2}
+              >
+                <Typography variant="subtitle1" fontWeight={700}>
+                  Activity Log
+                </Typography>
+                <FormControl size="small" sx={{ minWidth: 200 }}>
+                  <Select
+                    value={selectedLogEntry}
+                    onChange={(e) => setSelectedLogEntry(e.target.value)}
+                    displayEmpty
+                  >
+                    <MenuItem value="all">All Entries</MenuItem>
+                    <MenuItem value="ai-analysis">
+                      AI Analysis -{" "}
+                      {new Date(
+                        analysisData.analysisTimestamp
+                      ).toLocaleDateString()}
+                    </MenuItem>
+                    {/* Future log entries can be added here */}
+                  </Select>
+                </FormControl>
+              </Box>
+
+              {/* AI Analysis Log Entry */}
+              {(selectedLogEntry === "ai-analysis" ||
+                selectedLogEntry === "all") && (
+                <Card
+                  variant="outlined"
+                  sx={{
+                    bgcolor: "#f8f9fa",
+                    borderLeft: 4,
+                    borderLeftColor: "#2196f3",
+                    transition: "all 0.2s ease",
+                    "&:hover": {
+                      boxShadow: 2,
+                    },
+                  }}
                 >
-                  <Box display="flex" alignItems="center" gap={0.5}>
-                    <Typography
-                      variant="subtitle1"
-                      fontWeight={700}
-                      color="primary"
+                  <CardContent sx={{ py: 1.5, px: 2, pb: 0.5 }}>
+                    <Box
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="space-between"
+                      mb={1}
                     >
-                      AI Analysis
-                    </Typography>
-                    <Chip
-                      label="COMPLETED"
-                      size="small"
-                      color="success"
-                      variant="filled"
-                      sx={{ fontSize: 9, height: 18, fontWeight: 600 }}
-                    />
-                  </Box>
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <Typography variant="caption" color="text.secondary">
-                      {new Date(
-                        analysisData.analysisTimestamp
-                      ).toLocaleDateString()}{" "}
-                      {new Date(
-                        analysisData.analysisTimestamp
-                      ).toLocaleTimeString()}
-                    </Typography>
-                    <IconButton
-                      size="small"
-                      onClick={() => setIsLogExpanded(!isLogExpanded)}
-                      sx={{ color: "primary.main" }}
-                    >
-                      {isLogExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                    </IconButton>
-                  </Box>
-                </Box>
-              </CardContent>
+                      <Box display="flex" alignItems="center" gap={0.5}>
+                        <Typography
+                          variant="subtitle1"
+                          fontWeight={700}
+                          color="primary"
+                        >
+                          AI Analysis
+                        </Typography>
+                        <Chip
+                          label="COMPLETED"
+                          size="small"
+                          color="success"
+                          variant="filled"
+                          sx={{ fontSize: 9, height: 18, fontWeight: 600 }}
+                        />
+                      </Box>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(
+                            analysisData.analysisTimestamp
+                          ).toLocaleDateString()}{" "}
+                          {new Date(
+                            analysisData.analysisTimestamp
+                          ).toLocaleTimeString()}
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={() => setIsLogExpanded(!isLogExpanded)}
+                          sx={{ color: "primary.main" }}
+                        >
+                          {isLogExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                        </IconButton>
+                      </Box>
+                    </Box>
+                  </CardContent>
 
-              {/* Expandable Metadata Section */}
-              <Collapse in={isLogExpanded} timeout="auto" unmountOnExit>
-                <Divider />
-                <CardContent sx={{ py: 1.5, px: 2 }}>
-                  <Box display="flex" flexDirection="column" gap={1}>
-                    {/* Detailed Issues */}
-                    <Box>
-                      <Box
-                        display="flex"
-                        flexDirection="column"
-                        gap={0.25}
-                        mt={0.25}
-                      >
-                        {analysisData.issues.map((issue, index) => {
-                          // Light color variants for the cards
-                          const lightColors = {
-                            warning: "#fff3e0", // Light orange
-                            critical: "#ffebee", // Light red
-                          };
+                  {/* Expandable Metadata Section */}
+                  <Collapse in={isLogExpanded} timeout="auto" unmountOnExit>
+                    <Divider />
+                    <CardContent sx={{ py: 1.5, px: 2 }}>
+                      <Box display="flex" flexDirection="column" gap={1}>
+                        {/* Detailed Issues */}
+                        <Box>
+                          <Box
+                            display="flex"
+                            flexDirection="column"
+                            gap={0.25}
+                            mt={0.25}
+                          >
+                            {analysisData.issues.map((issue, index) => {
+                              // Light color variants for the cards
+                              const lightColors = {
+                                warning: "#fff3e0", // Light orange
+                                critical: "#ffebee", // Light red
+                              };
 
-                          const borderColors = {
-                            warning: "#ffb74d", // Medium orange
-                            critical: "#ef5350", // Medium red
-                          };
+                              const borderColors = {
+                                warning: "#ffb74d", // Medium orange
+                                critical: "#ef5350", // Medium red
+                              };
 
-                          return (
-                            <Card
-                              key={issue.id}
-                              variant="outlined"
-                              sx={{
-                                bgcolor:
-                                  lightColors[
-                                    issue.severity as keyof typeof lightColors
-                                  ] || "#f5f5f5",
-                                borderLeft: 2,
-                                borderLeftColor:
-                                  borderColors[
-                                    issue.severity as keyof typeof borderColors
-                                  ] || "#ff9800",
-                                transition: "all 0.2s ease",
-                                "&:hover": {
-                                  boxShadow: 1,
-                                  transform: "translateY(-1px)",
-                                },
-                              }}
-                            >
-                              <CardContent
-                                sx={{
-                                  py: 0.75,
-                                  px: 1.25,
-                                  "&:last-child": { pb: 0.75 },
-                                }}
-                              >
-                                <Box
-                                  display="flex"
-                                  alignItems="center"
-                                  gap={0.75}
-                                >
-                                  {/* Issue Number Badge */}
-                                  <Box
-                                    sx={{
-                                      width: 18,
-                                      height: 18,
-                                      borderRadius: "50%",
-                                      bgcolor:
-                                        borderColors[
-                                          issue.severity as keyof typeof borderColors
-                                        ] || "#ff9800",
-                                      color: "white",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      fontSize: 9,
-                                      fontWeight: 700,
+                              return (
+                                <Card
+                                  key={issue.id}
+                                  variant="outlined"
+                                  sx={{
+                                    bgcolor:
+                                      lightColors[
+                                        issue.severity as keyof typeof lightColors
+                                      ] || "#f5f5f5",
+                                    borderLeft: 2,
+                                    borderLeftColor:
+                                      borderColors[
+                                        issue.severity as keyof typeof borderColors
+                                      ] || "#ff9800",
+                                    transition: "all 0.2s ease",
+                                    "&:hover": {
                                       boxShadow: 1,
+                                      transform: "translateY(-1px)",
+                                    },
+                                  }}
+                                >
+                                  <CardContent
+                                    sx={{
+                                      py: 0.75,
+                                      px: 1.25,
+                                      "&:last-child": { pb: 0.75 },
                                     }}
                                   >
-                                    {index + 1}
-                                  </Box>
+                                    <Box
+                                      display="flex"
+                                      alignItems="center"
+                                      gap={0.75}
+                                    >
+                                      {/* Issue Number Badge */}
+                                      <Box
+                                        sx={{
+                                          width: 18,
+                                          height: 18,
+                                          borderRadius: "50%",
+                                          bgcolor:
+                                            borderColors[
+                                              issue.severity as keyof typeof borderColors
+                                            ] || "#ff9800",
+                                          color: "white",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center",
+                                          fontSize: 9,
+                                          fontWeight: 700,
+                                          boxShadow: 1,
+                                        }}
+                                      >
+                                        {index + 1}
+                                      </Box>
 
-                                  {/* Issue Info */}
-                                  <Box
-                                    display="flex"
-                                    alignItems="center"
-                                    gap={0.5}
-                                    flex={1}
-                                  >
+                                      {/* Issue Info */}
+                                      <Box
+                                        display="flex"
+                                        alignItems="center"
+                                        gap={0.5}
+                                        flex={1}
+                                      >
+                                        <Typography
+                                          variant="caption"
+                                          fontWeight={600}
+                                          flex={1}
+                                          sx={{ fontSize: 12 }}
+                                        >
+                                          {ISSUE_TYPE_LABELS[issue.type] ||
+                                            issue.type}
+                                        </Typography>
+                                        <Chip
+                                          label={`${Math.round(
+                                            issue.confidence * 100
+                                          )}%`}
+                                          size="small"
+                                          color={
+                                            issue.confidence > 0.8
+                                              ? "success"
+                                              : issue.confidence > 0.6
+                                              ? "warning"
+                                              : "default"
+                                          }
+                                          variant="filled"
+                                          sx={{
+                                            fontWeight: 600,
+                                            height: 16,
+                                            fontSize: 8,
+                                          }}
+                                        />
+                                        <Chip
+                                          label={issue.severity.toUpperCase()}
+                                          size="small"
+                                          color={
+                                            issue.severity === "critical"
+                                              ? "error"
+                                              : "warning"
+                                          }
+                                          variant="outlined"
+                                          sx={{
+                                            fontSize: 7,
+                                            height: 14,
+                                            fontWeight: 600,
+                                            ml: 0.5,
+                                          }}
+                                        />
+                                      </Box>
+                                    </Box>
+
+                                    {/* Issue Description */}
                                     <Typography
                                       variant="caption"
-                                      fontWeight={600}
-                                      flex={1}
-                                      sx={{ fontSize: 12 }}
+                                      color="text.secondary"
+                                      sx={{
+                                        ml: 2.25,
+                                        lineHeight: 1.1,
+                                        fontSize: 9,
+                                        display: "block",
+                                        mt: 0.125,
+                                      }}
                                     >
-                                      {ISSUE_TYPE_LABELS[issue.type] ||
-                                        issue.type}
+                                      {issue.description}
                                     </Typography>
-                                    <Chip
-                                      label={`${Math.round(
-                                        issue.confidence * 100
-                                      )}%`}
-                                      size="small"
-                                      color={
-                                        issue.confidence > 0.8
-                                          ? "success"
-                                          : issue.confidence > 0.6
-                                          ? "warning"
-                                          : "default"
-                                      }
-                                      variant="filled"
+
+                                    {/* Bounding Box Location */}
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
                                       sx={{
-                                        fontWeight: 600,
-                                        height: 16,
+                                        ml: 2.25,
+                                        lineHeight: 1.1,
                                         fontSize: 8,
+                                        display: "block",
+                                        fontStyle: "italic",
+                                        mt: 0.125,
                                       }}
-                                    />
-                                    <Chip
-                                      label={issue.severity.toUpperCase()}
-                                      size="small"
-                                      color={
-                                        issue.severity === "critical"
-                                          ? "error"
-                                          : "warning"
-                                      }
-                                      variant="outlined"
-                                      sx={{
-                                        fontSize: 7,
-                                        height: 14,
-                                        fontWeight: 600,
-                                        ml: 0.5,
-                                      }}
-                                    />
-                                  </Box>
-                                </Box>
+                                    >
+                                      AI Model Coordinates: ({issue.boundingBox.x},{" "}
+                                      {issue.boundingBox.y}) -{" "}
+                                      {issue.boundingBox.width}×
+                                      {issue.boundingBox.height}px (640×640 basis)
+                                    </Typography>
+                                  </CardContent>
+                                </Card>
+                              );
+                            })}
+                          </Box>
+                        </Box>
 
-                                {/* Issue Description */}
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                  sx={{
-                                    ml: 2.25,
-                                    lineHeight: 1.1,
-                                    fontSize: 9,
-                                    display: "block",
-                                    mt: 0.125,
-                                  }}
-                                >
-                                  {issue.description}
-                                </Typography>
-
-                                {/* Bounding Box Location */}
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                  sx={{
-                                    ml: 2.25,
-                                    lineHeight: 1.1,
-                                    fontSize: 8,
-                                    display: "block",
-                                    fontStyle: "italic",
-                                    mt: 0.125,
-                                  }}
-                                >
-                                  AI Model Coordinates: ({issue.boundingBox.x},{" "}
-                                  {issue.boundingBox.y}) -{" "}
-                                  {issue.boundingBox.width}×
-                                  {issue.boundingBox.height}px (640×640 basis)
-                                </Typography>
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
+                        {/* Permissions & Access */}
+                        <Box>
+                          <Box display="flex" gap={1} mt={0.25} alignItems="center">
+                            <PersonIcon
+                              sx={{ fontSize: 14, color: "text.secondary" }}
+                            />
+                            <Typography variant="caption" sx={{ fontSize: 11 }}>
+                              <strong>Created by:</strong> AI System (Auto-analysis)
+                            </Typography>
+                          </Box>
+                          <Box display="flex" gap={1} mt={0.25} alignItems="center">
+                            <TimerIcon
+                              sx={{ fontSize: 14, color: "text.secondary" }}
+                            />
+                            <Typography variant="caption" sx={{ fontSize: 11 }}>
+                              <strong>Processing Time:</strong>{" "}
+                              {analysisData.processingTime}ms
+                            </Typography>
+                          </Box>
+                        </Box>
                       </Box>
-                    </Box>
+                    </CardContent>
+                  </Collapse>
 
-                    {/* Permissions & Access */}
-                    <Box>
-                      <Box display="flex" gap={1} mt={0.25} alignItems="center">
-                        <PersonIcon
-                          sx={{ fontSize: 14, color: "text.secondary" }}
-                        />
-                        <Typography variant="caption" sx={{ fontSize: 11 }}>
-                          <strong>Created by:</strong> AI System (Auto-analysis)
-                        </Typography>
-                      </Box>
-                      <Box display="flex" gap={1} mt={0.25} alignItems="center">
-                        <TimerIcon
-                          sx={{ fontSize: 14, color: "text.secondary" }}
-                        />
-                        <Typography variant="caption" sx={{ fontSize: 11 }}>
-                          <strong>Processing Time:</strong>{" "}
-                          {analysisData.processingTime}ms
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Collapse>
-
-              {/* Action Buttons */}
-              <CardActions sx={{ px: 2, py: 1, bgcolor: "rgba(0,0,0,0.02)" }}>
-                <Button
-                  size="small"
-                  startIcon={<CommentIcon />}
-                  onClick={() =>
-                    setNewComment(newComment ? "" : "Add your comment...")
-                  }
-                  sx={{ textTransform: "none" }}
-                >
-                  Add Comment
-                </Button>
-                <Box sx={{ flexGrow: 1 }} />
-                <Typography variant="caption" color="text.secondary">
-                  Log ID: {analysisData.analysisTimestamp.slice(-8)}
-                </Typography>
-              </CardActions>
-
-              {/* Comment Input */}
-              {newComment && (
-                <Box sx={{ px: 2.5, pb: 2 }}>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={2}
-                    placeholder="Add your comment about this analysis..."
-                    value={
-                      newComment === "Add your comment..." ? "" : newComment
-                    }
-                    onChange={(e) => setNewComment(e.target.value)}
-                    size="small"
-                    sx={{ mt: 1 }}
-                  />
-                  <Box display="flex" gap={1} mt={1} justifyContent="flex-end">
+                  {/* Action Buttons */}
+                  <CardActions sx={{ px: 2, py: 1, bgcolor: "rgba(0,0,0,0.02)" }}>
                     <Button
                       size="small"
-                      onClick={() => setNewComment("")}
+                      startIcon={<CommentIcon />}
+                      onClick={() =>
+                        setNewComment(newComment ? "" : "Add your comment...")
+                      }
                       sx={{ textTransform: "none" }}
                     >
-                      Cancel
+                      Add Comment
                     </Button>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      onClick={() => {
-                        // Handle comment submission here
-                        console.log("Comment submitted:", newComment);
-                        setNewComment("");
-                      }}
-                      sx={{ textTransform: "none" }}
-                    >
-                      Post Comment
-                    </Button>
-                  </Box>
-                </Box>
+                    <Box sx={{ flexGrow: 1 }} />
+                    <Typography variant="caption" color="text.secondary">
+                      Log ID: {analysisData.analysisTimestamp.slice(-8)}
+                    </Typography>
+                  </CardActions>
+
+                  {/* Comment Input */}
+                  {newComment && (
+                    <Box sx={{ px: 2.5, pb: 2 }}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        placeholder="Add your comment about this analysis..."
+                        value={
+                          newComment === "Add your comment..." ? "" : newComment
+                        }
+                        onChange={(e) => setNewComment(e.target.value)}
+                        size="small"
+                        sx={{ mt: 1 }}
+                      />
+                      <Box display="flex" gap={1} mt={1} justifyContent="flex-end">
+                        <Button
+                          size="small"
+                          onClick={() => setNewComment("")}
+                          sx={{ textTransform: "none" }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          onClick={() => {
+                            // Handle comment submission here
+                            console.log("Comment submitted:", newComment);
+                            setNewComment("");
+                          }}
+                          sx={{ textTransform: "none" }}
+                        >
+                          Post Comment
+                        </Button>
+                      </Box>
+                    </Box>
+                  )}
+                </Card>
               )}
-            </Card>
-          )}
 
-          {/* Future log entries can be added here with similar conditional rendering */}
-          {/* Example:
+              {/* Future log entries can be added here with similar conditional rendering */}
+              {/* Example:
           {selectedLogEntry === "manual-inspection" && (
             <Card>Manual Inspection Log Content</Card>
           )}
           */}
-        </Paper>
+            </Paper>
+          )}
+        </>
       )}
+
+      {/* ADD: Snackbar notification at the end of the component */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
