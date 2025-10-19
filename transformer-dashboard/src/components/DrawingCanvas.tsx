@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Box, Paper, Typography, Button, FormControl, Select, MenuItem, TextField, Stack, Chip, Alert, CircularProgress } from '@mui/material';
+import { Box, Paper, Typography, Button, FormControl, Select, MenuItem, TextField, Stack, Chip, Alert, CircularProgress, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@mui/material';
 import { authService } from '../services/authService';
 
 interface BoundingBox {
@@ -74,6 +74,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ADD: Delete confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [annotationToDelete, setAnnotationToDelete] = useState<Detection | null>(null);
 
   // ADD: Fetch existing annotations
   useEffect(() => {
@@ -347,22 +351,26 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     }
   };
 
-  // ADD: Handle delete with better error handling
-  const handleDelete = async () => {
+  // MODIFIED: Handle delete - show confirmation dialog instead of browser alert
+  const handleDeleteClick = () => {
     if (!selectedAnnotation) {
       console.error('No annotation selected for deletion');
       setError('No annotation selected');
       return;
     }
 
-    console.log('Deleting annotation:', selectedAnnotation.id); // DEBUG
+    setAnnotationToDelete(selectedAnnotation);
+    setDeleteDialogOpen(true);
+  };
 
-    if (!window.confirm('Are you sure you want to delete this annotation?')) {
-      return;
-    }
+  // ADD: Confirm delete handler
+  const handleConfirmDelete = async () => {
+    if (!annotationToDelete) return;
+
+    setDeleteDialogOpen(false);
 
     try {
-      const response = await fetch(`http://localhost:8080/api/detections/${selectedAnnotation.id}?reason=User%20deleted`, {
+      const response = await fetch(`http://localhost:8080/api/detections/${annotationToDelete.id}?reason=User%20deleted`, {
         method: 'DELETE',
         headers: authService.getAuthHeader(),
       });
@@ -389,10 +397,18 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       setComments('');
       setSelectedFaultType(FAULT_TYPES[0]);
       setError(null);
+      setAnnotationToDelete(null);
     } catch (err) {
       console.error('Failed to delete annotation:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete annotation');
+      setAnnotationToDelete(null);
     }
+  };
+
+  // ADD: Cancel delete handler
+  const handleCancelDelete = () => {
+    setDeleteDialogOpen(false);
+    setAnnotationToDelete(null);
   };
 
   const handleSave = () => {
@@ -556,7 +572,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
             <Stack direction="row" spacing={1} justifyContent="space-between">
               <Box>
                 {isEditMode && (
-                  <Button color="error" onClick={handleDelete}>
+                  <Button color="error" onClick={handleDeleteClick}>
                     Delete
                   </Button>
                 )}
@@ -580,6 +596,41 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           </Stack>
         </Paper>
       )}
+
+      {/* ADD: Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleCancelDelete}
+        aria-labelledby="delete-dialog-title"
+        aria-describedby="delete-dialog-description"
+      >
+        <DialogTitle id="delete-dialog-title">
+          Confirm Delete
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="delete-dialog-description">
+            Are you sure you want to delete this annotation?
+            {annotationToDelete && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Type:</strong> {annotationToDelete.source === 'AI_GENERATED' ? 'AI' : 'Manual'} Detection
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Fault:</strong> {CLASS_ID_TO_FAULT_TYPE[annotationToDelete.classId] || 'Unknown'}
+                </Typography>
+              </Box>
+            )}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelDelete} color="inherit">
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmDelete} color="error" variant="contained" autoFocus>
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
