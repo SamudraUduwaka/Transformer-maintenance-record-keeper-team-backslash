@@ -4,16 +4,16 @@ import java.util.List;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.ToString;
+import lombok.NoArgsConstructor;
 
 @Data
 @AllArgsConstructor
-@ToString
+@NoArgsConstructor
 public class ThermalAnalysisDTO {
     private String imageUrl;
     private String analysisTimestamp;
     private List<ThermalIssueDTO> issues;
-    private Double overallScore;
-    private Long processingTime;
-    private Long predictionId; // null if not persisted
+    private double overallScore;
+    private long processingTime;
+    private Long predictionId; // VERIFY THIS FIELD EXISTS
 }

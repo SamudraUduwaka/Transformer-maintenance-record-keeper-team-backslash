@@ -1,5 +1,6 @@
 package com.teambackslash.transformer_api.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -21,7 +22,7 @@ public class Prediction {
     @Column(name = "prediction_id")
     private Long id;
 
-    // Optional link to an inspection if later desired
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "inspection_id")
     private Inspection inspection;
@@ -53,5 +54,12 @@ public class Prediction {
     public void addDetection(PredictionDetection d){
         d.setPrediction(this);
         detections.add(d);
+    }
+    
+    // ADD: Helper method to get only active (non-deleted) detections
+    public List<PredictionDetection> getActiveDetections() {
+        return detections.stream()
+            .filter(d -> !"DELETED".equals(d.getActionType()))
+            .collect(java.util.stream.Collectors.toList());
     }
 }

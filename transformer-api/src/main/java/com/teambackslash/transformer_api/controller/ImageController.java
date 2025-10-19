@@ -5,6 +5,9 @@ import com.teambackslash.transformer_api.dto.ThermalAnalysisDTO;
 import com.teambackslash.transformer_api.dto.ThermalAnalysisRequestDTO;
 import com.teambackslash.transformer_api.service.ImageService;
 import com.teambackslash.transformer_api.service.ThermalAnalysisService;
+import com.teambackslash.transformer_api.entity.Prediction;
+import com.teambackslash.transformer_api.repository.PredictionRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,14 +17,17 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/images")
+@Slf4j
 public class ImageController {
 
     private final ImageService imageService;
     private final ThermalAnalysisService thermalAnalysisService;
+    private final PredictionRepository predictionRepository;
 
-    public ImageController(ImageService imageService, ThermalAnalysisService thermalAnalysisService) {
+    public ImageController(ImageService imageService, ThermalAnalysisService thermalAnalysisService, PredictionRepository predictionRepository) {
         this.imageService = imageService;
         this.thermalAnalysisService = thermalAnalysisService;
+        this.predictionRepository = predictionRepository;
     }
 
     @GetMapping
@@ -76,16 +82,15 @@ public class ImageController {
 
     @PostMapping("/thermal-analysis")
     public ResponseEntity<ThermalAnalysisDTO> analyzeThermalImage(@RequestBody ThermalAnalysisRequestDTO request) {
-        try {
-            ThermalAnalysisDTO analysis = thermalAnalysisService.analyzeThermalImage(
-                request.getThermalImageUrl(), 
-                request.getTransformerNo(),
-                request.getInspectionId()
-            );
-            return ResponseEntity.ok(analysis);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        log.info("Thermal analysis request: {}", request);
+        
+        ThermalAnalysisDTO result = thermalAnalysisService.analyzeThermalImage(
+            request.getThermalImageUrl(),
+            request.getBaselineImageUrl(),
+            request.getInspectionId()
+        );
+
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/thermal-analysis")
