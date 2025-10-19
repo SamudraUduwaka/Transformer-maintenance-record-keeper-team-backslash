@@ -25,7 +25,7 @@ public class PredictionPersistenceService {
 
     @Transactional
     public Long persistPrediction(String transformerNo, PredictionDTO dto, Integer inspectionId) {
-    log.debug("Persisting prediction for transformer={} label={} detections={}", transformerNo, dto.getPredictedImageLabel(), dto.getDetections()==null?0:dto.getDetections().size());
+    // log.debug("Persisting prediction for transformer={} label={} detections={}", transformerNo, dto.getPredictedImageLabel(), dto.getDetections()==null?0:dto.getDetections().size());
     // Optional validation: ensure transformer exists; if not, either throw or just log and continue.
     if (transformerNo != null && !transformerNo.isBlank()) {
         boolean transformerExists = transformerRepository.existsById(transformerNo);
@@ -53,6 +53,7 @@ public class PredictionPersistenceService {
                 PredictionDetection pd = new PredictionDetection();
                 pd.setClassId(d.getClassId());
                 pd.setConfidence(d.getConfidence());
+                
                 if (d.getBoundingBox() != null) {
                     BoundingBoxDTO b = d.getBoundingBox();
                     pd.setBboxX(b.getX());
@@ -60,13 +61,19 @@ public class PredictionPersistenceService {
                     pd.setBboxW(b.getWidth());
                     pd.setBboxH(b.getHeight());
                 }
-                // polygon_json removed; not persisted
+                
+                // Set annotation tracking fields for AI-generated detections
+                pd.setSource("AI_GENERATED");
+                pd.setActionType("ADDED");
+                pd.setUser(null); // AI has no user
+                pd.setComments(null);
+                
                 p.addDetection(pd);
             }
         }
 
         Prediction saved = predictionRepository.save(p);
-        log.info("Saved prediction id={} transformer={} detections={}", saved.getId(), transformerNo, p.getDetections().size());
+        // log.info("Saved prediction id={} transformer={} detections={}", saved.getId(), transformerNo, p.getDetections().size());
         return saved.getId();
     }
 }
