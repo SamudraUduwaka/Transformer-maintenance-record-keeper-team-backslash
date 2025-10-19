@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Box,
   Paper,
@@ -387,16 +387,16 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   // const manualAnnotationsCount = 0; // Will fetch from backend
 
   // API call to analyze thermal image
-  const analyzeThermalImage = async (): Promise<ThermalAnalysisData> => {
+  const analyzeThermalImage = useCallback(async (): Promise<ThermalAnalysisData> => {
     if (!transformerNo) {
       console.warn(
         "ThermalImageAnalysis: transformerNo not provided; prediction persistence will be skipped on backend."
       );
     }
-
+  
     // Use direct backend URL to avoid proxy issues
     const apiUrl = "http://localhost:8080/api/images/thermal-analysis";
-
+  
     try {
       const response = await fetch(apiUrl, {
         method: "POST",
@@ -411,7 +411,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
           inspectionId, // Include inspectionId in request
         }),
       });
-
+  
       if (!response.ok) {
         const errorText = await response.text().catch(() => "");
         throw new Error(
@@ -419,31 +419,31 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
           }`
         );
       }
-
+  
       const data = await response.json();
       return data;
     } catch (error) {
       console.error("Thermal analysis error:", error);
       throw error;
     }
-  };
-
+  }, [thermalImageUrl, baselineImageUrl, transformerNo, inspectionId]);
+  
   // Trigger analysis when thermal image URL changes
   useEffect(() => {
     if (!thermalImageUrl) return;
     if (loading) return; // respect external loading gate
-
+  
     // If already analyzing this exact URL, skip.
     if (inFlightRef.current === thermalImageUrl) return;
-
+  
     // If we've already successfully analyzed this URL in this component lifecycle, skip.
     if (analyzedImagesRef.current.has(thermalImageUrl)) return;
-
+  
     // Mark as in-flight early to avoid race if effect fires twice quickly.
     inFlightRef.current = thermalImageUrl;
     setIsAnalyzing(true);
     setError(null);
-
+  
     analyzeThermalImage()
       .then((data) => {
         analyzedImagesRef.current.add(thermalImageUrl);
@@ -460,7 +460,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
         }
         setIsAnalyzing(false);
       });
-  }, [thermalImageUrl, loading]);
+  }, [thermalImageUrl, loading, analyzeThermalImage, onAnalysisComplete]);
 
   // Draw bounding boxes on canvas
   const drawBoundingBoxes = () => {

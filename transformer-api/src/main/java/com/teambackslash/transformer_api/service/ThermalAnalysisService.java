@@ -11,7 +11,7 @@ import com.teambackslash.transformer_api.repository.ImageRepository;
 import com.teambackslash.transformer_api.repository.PredictionRepository;
 import com.teambackslash.transformer_api.entity.Transformer;
 import com.teambackslash.transformer_api.entity.Prediction;
-import com.teambackslash.transformer_api.entity.PredictionDetection;
+// import com.teambackslash.transformer_api.entity.PredictionDetection;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import com.teambackslash.transformer_api.dto.PredictionDTO;
@@ -159,7 +159,7 @@ public class ThermalAnalysisService {
         var dto = new PredictionDTO();
         dto.setPredictedImageLabel(p.getPredictedLabel());
         dto.setTimestamp(p.getModelTimestamp());
-        var detDtos = new ArrayList<com.teambackslash.transformer_api.dto.DetectionDTO>();
+        // var detDtos = new ArrayList<com.teambackslash.transformer_api.dto.DetectionDTO>();
         if (p.getDetections() != null) {
             // When converting Prediction to ThermalAnalysisDTO, filter detections:
             List<DetectionDTO> activeDetections = p.getDetections().stream()
