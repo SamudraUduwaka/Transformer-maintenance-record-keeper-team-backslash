@@ -32,6 +32,7 @@ import {
   Person as PersonIcon,
   // Timer as TimerIcon,
   Upload as UploadIcon,
+  Download as DownloadIcon,
 } from "@mui/icons-material";
 import { authService } from "../services/authService";
 // import AnnotationToolbar from "./AnnotationToolbar";
@@ -839,6 +840,92 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     fetchActivityLog();
   };
 
+  // ADD: Export functions
+  const exportToJSON = () => {
+    const exportData = filteredActivityLog.map(entry => ({
+      detectionId: entry.detectionId,
+      source: entry.source,
+      actionType: entry.actionType,
+      faultClass: FAULT_TYPE_LABELS_MAP[entry.classId] || 'Unknown',
+      faultClassId: entry.classId,
+      confidence: entry.source === 'AI_GENERATED' ? 'N/A' : 'Manual',
+      userName: entry.userName,
+      userId: entry.userId || 'N/A',
+      comments: entry.comments || '',
+      timestamp: new Date(entry.createdAt).toISOString(),
+      inspectionId: inspectionId,
+      transformerNo: transformerNo,
+    }));
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `activity-log-${transformerNo || 'unknown'}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setSnackbar({
+      open: true,
+      message: 'Activity log exported as JSON successfully!',
+      severity: 'success',
+    });
+  };
+
+  const exportToCSV = () => {
+    const headers = [
+      'Detection ID',
+      'Source',
+      'Action Type',
+      'Fault Class',
+      'Fault Class ID',
+      'User Name',
+      'User ID',
+      'Comments',
+      'Timestamp',
+      'Inspection ID',
+      'Transformer No'
+    ];
+
+    const rows = filteredActivityLog.map(entry => [
+      entry.detectionId,
+      entry.source,
+      entry.actionType,
+      FAULT_TYPE_LABELS_MAP[entry.classId] || 'Unknown',
+      entry.classId,
+      entry.userName,
+      entry.userId || 'N/A',
+      entry.comments ? `"${entry.comments.replace(/"/g, '""')}"` : '',
+      new Date(entry.createdAt).toISOString(),
+      inspectionId || 'N/A',
+      transformerNo || 'N/A'
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    const dataBlob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `activity-log-${transformerNo || 'unknown'}-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setSnackbar({
+      open: true,
+      message: 'Activity log exported as CSV successfully!',
+      severity: 'success',
+    });
+  };
+
   return (
     <Box>
       {/* REMOVED: Annotation Toolbar - Only show when in drawing mode now */}
@@ -1030,6 +1117,35 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                 </Typography>
                 
                 <Box display="flex" gap={1} alignItems="center">
+                  {/* ADD: Export buttons */}
+                  <Tooltip title="Export as JSON" arrow>
+                    <IconButton 
+                      size="small" 
+                      onClick={exportToJSON}
+                      disabled={filteredActivityLog.length === 0}
+                      sx={{ color: 'primary.main' }}
+                    >
+                      <DownloadIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  
+                  <Tooltip title="Export as CSV" arrow>
+                    <IconButton 
+                      size="small" 
+                      onClick={exportToCSV}
+                      disabled={filteredActivityLog.length === 0}
+                      sx={{ color: 'primary.main' }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                        <polyline points="10 9 9 9 8 9"/>
+                      </svg>
+                    </IconButton>
+                  </Tooltip>
+
                   <Tooltip title="Refresh activity log" arrow>
                     <IconButton 
                       size="small" 
