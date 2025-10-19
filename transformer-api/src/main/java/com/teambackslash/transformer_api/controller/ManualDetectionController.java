@@ -1,8 +1,10 @@
 package com.teambackslash.transformer_api.controller;
 
 import com.teambackslash.transformer_api.entity.PredictionDetection;
+import com.teambackslash.transformer_api.entity.User;
 import com.teambackslash.transformer_api.service.ManualDetectionService;
 import com.teambackslash.transformer_api.repository.PredictionDetectionRepository;
+import com.teambackslash.transformer_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -22,6 +24,7 @@ public class ManualDetectionController {
 
     private final ManualDetectionService manualDetectionService;
     private final PredictionDetectionRepository detectionRepository;
+    private final UserRepository userRepository;
 
     /**
      * GET /api/predictions/{predictionId}/detections
@@ -53,21 +56,20 @@ public class ManualDetectionController {
         log.info("Creating manual detection for prediction {} by user {}", 
                  request.getPredictionId(), userId);
         
-        // FIX: Convert x1,y1,x2,y2 to x,y,w,h
         PredictionDetection detection = manualDetectionService.addManualDetection(
             request.getPredictionId(),
             userId,
             request.getClassId(),
             request.getConfidence(),
-            request.getX1(),        // bboxX
-            request.getY1(),        // bboxY
-            request.getX2() - request.getX1(),  // bboxW = x2 - x1
-            request.getY2() - request.getY1(),  // bboxH = y2 - y1
+            request.getX1(),
+            request.getY1(),
+            request.getX2() - request.getX1(),
+            request.getY2() - request.getY1(),
             request.getComments()
         );
         
         return ResponseEntity.status(HttpStatus.CREATED).body(detection);
-    }
+    }   
 
     /**
      * PUT /api/detections/{detectionId}
@@ -76,8 +78,7 @@ public class ManualDetectionController {
     @PutMapping("/detections/{detectionId}")
     public ResponseEntity<PredictionDetection> updateDetection(
             @PathVariable Long detectionId,
-            @RequestBody CreateDetectionRequest request
-    ) {
+            @RequestBody CreateDetectionRequest request) {
         Long userId = extractUserIdFromSecurityContext();
         
         log.info("Updating detection {} by user {}", detectionId, userId);
@@ -95,7 +96,7 @@ public class ManualDetectionController {
         );
         
         return ResponseEntity.ok(detection);
-    }
+    }   
 
     /**
      * DELETE /api/detections/{detectionId}
@@ -104,10 +105,8 @@ public class ManualDetectionController {
     @DeleteMapping("/detections/{detectionId}")
     public ResponseEntity<Void> deleteDetection(
             @PathVariable Long detectionId,
-            @RequestParam(required = false, defaultValue = "User deleted") String reason
-    ) {
+            @RequestParam(required = false, defaultValue = "User deleted") String reason) {
         Long userId = extractUserIdFromSecurityContext();
-        
         log.info("Deleting detection {} by user {} with reason: {}", detectionId, userId, reason);
         
         try {
@@ -121,27 +120,27 @@ public class ManualDetectionController {
 
     /**
      * Extract user ID from Spring Security context
-     * For now, returns a default user ID of 1
-     * TODO: Implement proper JWT token parsing to get actual user ID
      */
     private Long extractUserIdFromSecurityContext() {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             
             if (authentication != null && authentication.isAuthenticated()) {
-                // If you have a custom UserDetails implementation with userId, extract it here
-                // Example: return ((CustomUserDetails) authentication.getPrincipal()).getUserId();
+                String email = authentication.getName();
+                log.debug("Authenticated user email: {}", email);
                 
-                // For now, return a default user ID
-                log.debug("Authenticated user: {}", authentication.getName());
-                return 1L; // Default user ID
+                User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found: " + email));
+                
+                log.info("Extracted user ID: {} for email: {}", user.getId(), email);
+                return user.getId();
             }
         } catch (Exception e) {
-            log.warn("Failed to extract user ID from security context: {}", e.getMessage());
+            log.error("Failed to extract user ID: {}", e.getMessage(), e);
+            throw new RuntimeException("Authentication required", e);
         }
         
-        // Fallback to default user ID
-        return 1L;
+        throw new RuntimeException("User not authenticated");
     }
 
     // DTO for request body
