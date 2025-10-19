@@ -27,17 +27,11 @@ public class Prediction {
     @JoinColumn(name = "inspection_id")
     private Inspection inspection;
 
-    // transformer_no removed per request; predictions are no longer tied to a transformer column
-
-    // source_image_path removed per request; not stored in DB anymore
-
     @Column(name = "predicted_label", length = 100)
     private String predictedLabel;
 
     @Column(name = "model_timestamp", length = 50)
-    private String modelTimestamp; // keep original string from Python
-
-    // overall_score removed; we don’t persist it on predictions anymore
+    private String modelTimestamp; 
 
     @Column(name = "issue_count")
     private Integer issueCount;
@@ -56,7 +50,6 @@ public class Prediction {
         detections.add(d);
     }
     
-    // ADD: Helper method to get only active (non-deleted) detections
     public List<PredictionDetection> getActiveDetections() {
         return detections.stream()
             .filter(d -> !"DELETED".equals(d.getActionType()))

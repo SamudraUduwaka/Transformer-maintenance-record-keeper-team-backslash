@@ -37,7 +37,7 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/images/**").authenticated() // Ensure this is authenticated, not permitAll
+                .requestMatchers("/api/images/**").authenticated() 
                 .requestMatchers("/api/inspections/**").authenticated()
                 .requestMatchers("/api/transformers/**").authenticated()
                 .requestMatchers("/api/inference/**").authenticated()

@@ -11,7 +11,6 @@ import com.teambackslash.transformer_api.repository.ImageRepository;
 import com.teambackslash.transformer_api.repository.PredictionRepository;
 import com.teambackslash.transformer_api.entity.Transformer;
 import com.teambackslash.transformer_api.entity.Prediction;
-// import com.teambackslash.transformer_api.entity.PredictionDetection;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import com.teambackslash.transformer_api.dto.PredictionDTO;
@@ -159,11 +158,10 @@ public class ThermalAnalysisService {
         var dto = new PredictionDTO();
         dto.setPredictedImageLabel(p.getPredictedLabel());
         dto.setTimestamp(p.getModelTimestamp());
-        // var detDtos = new ArrayList<com.teambackslash.transformer_api.dto.DetectionDTO>();
         if (p.getDetections() != null) {
             // When converting Prediction to ThermalAnalysisDTO, filter detections:
             List<DetectionDTO> activeDetections = p.getDetections().stream()
-                .filter(d -> !"DELETED".equals(d.getActionType()))  // ADD THIS LINE
+                .filter(d -> !"DELETED".equals(d.getActionType()))  
                 .map(detection -> {
                     Integer classId = detection.getClassId();
                     String className = detection.getDetectionClass() != null ? detection.getDetectionClass().getClassName() : null;
@@ -174,7 +172,7 @@ public class ThermalAnalysisService {
                         detection.getBboxW() != null ? detection.getBboxW() : 0,
                         detection.getBboxH() != null ? detection.getBboxH() : 0
                     );
-                    // polygon no longer stored; return empty list
+                    // return empty list
                     return new com.teambackslash.transformer_api.dto.DetectionDTO(
                         classId,
                         className,
@@ -312,8 +310,6 @@ public class ThermalAnalysisService {
     }
 
     private String extractTransformerNo(String imageUrl) {
-        // Placeholder heuristic: look for '/T' followed by digits and optional underscore, else return 'UNKNOWN'.
-        // You should replace this with an explicit transformerNo parameter plumbed from controller/request DTO.
         String upper = imageUrl.toUpperCase();
         int idx = upper.indexOf("/T");
         if (idx == -1) idx = upper.indexOf("T");

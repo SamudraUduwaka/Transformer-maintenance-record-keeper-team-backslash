@@ -14,7 +14,7 @@ public interface PredictionDetectionRepository extends JpaRepository<PredictionD
     @Query("SELECT pd FROM PredictionDetection pd WHERE pd.prediction.id = :predictionId")
     List<PredictionDetection> findByPredictionId(@Param("predictionId") Long predictionId);
     
-    // ADD: Method to fetch only non-deleted detections
+    // Method to fetch only non-deleted detections
     @Query("SELECT pd FROM PredictionDetection pd WHERE pd.prediction.id = :predictionId AND pd.actionType != 'DELETED'")
     List<PredictionDetection> findActiveByPredictionId(@Param("predictionId") Long predictionId);
     

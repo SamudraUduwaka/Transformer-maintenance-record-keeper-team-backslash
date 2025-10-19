@@ -44,10 +44,8 @@ public class InspectionService {
 
     @Transactional
     public InspectionDTO saveInspection(InspectionDTO inspectionDTO) {
-        // Map basic fields
         Inspection inspection = inspectionMapper.toEntity(inspectionDTO);
 
-        // Ensure transformer reference is managed
         String tNo = inspectionDTO.getTransformerNo();
         Transformer transformer = transformerRepository.findById(tNo)
                 .orElseThrow(() -> new ResourceNotFoundException("Transformer not found with ID: " + tNo));
@@ -82,7 +80,6 @@ public class InspectionService {
                             .orElseThrow(() -> new ResourceNotFoundException("Transformer not found with ID: " + tNo));
                     inspection.setTransformer(transformer);
                 }
-                // ignore unknown keys
             }
         }
 

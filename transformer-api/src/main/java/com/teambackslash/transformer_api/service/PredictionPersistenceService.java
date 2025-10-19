@@ -21,7 +21,6 @@ public class PredictionPersistenceService {
     private final PredictionRepository predictionRepository;
     private final TransformerRepository transformerRepository;
     private final InspectionRepository inspectionRepository;
-    // Removed ObjectMapper; polygon_json no longer stored
 
     @Transactional
     public Long persistPrediction(String transformerNo, PredictionDTO dto, Integer inspectionId) {
@@ -30,7 +29,6 @@ public class PredictionPersistenceService {
             dto.getPredictedImageLabel(), 
             dto.getDetections() == null ? 0 : dto.getDetections().size());
         
-        // Optional validation: ensure transformer exists; if not, either throw or just log and continue.
         if (transformerNo != null && !transformerNo.isBlank()) {
             boolean transformerExists = transformerRepository.existsById(transformerNo);
             if (!transformerExists) {
@@ -39,15 +37,13 @@ public class PredictionPersistenceService {
         }
 
         Prediction p = new Prediction();
-        // Link to inspection if provided
         if (inspectionId != null) {
             inspectionRepository.findById(inspectionId).ifPresentOrElse(
                 p::setInspection,
                 () -> log.warn("Inspection {} not found; prediction will not link to inspection", inspectionId)
             );
         }
-    // No transformer reference stored on prediction anymore
-    // No longer storing source image path on predictions
+
         p.setPredictedLabel(dto.getPredictedImageLabel());
         p.setModelTimestamp(dto.getTimestamp());
         p.setIssueCount(dto.getDetections() != null ? dto.getDetections().size() : 0);

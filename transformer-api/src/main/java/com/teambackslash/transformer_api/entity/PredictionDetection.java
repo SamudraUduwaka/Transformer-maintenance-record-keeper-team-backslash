@@ -87,7 +87,7 @@ public class PredictionDetection {
     private String comments;
     
     /**
-     * Timestamp when this detection was created (immutable audit trail)
+     * Timestamp when this detection was created
      */
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

@@ -5,8 +5,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data                   // generates getters, setters, toString, equals, hashCode
-@AllArgsConstructor     // generates a constructor with all fields
-@NoArgsConstructor      // generates a no-args constructor
+@AllArgsConstructor     
+@NoArgsConstructor      
 public class ErrorResponse {
     private int status;
     private String message;

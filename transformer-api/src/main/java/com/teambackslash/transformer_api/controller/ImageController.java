@@ -5,8 +5,6 @@ import com.teambackslash.transformer_api.dto.ThermalAnalysisDTO;
 import com.teambackslash.transformer_api.dto.ThermalAnalysisRequestDTO;
 import com.teambackslash.transformer_api.service.ImageService;
 import com.teambackslash.transformer_api.service.ThermalAnalysisService;
-// import com.teambackslash.transformer_api.entity.Prediction;
-// import com.teambackslash.transformer_api.repository.PredictionRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,18 +20,10 @@ public class ImageController {
 
     private final ImageService imageService;
     private final ThermalAnalysisService thermalAnalysisService;
-    // private final PredictionRepository predictionRepository;
-
-    // public ImageController(ImageService imageService, ThermalAnalysisService thermalAnalysisService, PredictionRepository predictionRepository) {
-    //     this.imageService = imageService;
-    //     this.thermalAnalysisService = thermalAnalysisService;
-    //     this.predictionRepository = predictionRepository;
-    // }
 
     public ImageController(ImageService imageService, ThermalAnalysisService thermalAnalysisService) {
         this.imageService = imageService;
         this.thermalAnalysisService = thermalAnalysisService;
-        // this.predictionRepository = predictionRepository;
     }
 
     @GetMapping
@@ -55,7 +45,7 @@ public class ImageController {
     @PutMapping("/{id}")
     public ResponseEntity<ImageDTO> updateImage(@PathVariable Integer id,
             @RequestBody ImageDTO imageDTO) {
-        imageDTO.setImageId(id); // ensure ID consistency
+        imageDTO.setImageId(id); 
         ImageDTO updated = imageService.saveImage(imageDTO);
         return ResponseEntity.ok(updated);
     }

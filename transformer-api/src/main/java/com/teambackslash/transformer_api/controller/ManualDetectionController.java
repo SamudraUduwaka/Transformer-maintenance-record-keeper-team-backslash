@@ -50,7 +50,7 @@ public class ManualDetectionController {
     public ResponseEntity<PredictionDetection> createDetection(
             @RequestBody CreateDetectionRequest request
     ) {
-        // Extract userId from Spring Security context (or use default if not authenticated)
+        // Extract userId from Spring Security context
         Long userId = extractUserIdFromSecurityContext();
         
         log.info("Creating manual detection for prediction {} by user {}", 

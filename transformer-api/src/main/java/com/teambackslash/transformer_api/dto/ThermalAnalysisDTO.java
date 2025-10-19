@@ -15,5 +15,5 @@ public class ThermalAnalysisDTO {
     private List<ThermalIssueDTO> issues;
     private double overallScore;
     private long processingTime;
-    private Long predictionId; // VERIFY THIS FIELD EXISTS
+    private Long predictionId; 
 }

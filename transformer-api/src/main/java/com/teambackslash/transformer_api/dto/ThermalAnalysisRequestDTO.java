@@ -13,5 +13,5 @@ public class ThermalAnalysisRequestDTO {
     private String thermalImageUrl;
     private String baselineImageUrl;
     private String transformerNo;
-    private Integer inspectionId; // Make it nullable/optional
+    private Integer inspectionId; 
 }
