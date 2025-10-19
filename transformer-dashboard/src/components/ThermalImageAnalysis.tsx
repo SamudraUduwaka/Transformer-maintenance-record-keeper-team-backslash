@@ -336,6 +336,26 @@ const ZoomableImage: React.FC<ZoomableImageProps> = ({
   );
 };
 
+// New Activity Log interfaces
+interface ActivityLogEntry {
+  detectionId: number;
+  source: "AI_GENERATED" | "MANUALLY_ADDED";
+  actionType: "ADDED" | "EDITED" | "DELETED";
+  classId: number;
+  comments?: string;
+  createdAt: string;
+  userId?: number;
+  userName: string;
+}
+
+const FAULT_TYPE_LABELS_MAP: Record<number, string> = {
+  0: "Point Overload (Faulty)",
+  1: "Loose Joint (Faulty)",
+  2: "Point Overload (Potential)",
+  3: "Loose Joint (Potential)",
+  4: "Full Wire Overload",
+};
+
 const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   thermalImageUrl,
   baselineImageUrl,
@@ -762,6 +782,45 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   // ADD THIS LINE - Extract predictionId from analysisData
   const predictionId = analysisData?.predictionId;
 
+  const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
+  const [loadingActivityLog, setLoadingActivityLog] = useState(false);
+  const [activityLogFilter, setActivityLogFilter] = useState<string>("all"); // ADD: Activity log filter
+
+  // Fetch activity log when predictionId is available
+  useEffect(() => {
+    if (!predictionId) return;
+
+    const fetchActivityLog = async () => {
+      setLoadingActivityLog(true);
+      try {
+        const response = await fetch(
+          `http://localhost:8080/api/predictions/${predictionId}/activity-log`,
+          {
+            headers: authService.getAuthHeader(),
+          }
+        );
+
+        if (response.ok) {
+          const data: ActivityLogEntry[] = await response.json();
+          setActivityLog(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch activity log:", err);
+      } finally {
+        setLoadingActivityLog(false);
+      }
+    };
+
+    fetchActivityLog();
+  }, [predictionId]);
+
+  // ADD: Filter activity log based on selected filter
+  const filteredActivityLog = activityLog.filter((entry) => {
+    if (activityLogFilter === "ai") return entry.source === "AI_GENERATED";
+    if (activityLogFilter === "manual") return entry.source === "MANUALLY_ADDED";
+    return true; // "all"
+  });
+
   return (
     <Box>
       {/* REMOVED: Annotation Toolbar - Only show when in drawing mode now */}
@@ -947,354 +1006,96 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
           {/* Analysis Log */}
           {analysisData && (
             <Paper sx={{ p: 2.5, mt: 3 }}>
-              <Box
-                display="flex"
-                justifyContent="space-between"
-                alignItems="center"
-                mb={2}
-              >
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                 <Typography variant="subtitle1" fontWeight={700}>
-                  Activity Log
+                  Activity Log ({filteredActivityLog.length} of {activityLog.length} entries)
                 </Typography>
-                <FormControl size="small" sx={{ minWidth: 200 }}>
+                
+                {/* ADD: Filter dropdown */}
+                <FormControl size="small" sx={{ minWidth: 150 }}>
                   <Select
-                    value={selectedLogEntry}
-                    onChange={(e) => setSelectedLogEntry(e.target.value)}
+                    value={activityLogFilter}
+                    onChange={(e) => setActivityLogFilter(e.target.value)}
                     displayEmpty
                   >
-                    <MenuItem value="all">All Entries</MenuItem>
-                    <MenuItem value="ai-analysis">
-                      AI Analysis -{" "}
-                      {new Date(
-                        analysisData.analysisTimestamp
-                      ).toLocaleDateString()}
-                    </MenuItem>
-                    {/* Future log entries can be added here */}
+                    <MenuItem value="all">All Detections</MenuItem>
+                    <MenuItem value="ai">AI Only</MenuItem>
+                    <MenuItem value="manual">Manual Only</MenuItem>
                   </Select>
                 </FormControl>
               </Box>
 
-              {/* AI Analysis Log Entry */}
-              {(selectedLogEntry === "ai-analysis" ||
-                selectedLogEntry === "all") && (
-                <Card
-                  variant="outlined"
-                  sx={{
-                    bgcolor: "#f8f9fa",
-                    borderLeft: 4,
-                    borderLeftColor: "#2196f3",
-                    transition: "all 0.2s ease",
-                    "&:hover": {
-                      boxShadow: 2,
-                    },
-                  }}
-                >
-                  <CardContent sx={{ py: 1.5, px: 2, pb: 0.5 }}>
-                    <Box
-                      display="flex"
-                      alignItems="center"
-                      justifyContent="space-between"
-                      mb={1}
+              {loadingActivityLog ? (
+                <Box display="flex" justifyContent="center" p={2}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : filteredActivityLog.length === 0 ? (
+                <Box display="flex" justifyContent="center" p={3}>
+                  <Typography variant="body2" color="text.secondary">
+                    No {activityLogFilter === "all" ? "" : activityLogFilter === "ai" ? "AI" : "manual"} detections found
+                  </Typography>
+                </Box>
+              ) : (
+                <Box display="flex" flexDirection="column" gap={1}>
+                  {filteredActivityLog.map((entry) => (
+                    <Card
+                      key={entry.detectionId}
+                      variant="outlined"
+                      sx={{
+                        bgcolor: entry.source === "AI_GENERATED" ? "#E3F2FD" : "#E8F5E9",
+                        borderLeft: 4,
+                        borderLeftColor: entry.source === "AI_GENERATED" ? "#2196f3" : "#4caf50",
+                      }}
                     >
-                      <Box display="flex" alignItems="center" gap={0.5}>
-                        <Typography
-                          variant="subtitle1"
-                          fontWeight={700}
-                          color="primary"
-                        >
-                          AI Analysis
-                        </Typography>
-                        <Chip
-                          label="COMPLETED"
-                          size="small"
-                          color="success"
-                          variant="filled"
-                          sx={{ fontSize: 9, height: 18, fontWeight: 600 }}
-                        />
-                      </Box>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Typography variant="caption" color="text.secondary">
-                          {new Date(
-                            analysisData.analysisTimestamp
-                          ).toLocaleDateString()}{" "}
-                          {new Date(
-                            analysisData.analysisTimestamp
-                          ).toLocaleTimeString()}
-                        </Typography>
-                        <IconButton
-                          size="small"
-                          onClick={() => setIsLogExpanded(!isLogExpanded)}
-                          sx={{ color: "primary.main" }}
-                        >
-                          {isLogExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                        </IconButton>
-                      </Box>
-                    </Box>
-                  </CardContent>
-
-                  {/* Expandable Metadata Section */}
-                  <Collapse in={isLogExpanded} timeout="auto" unmountOnExit>
-                    <Divider />
-                    <CardContent sx={{ py: 1.5, px: 2 }}>
-                      <Box display="flex" flexDirection="column" gap={1}>
-                        {/* Detailed Issues */}
-                        <Box>
-                          <Box
-                            display="flex"
-                            flexDirection="column"
-                            gap={0.25}
-                            mt={0.25}
-                          >
-                            {analysisData.issues.map((issue, index) => {
-                              // Light color variants for the cards
-                              const lightColors = {
-                                warning: "#fff3e0", // Light orange
-                                critical: "#ffebee", // Light red
-                              };
-
-                              const borderColors = {
-                                warning: "#ffb74d", // Medium orange
-                                critical: "#ef5350", // Medium red
-                              };
-
-                              return (
-                                <Card
-                                  key={issue.id}
-                                  variant="outlined"
-                                  sx={{
-                                    bgcolor:
-                                      lightColors[
-                                        issue.severity as keyof typeof lightColors
-                                      ] || "#f5f5f5",
-                                    borderLeft: 2,
-                                    borderLeftColor:
-                                      borderColors[
-                                        issue.severity as keyof typeof borderColors
-                                      ] || "#ff9800",
-                                    transition: "all 0.2s ease",
-                                    "&:hover": {
-                                      boxShadow: 1,
-                                      transform: "translateY(-1px)",
-                                    },
-                                  }}
-                                >
-                                  <CardContent
-                                    sx={{
-                                      py: 0.75,
-                                      px: 1.25,
-                                      "&:last-child": { pb: 0.75 },
-                                    }}
-                                  >
-                                    <Box
-                                      display="flex"
-                                      alignItems="center"
-                                      gap={0.75}
-                                    >
-                                      {/* Issue Number Badge */}
-                                      <Box
-                                        sx={{
-                                          width: 18,
-                                          height: 18,
-                                          borderRadius: "50%",
-                                          bgcolor:
-                                            borderColors[
-                                              issue.severity as keyof typeof borderColors
-                                            ] || "#ff9800",
-                                          color: "white",
-                                          display: "flex",
-                                          alignItems: "center",
-                                          justifyContent: "center",
-                                          fontSize: 9,
-                                          fontWeight: 700,
-                                          boxShadow: 1,
-                                        }}
-                                      >
-                                        {index + 1}
-                                      </Box>
-
-                                      {/* Issue Info */}
-                                      <Box
-                                        display="flex"
-                                        alignItems="center"
-                                        gap={0.5}
-                                        flex={1}
-                                      >
-                                        <Typography
-                                          variant="caption"
-                                          fontWeight={600}
-                                          flex={1}
-                                          sx={{ fontSize: 12 }}
-                                        >
-                                          {ISSUE_TYPE_LABELS[issue.type] ||
-                                            issue.type}
-                                        </Typography>
-                                        <Chip
-                                          label={`${Math.round(
-                                            issue.confidence * 100
-                                          )}%`}
-                                          size="small"
-                                          color={
-                                            issue.confidence > 0.8
-                                              ? "success"
-                                              : issue.confidence > 0.6
-                                              ? "warning"
-                                              : "default"
-                                          }
-                                          variant="filled"
-                                          sx={{
-                                            fontWeight: 600,
-                                            height: 16,
-                                            fontSize: 8,
-                                          }}
-                                        />
-                                        <Chip
-                                          label={issue.severity.toUpperCase()}
-                                          size="small"
-                                          color={
-                                            issue.severity === "critical"
-                                              ? "error"
-                                              : "warning"
-                                          }
-                                          variant="outlined"
-                                          sx={{
-                                            fontSize: 7,
-                                            height: 14,
-                                            fontWeight: 600,
-                                            ml: 0.5,
-                                          }}
-                                        />
-                                      </Box>
-                                    </Box>
-
-                                    {/* Issue Description */}
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                      sx={{
-                                        ml: 2.25,
-                                        lineHeight: 1.1,
-                                        fontSize: 9,
-                                        display: "block",
-                                        mt: 0.125,
-                                      }}
-                                    >
-                                      {issue.description}
-                                    </Typography>
-
-                                    {/* Bounding Box Location */}
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                      sx={{
-                                        ml: 2.25,
-                                        lineHeight: 1.1,
-                                        fontSize: 8,
-                                        display: "block",
-                                        fontStyle: "italic",
-                                        mt: 0.125,
-                                      }}
-                                    >
-                                      AI Model Coordinates: ({issue.boundingBox.x},{" "}
-                                      {issue.boundingBox.y}) -{" "}
-                                      {issue.boundingBox.width}×
-                                      {issue.boundingBox.height}px (640×640 basis)
-                                    </Typography>
-                                  </CardContent>
-                                </Card>
-                              );
-                            })}
-                          </Box>
-                        </Box>
-
-                        {/* Permissions & Access */}
-                        <Box>
-                          <Box display="flex" gap={1} mt={0.25} alignItems="center">
-                            <PersonIcon
-                              sx={{ fontSize: 14, color: "text.secondary" }}
+                      <CardContent sx={{ py: 1.5, px: 2, "&:last-child": { pb: 1.5 } }}>
+                        <Box display="flex" alignItems="center" justifyContent="space-between">
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Chip
+                              label={entry.source === "AI_GENERATED" ? "AI" : "Manual"}
+                              size="small"
+                              color={entry.source === "AI_GENERATED" ? "info" : "success"}
+                              sx={{ fontWeight: 600 }}
                             />
-                            <Typography variant="caption" sx={{ fontSize: 11 }}>
-                              <strong>Created by:</strong> AI System (Auto-analysis)
+                            <Chip
+                              label={entry.actionType}
+                              size="small"
+                              variant="outlined"
+                              color={
+                                entry.actionType === "DELETED"
+                                  ? "error"
+                                  : entry.actionType === "EDITED"
+                                  ? "warning"
+                                  : "default"
+                              }
+                            />
+                            <Typography variant="body2" fontWeight={600}>
+                              {FAULT_TYPE_LABELS_MAP[entry.classId] || "Unknown"}
                             </Typography>
                           </Box>
-                          <Box display="flex" gap={1} mt={0.25} alignItems="center">
-                            <TimerIcon
-                              sx={{ fontSize: 14, color: "text.secondary" }}
-                            />
-                            <Typography variant="caption" sx={{ fontSize: 11 }}>
-                              <strong>Processing Time:</strong>{" "}
-                              {analysisData.processingTime}ms
+                          <Typography variant="caption" color="text.secondary">
+                            {new Date(entry.createdAt).toLocaleString()}
+                          </Typography>
+                        </Box>
+                        
+                        <Box display="flex" alignItems="center" gap={1} mt={1}>
+                          <PersonIcon sx={{ fontSize: 14, color: "text.secondary" }} />
+                          <Typography variant="caption" color="text.secondary">
+                            {entry.userName}
+                          </Typography>
+                        </Box>
+
+                        {entry.comments && (
+                          <Box mt={1}>
+                            <Typography variant="caption" color="text.secondary">
+                              <strong>Comments:</strong> {entry.comments}
                             </Typography>
                           </Box>
-                        </Box>
-                      </Box>
-                    </CardContent>
-                  </Collapse>
-
-                  {/* Action Buttons */}
-                  <CardActions sx={{ px: 2, py: 1, bgcolor: "rgba(0,0,0,0.02)" }}>
-                    <Button
-                      size="small"
-                      startIcon={<CommentIcon />}
-                      onClick={() =>
-                        setNewComment(newComment ? "" : "Add your comment...")
-                      }
-                      sx={{ textTransform: "none" }}
-                    >
-                      Add Comment
-                    </Button>
-                    <Box sx={{ flexGrow: 1 }} />
-                    <Typography variant="caption" color="text.secondary">
-                      Log ID: {analysisData.analysisTimestamp.slice(-8)}
-                    </Typography>
-                  </CardActions>
-
-                  {/* Comment Input */}
-                  {newComment && (
-                    <Box sx={{ px: 2.5, pb: 2 }}>
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={2}
-                        placeholder="Add your comment about this analysis..."
-                        value={
-                          newComment === "Add your comment..." ? "" : newComment
-                        }
-                        onChange={(e) => setNewComment(e.target.value)}
-                        size="small"
-                        sx={{ mt: 1 }}
-                      />
-                      <Box display="flex" gap={1} mt={1} justifyContent="flex-end">
-                        <Button
-                          size="small"
-                          onClick={() => setNewComment("")}
-                          sx={{ textTransform: "none" }}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          size="small"
-                          variant="contained"
-                          onClick={() => {
-                            // Handle comment submission here
-                            console.log("Comment submitted:", newComment);
-                            setNewComment("");
-                          }}
-                          sx={{ textTransform: "none" }}
-                        >
-                          Post Comment
-                        </Button>
-                      </Box>
-                    </Box>
-                  )}
-                </Card>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Box>
               )}
-
-              {/* Future log entries can be added here with similar conditional rendering */}
-              {/* Example:
-          {selectedLogEntry === "manual-inspection" && (
-            <Card>Manual Inspection Log Content</Card>
-          )}
-          */}
             </Paper>
           )}
         </>

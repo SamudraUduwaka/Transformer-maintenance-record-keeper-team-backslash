@@ -119,6 +119,36 @@ public class ManualDetectionController {
     }
 
     /**
+     * GET /api/predictions/{predictionId}/activity-log
+     * Get activity log for a prediction showing AI and Manual annotations
+     */
+    @GetMapping("/predictions/{predictionId}/activity-log")
+    public ResponseEntity<List<ActivityLogEntry>> getActivityLog(@PathVariable Long predictionId) {
+        log.info("Fetching activity log for prediction {}", predictionId);
+        
+        List<PredictionDetection> detections = detectionRepository.findByPredictionId(predictionId);
+        
+        List<ActivityLogEntry> logEntries = detections.stream()
+            .filter(d -> d.getActionType() != null)
+            .map(d -> {
+                ActivityLogEntry entry = new ActivityLogEntry();
+                entry.setDetectionId(d.getId());
+                entry.setSource(d.getSource());
+                entry.setActionType(d.getActionType());
+                entry.setClassId(d.getClassId());
+                entry.setComments(d.getComments());
+                entry.setCreatedAt(d.getCreatedAt());
+                entry.setUserId(d.getUser() != null ? d.getUser().getId() : null);
+                entry.setUserName(d.getUser() != null ? d.getUser().getName() : "AI System");
+                return entry;
+            })
+            .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt())) // Most recent first
+            .collect(java.util.stream.Collectors.toList());
+        
+        return ResponseEntity.ok(logEntries);
+    }
+
+    /**
      * Extract user ID from Spring Security context
      */
     private Long extractUserIdFromSecurityContext() {
@@ -154,5 +184,18 @@ public class ManualDetectionController {
         private Integer x2;
         private Integer y2;
         private String comments;
+    }
+
+    // DTO for activity log entry
+    @lombok.Data
+    public static class ActivityLogEntry {
+        private Long detectionId;
+        private String source;
+        private String actionType;
+        private Integer classId;
+        private String comments;
+        private java.time.LocalDateTime createdAt;
+        private Long userId;
+        private String userName;
     }
 }

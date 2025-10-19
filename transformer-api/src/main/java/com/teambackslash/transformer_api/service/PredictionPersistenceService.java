@@ -25,14 +25,18 @@ public class PredictionPersistenceService {
 
     @Transactional
     public Long persistPrediction(String transformerNo, PredictionDTO dto, Integer inspectionId) {
-    // log.debug("Persisting prediction for transformer={} label={} detections={}", transformerNo, dto.getPredictedImageLabel(), dto.getDetections()==null?0:dto.getDetections().size());
-    // Optional validation: ensure transformer exists; if not, either throw or just log and continue.
-    if (transformerNo != null && !transformerNo.isBlank()) {
-        boolean transformerExists = transformerRepository.existsById(transformerNo);
-        if (!transformerExists) {
-            log.warn("Transformer {} not found; persisting prediction (column removed)", transformerNo);
+        log.debug("Persisting prediction for transformer={} label={} detections={}", 
+            transformerNo, 
+            dto.getPredictedImageLabel(), 
+            dto.getDetections() == null ? 0 : dto.getDetections().size());
+        
+        // Optional validation: ensure transformer exists; if not, either throw or just log and continue.
+        if (transformerNo != null && !transformerNo.isBlank()) {
+            boolean transformerExists = transformerRepository.existsById(transformerNo);
+            if (!transformerExists) {
+                log.warn("Transformer {} not found; persisting prediction (column removed)", transformerNo);
+            }
         }
-    }
 
         Prediction p = new Prediction();
         // Link to inspection if provided
@@ -73,7 +77,21 @@ public class PredictionPersistenceService {
         }
 
         Prediction saved = predictionRepository.save(p);
-        // log.info("Saved prediction id={} transformer={} detections={}", saved.getId(), transformerNo, p.getDetections().size());
+        
+        long aiDetections = p.getDetections().stream()
+            .filter(d -> "AI_GENERATED".equals(d.getSource()))
+            .count();
+        long manualDetections = p.getDetections().stream()
+            .filter(d -> "MANUALLY_ADDED".equals(d.getSource()))
+            .count();
+        
+        log.info("Saved prediction id={} transformer={} totalDetections={} (AI={}, Manual={})", 
+            saved.getId(), 
+            transformerNo, 
+            p.getDetections().size(),
+            aiDetections,
+            manualDetections);
+        
         return saved.getId();
     }
 }

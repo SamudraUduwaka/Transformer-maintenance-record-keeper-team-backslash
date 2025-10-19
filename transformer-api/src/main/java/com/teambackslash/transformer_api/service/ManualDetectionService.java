@@ -55,7 +55,8 @@ public class ManualDetectionService {
         detection.setComments(comments);
 
         PredictionDetection saved = detectionRepository.save(detection);
-        // log.info("Manual detection added: detection_id={} by user={}", saved.getId(), userId);
+        log.info("Manual detection added: detection_id={} source=MANUALLY_ADDED by user={} for prediction={}", 
+            saved.getId(), userId, predictionId);
         
         return saved;
     }
@@ -92,7 +93,8 @@ public class ManualDetectionService {
         detection.setComments(comments);
 
         PredictionDetection saved = detectionRepository.save(detection);
-        // log.info("Detection edited: detection_id={} by user={}", detectionId, userId);
+        log.info("Detection edited: detection_id={} source={} actionType=EDITED by user={}", 
+            detectionId, detection.getSource(), userId);
         
         return saved;
     }
@@ -113,6 +115,7 @@ public class ManualDetectionService {
         detection.setComments(reason);
         
         detectionRepository.save(detection);
-        // log.info("Detection deleted: detection_id={} by user={} reason={}", detectionId, userId, reason);
+        log.info("Detection deleted: detection_id={} source={} actionType=DELETED by user={} reason={}", 
+            detectionId, detection.getSource(), userId, reason);
     }
 }
