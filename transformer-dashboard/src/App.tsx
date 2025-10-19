@@ -10,6 +10,7 @@ import "./App.css";
 import { AuthProvider } from "./context/AuthContext";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+// import AnnotationDemo from "./pages/AnnotationDemo";
 
 function App() {
   return (
@@ -21,13 +22,14 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/" element={<Dashboard />} />
+              <Route path="/" element={<Login />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/:transformerNo" element={<TransformerInspection />} />
               <Route
                 path="/:transformerNo/:inspectionNo"
                 element={<InspectionDetails />}
               />
+              {/* <Route path="/demo/annotations" element={<AnnotationDemo />} /> */}
             </Routes>
           </Router>
         </ThemeProvider>
