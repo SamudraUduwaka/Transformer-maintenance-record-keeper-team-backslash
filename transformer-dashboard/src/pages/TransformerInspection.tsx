@@ -383,7 +383,6 @@ export default function TransformerInspection() {
   ) => {
     try {
       setSaving(true);
-      // Use PUT to avoid Map<...> cast issues in your PATCH service
       const updated = await http<InspectionDTO>(`/inspections/${id}`, {
         method: "PUT",
         json: inspectionData,
@@ -417,7 +416,6 @@ export default function TransformerInspection() {
 
       setRows((prev) => {
         const next = prev.filter((r) => r.id !== deleteId);
-        // If we’re now past the end, move back a page
         if (page > 0 && page * rowsPerPage >= next.length) {
           setPage(page - 1);
         }

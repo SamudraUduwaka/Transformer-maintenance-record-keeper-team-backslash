@@ -12,11 +12,6 @@ import {
   IconButton,
   Card,
   CardContent,
-  // Collapse,
-  // CardActions,
-  // Button,
-  // TextField,
-  // Divider,
   Tooltip,
   Snackbar,
 } from "@mui/material";
@@ -25,17 +20,12 @@ import {
   ZoomIn as ZoomInIcon,
   ZoomOut as ZoomOutIcon,
   CenterFocusStrong as CenterFocusStrongIcon,
-  // ExpandMore as ExpandMoreIcon,
-  // ExpandLess as ExpandLessIcon,
   Edit as EditIcon,
-  // Comment as CommentIcon,
   Person as PersonIcon,
-  // Timer as TimerIcon,
   Upload as UploadIcon,
   Download as DownloadIcon,
 } from "@mui/icons-material";
 import { authService } from "../services/authService";
-// import AnnotationToolbar from "./AnnotationToolbar";
 import DrawingCanvas from "./DrawingCanvas";
 
 // TypeScript interfaces matching the API response
@@ -62,7 +52,7 @@ interface ThermalAnalysisData {
   issues: ThermalIssue[];
   overallScore: number;
   processingTime: number;
-  predictionId?: number; // ADD THIS LINE
+  predictionId?: number; 
 }
 
 interface ThermalImageAnalysisProps {
@@ -71,7 +61,7 @@ interface ThermalImageAnalysisProps {
   onAnalysisComplete?: (analysis: ThermalAnalysisData) => void;
   loading?: boolean;
   transformerNo?: string;
-  inspectionId?: number; // Add inspectionId prop
+  inspectionId?: number; 
 }
 
 const SEVERITY_COLORS = {
@@ -337,7 +327,7 @@ const ZoomableImage: React.FC<ZoomableImageProps> = ({
   );
 };
 
-// New Activity Log interfaces
+// Activity Log interfaces
 interface ActivityLogEntry {
   detectionId: number;
   source: "AI_GENERATED" | "MANUALLY_ADDED";
@@ -372,17 +362,8 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentScale, setCurrentScale] = useState(1);
-  // const [isLogExpanded, setIsLogExpanded] = useState(false);
-  // const [newComment, setNewComment] = useState("");
-  // const [selectedLogEntry, setSelectedLogEntry] =
-  //   useState<string>("ai-analysis");
 
-  // const [showAiPredictions, setShowAiPredictions] = React.useState(true);
-  // const [showManualAnnotations, setShowManualAnnotations] = React.useState(true);
-  // const [isEditMode, setIsEditMode] = React.useState(false);
-  // const [isDeleteMode, setIsDeleteMode] = React.useState(false);
-
-  const [isDrawingMode, setIsDrawingMode] = useState(false); // NEW: Drawing mode state
+  const [isDrawingMode, setIsDrawingMode] = useState(false); 
 
   // ADD: Snackbar state
   const [snackbar, setSnackbar] = useState<{
@@ -396,16 +377,8 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   });
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // Track which image URLs have already triggered an analysis to avoid
-  // duplicate calls (e.g., React StrictMode double effect invocation or
-  // parent prop identity changes). Also track an in-flight request to
-  // prevent overlap.
   const analyzedImagesRef = useRef<Set<string>>(new Set());
   const inFlightRef = useRef<string | null>(null);
-
-  // Mock counts (will be replaced with real data from backend later)
-  // const aiPredictionsCount = analysisData?.issues.length || 0;
-  // const manualAnnotationsCount = 0; // Will fetch from backend
 
   // API call to analyze thermal image
   const analyzeThermalImage = useCallback(async (): Promise<ThermalAnalysisData> => {
@@ -415,7 +388,6 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       );
     }
   
-    // Use direct backend URL to avoid proxy issues
     const apiUrl = "http://localhost:8080/api/images/thermal-analysis";
   
     try {
@@ -429,7 +401,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
           thermalImageUrl,
           baselineImageUrl,
           transformerNo,
-          inspectionId, // Include inspectionId in request
+          inspectionId, 
         }),
       });
   
@@ -494,9 +466,6 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Only draw if AI predictions are visible
-    // if (!showAiPredictions) return;
 
     // Get the actual displayed image dimensions from canvas
     const displayedImageWidth = canvas.width;
@@ -619,22 +588,15 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     });
   };
 
-  // Update canvas when image loads or bounding box settings change
-  // useEffect(() => {
-  //   drawBoundingBoxes();
-  // }, [analysisData, selectedIssueFilter, currentScale, showAiPredictions]);
-
   const filteredIssues =
     analysisData?.issues.filter(
       (issue) =>
         selectedIssueFilter === "all" || issue.type === selectedIssueFilter
     ) || [];
 
-  // NEW: Annotation toolbar handlers
+  // Annotation toolbar handlers
   const handleAddAnnotation = () => {
     setIsDrawingMode(true);
-    // setIsEditMode(false);
-    // setIsDeleteMode(false);
   };
 
   const handleCancelDrawing = () => {
@@ -700,7 +662,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       const savedAnnotation = await response.json();
       console.log('Annotation saved successfully:', savedAnnotation);
 
-      // REPLACE: Show success snackbar instead of alert
+      // Show success snackbar instead of alert
       setSnackbar({
         open: true,
         message: `Manual annotation saved successfully!`,
@@ -710,7 +672,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       // Exit drawing mode
       setIsDrawingMode(false);
 
-      // ADD: Refresh activity log immediately after saving
+      // Refresh activity log immediately after saving
       await fetchActivityLog();
 
       // Refresh analysis to show new annotation
@@ -732,7 +694,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
     } catch (error) {
       console.error("Failed to save annotation:", error);
-      // REPLACE: Show error snackbar instead of alert
+      // Show error snackbar instead of alert
       setSnackbar({
         open: true,
         message: `Failed to save annotation: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -741,56 +703,19 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     }
   };
 
-  // const handleEditMode = () => {
-  //   setIsEditMode(!isEditMode);
-  //   setIsDeleteMode(false);
-  //   console.log("Edit mode:", !isEditMode);
-  // };
-
-  // const handleDeleteMode = () => {
-  //   setIsDeleteMode(!isDeleteMode);
-  //   setIsEditMode(false);
-  //   console.log("Delete mode:", !isDeleteMode);
-  // };
-
-  // const handleExportFeedback = () => {
-  //   console.log("Export feedback clicked");
-  //   alert("Export functionality will be implemented next");
-  // };
-
-  // const handleRefresh = () => {
-  //   console.log("Refresh annotations clicked");
-  //   // Re-trigger analysis
-  //   if (thermalImageUrl) {
-  //     analyzedImagesRef.current.delete(thermalImageUrl);
-  //     setIsAnalyzing(true);
-  //     analyzeThermalImage()
-  //       .then((data) => {
-  //         setAnalysisData(data);
-  //         onAnalysisComplete?.(data);
-  //       })
-  //       .catch((err) => {
-  //         setError(`Failed to analyze thermal image: ${err.message}`);
-  //       })
-  //       .finally(() => {
-  //         setIsAnalyzing(false);
-  //       });
-  //   }
-  // };
-
-  // ADD: Snackbar close handler
+  // Snackbar close handler
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // ADD THIS LINE - Extract predictionId from analysisData
+  // Extract predictionId from analysisData
   const predictionId = analysisData?.predictionId;
 
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
   const [loadingActivityLog, setLoadingActivityLog] = useState(false);
   const [activityLogFilter, setActivityLogFilter] = useState<string>("all");
 
-  // MODIFIED: Extract fetchActivityLog as a separate function for reusability
+  // Extract fetchActivityLog as a separate function for reusability
   const fetchActivityLog = useCallback(async () => {
     if (!predictionId) return;
 
@@ -820,7 +745,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     fetchActivityLog();
   }, [fetchActivityLog]);
 
-  // ADD: Filter activity log based on selected filter
+  // Filter activity log based on selected filter
   const filteredActivityLog = activityLog.filter((entry) => {
     // Filter by action type first (exclude deleted unless specifically requested)
     if (activityLogFilter !== "deleted" && entry.actionType === "DELETED") {
@@ -835,12 +760,12 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     return entry.actionType !== "DELETED"; // "all" - show all except deleted
   });
 
-  // ADD: Manual refresh handler for activity log
+  // Manual refresh handler for activity log
   const handleRefreshActivityLog = () => {
     fetchActivityLog();
   };
 
-  // ADD: Export functions
+  // Export functions
   const exportToJSON = () => {
     const exportData = filteredActivityLog.map(entry => ({
       detectionId: entry.detectionId,
@@ -928,42 +853,20 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
   return (
     <Box>
-      {/* REMOVED: Annotation Toolbar - Only show when in drawing mode now */}
-      {/* The toolbar will be shown inside the DrawingCanvas component */}
 
-      {/* Existing: annotations error */}
+      {/* annotations error */}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
-      {/* NEW: Drawing Mode - Replace thermal image with DrawingCanvas */}
+      {/* Drawing Mode - Replace thermal image with DrawingCanvas */}
       {isDrawingMode && thermalImageUrl ? (
         <Paper sx={{ p: 2.5, mb: 3 }}>
           <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
             Draw Bounding Box
           </Typography>
-
-          {/* Show annotation toolbar in drawing mode */}
-          {/* {inspectionId && (
-            <AnnotationToolbar
-              aiPredictionsCount={aiPredictionsCount}
-              manualAnnotationsCount={manualAnnotationsCount}
-              showAiPredictions={showAiPredictions}
-              showManualAnnotations={showManualAnnotations}
-              onToggleAiPredictions={() => setShowAiPredictions(!showAiPredictions)}
-              onToggleManualAnnotations={() => setShowManualAnnotations(!showManualAnnotations)}
-              onAddAnnotation={handleAddAnnotation}
-              onEditMode={handleEditMode}
-              onDeleteMode={handleDeleteMode}
-              onExportFeedback={handleExportFeedback}
-              onRefresh={handleRefresh}
-              isEditMode={isEditMode}
-              isDeleteMode={isDeleteMode}
-              disabled={isAnalyzing || loading}
-            />
-          )} */}
 
           <DrawingCanvas
             imageUrl={thermalImageUrl}
@@ -974,7 +877,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
           />
         </Paper>
       ) : (
-        /* Existing: Main Analysis Display - Only show when NOT in drawing mode */
+        /* Main Analysis Display - Only show when NOT in drawing mode */
         <>
           <Box display="flex" flexDirection={{ xs: "column", md: "row" }} gap={3}>
             {/* Baseline Image */}
@@ -1250,7 +1153,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
         </>
       )}
 
-      {/* ADD: Snackbar notification at the end of the component */}
+      {/* Snackbar notification at the end of the component */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}

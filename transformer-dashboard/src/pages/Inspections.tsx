@@ -67,14 +67,14 @@ type ImageDTO = {
 
 type InspectionDTO = {
   inspectionId: number;
-  inspectionTime: string; // ISO string from backend
+  inspectionTime: string; 
   branch: string;
   inspector: string;
   createdAt: string;
   updatedAt: string;
   transformerNo: string;
-  image?: ImageDTO; // Optional image field
-  favorite?: boolean; // Added for favorite functionality
+  image?: ImageDTO; 
+  favorite?: boolean; 
 };
 
 type InspectionRow = {
@@ -82,12 +82,12 @@ type InspectionRow = {
   transformerNo: string;
   inspectionNo: string;
   inspectedDate: string;
-  maintenanceDate: string; // always string, never undefined
+  maintenanceDate: string; 
   status: ImageStatus;
   branch: string;
   inspector: string;
-  inspectionTime: string; // Keep original ISO string for editing
-  favorite: boolean; // Added for favorite functionality
+  inspectionTime: string; 
+  favorite: boolean; 
 };
 
 /* API Service */
@@ -97,9 +97,6 @@ const inspectionService = {
   async getAllInspections(): Promise<InspectionDTO[]> {
     const response = await fetch(`${API_BASE_URL}/inspections`, {
       method: "GET",
-      // headers: {
-      //   "Content-Type": "application/json",
-      // },
       headers: {
                 "Content-Type": "application/json",
                 ...authService.getAuthHeader(),
@@ -146,7 +143,6 @@ const inspectionService = {
     id: number,
     updates: Partial<InspectionDTO>
   ): Promise<InspectionDTO> {
-    // Format the date for backend if it's being updated
     if (updates.inspectionTime) {
       updates.inspectionTime = new Date(updates.inspectionTime)
         .toISOString()
@@ -220,7 +216,6 @@ const convertDTOToRow = (dto: InspectionDTO): InspectionRow => {
     ) {
       status = "maintenance";
     }
-    // Default fallback for any other image type
     else {
       status = "maintenance";
     }
@@ -243,7 +238,7 @@ const convertDTOToRow = (dto: InspectionDTO): InspectionRow => {
     branch: dto.branch,
     inspector: dto.inspector,
     inspectionTime: dto.inspectionTime,
-    favorite: dto.favorite || false, // Get from database
+    favorite: dto.favorite || false, 
   };
 };
 
@@ -294,7 +289,6 @@ const statusChip = (s: ImageStatus) => {
   );
 };
 
-/* Match your drawer width so the fixed AppBar lines up */
 
 export default function Inspections({
   view = "inspections",
@@ -303,7 +297,6 @@ export default function Inspections({
   const navigate = useNavigate();
 
   // State
-  //const [inspections, setInspections] = React.useState<InspectionDTO[]>([]);
   const [rows, setRows] = React.useState<InspectionRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -342,7 +335,6 @@ export default function Inspections({
       setLoading(true);
       setError(null);
       const data = await inspectionService.getAllInspections();
-      //setInspections(data);
       setRows(data.map(convertDTOToRow));
     } catch (err) {
       console.error("Failed to load inspections:", err);
@@ -472,12 +464,6 @@ export default function Inspections({
         )
       );
 
-      // You can add a snackbar notification here if needed
-      // showSnackbar(
-      //   updatedInspection.favorite
-      //     ? "Added to favorites"
-      //     : "Removed from favorites"
-      // );
     } catch (error) {
       console.error("Failed to update favorite status:", error);
       setError("Failed to update favorite status");

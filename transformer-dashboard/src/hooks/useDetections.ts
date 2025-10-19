@@ -12,7 +12,6 @@ interface UseDetectionsReturn {
   loading: boolean;
   error: string | null;
   
-  // Computed
   aiDetections: AnnotationData[];
   manualDetections: AnnotationData[];
   
@@ -104,7 +103,7 @@ export function useDetections({ predictionId, autoLoad = true }: UseDetectionsOp
     await loadDetections();
   }, [loadDetections]);
 
-  // Computed values: separate AI vs Manual detections
+  // separate AI vs Manual detections
   const aiDetections = detections.filter(d => d.source === 'AI_GENERATED');
   const manualDetections = detections.filter(d => d.source === 'MANUALLY_ADDED');
 

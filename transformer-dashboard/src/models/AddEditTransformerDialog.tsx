@@ -118,7 +118,6 @@ export const AddTransformerDialog: React.FC<AddTransformerDialogProps> = ({
       await onSave(form, isEdit);
       handleClose();
     } catch (error) {
-      // Error handling is done by the parent component
       console.error("Error saving transformer:", error);
     }
   };

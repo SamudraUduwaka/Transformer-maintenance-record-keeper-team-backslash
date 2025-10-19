@@ -53,9 +53,7 @@ export const DeleteTransformerConfirmationDialog: React.FC<DeleteTransformerConf
   const handleConfirm = async () => {
     try {
       await onConfirm();
-      // Parent component will handle closing the dialog on success
     } catch (error) {
-      // Error handling is done by the parent component
       console.error("Error deleting transformer:", error);
     }
   };

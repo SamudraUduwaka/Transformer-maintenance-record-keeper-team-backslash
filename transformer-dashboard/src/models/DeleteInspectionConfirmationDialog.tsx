@@ -36,7 +36,6 @@ export const DeleteInspectionConfirmationDialog: React.FC<DeleteInspectionConfir
     try {
       await onConfirm(inspectionId);
     } catch (error) {
-      // Error handling is done by parent component
       console.error("Error in DeleteInspectionConfirmationDialog:", error);
     }
   };

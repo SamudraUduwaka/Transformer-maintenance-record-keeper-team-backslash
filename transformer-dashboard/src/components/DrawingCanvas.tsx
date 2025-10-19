@@ -1,5 +1,23 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Box, Paper, Typography, Button, FormControl, Select, MenuItem, TextField, Stack, Chip, Alert, CircularProgress, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@mui/material';
+import { 
+  Box,
+  Paper, 
+  Typography, 
+  Button, 
+  FormControl, 
+  Select, 
+  MenuItem, 
+  TextField, 
+  Stack, 
+  Chip, 
+  Alert, 
+  CircularProgress, 
+  Dialog, 
+  DialogTitle, 
+  DialogContent, 
+  DialogContentText, 
+  DialogActions 
+} from '@mui/material';
 import { authService } from '../services/authService';
 
 interface BoundingBox {
@@ -9,7 +27,6 @@ interface BoundingBox {
   height: number;
 }
 
-// ADD: Detection interface matching backend response
 interface Detection {
   id: number;
   classId: number;
@@ -29,7 +46,7 @@ interface DrawingCanvasProps {
   onSave: (box: BoundingBox, faultType: string, comments: string) => void;
   onCancel: () => void;
   isActive: boolean;
-  predictionId?: number; // ADD: predictionId to fetch existing annotations
+  predictionId?: number; 
 }
 
 const FAULT_TYPES = [
@@ -40,7 +57,6 @@ const FAULT_TYPES = [
   'Full Wire Overload',
 ];
 
-// ADD: Map classId to fault type
 const CLASS_ID_TO_FAULT_TYPE: Record<number, string> = {
   0: 'Point Overload (Faulty)',
   1: 'Loose Joint (Faulty)',
@@ -64,22 +80,21 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   const [currentBox, setCurrentBox] = useState<BoundingBox | null>(null);
   const [drawnBox, setDrawnBox] = useState<BoundingBox | null>(null);
 
-  // Form state
   const [selectedFaultType, setSelectedFaultType] = useState(FAULT_TYPES[0]);
   const [comments, setComments] = useState('');
 
-  // ADD: Existing annotations state
+  // Existing annotations state
   const [existingAnnotations, setExistingAnnotations] = useState<Detection[]>([]);
   const [selectedAnnotation, setSelectedAnnotation] = useState<Detection | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ADD: Delete confirmation dialog state
+  // Delete confirmation dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [annotationToDelete, setAnnotationToDelete] = useState<Detection | null>(null);
 
-  // ADD: Fetch existing annotations
+  // Fetch existing annotations
   useEffect(() => {
     if (!predictionId || !isActive) return;
 
@@ -146,7 +161,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     }
   }, [imageUrl]);
 
-  // MODIFIED: Redraw canvas with existing annotations
+  // Redraw canvas with existing annotations
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -213,7 +228,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     }
   }, [currentBox, drawnBox, isDrawing, existingAnnotations, selectedAnnotation]);
 
-  // MODIFIED: Handle mouse down - check for annotation selection first
+  // Handle mouse down - check for annotation selection first
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isActive) return;
 
@@ -238,7 +253,6 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     });
 
     if (clickedAnnotation) {
-      console.log('Selected annotation:', clickedAnnotation); // DEBUG
       setSelectedAnnotation(clickedAnnotation);
       setIsEditMode(true);
       setSelectedFaultType(CLASS_ID_TO_FAULT_TYPE[clickedAnnotation.classId] || FAULT_TYPES[0]);
@@ -287,15 +301,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     setCurrentBox(null);
   };
 
-  // ADD: Handle edit
+  // Handle edit
   const handleEdit = async () => {
     if (!selectedAnnotation) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
-
-    // const scaleX = parseFloat(canvas.dataset.scaleX || '1');
-    // const scaleY = parseFloat(canvas.dataset.scaleY || '1');
 
     // Convert selected annotation coordinates to model coordinates
     const x1 = selectedAnnotation.bboxX;
@@ -351,7 +362,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     }
   };
 
-  // MODIFIED: Handle delete - show confirmation dialog instead of browser alert
+  // Handle delete - show confirmation dialog
   const handleDeleteClick = () => {
     if (!selectedAnnotation) {
       console.error('No annotation selected for deletion');
@@ -363,7 +374,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     setDeleteDialogOpen(true);
   };
 
-  // ADD: Confirm delete handler
+  // Confirm delete handler
   const handleConfirmDelete = async () => {
     if (!annotationToDelete) return;
 
@@ -405,7 +416,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     }
   };
 
-  // ADD: Cancel delete handler
+  // Cancel delete handler
   const handleCancelDelete = () => {
     setDeleteDialogOpen(false);
     setAnnotationToDelete(null);
@@ -449,7 +460,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
   return (
     <Box sx={{ position: 'relative', width: '100%', height: '100%' }}>
-      {/* ADD: Loading state */}
+      {/* Loading state */}
       {isLoading && (
         <Box display="flex" justifyContent="center" alignItems="center" minHeight={200}>
           <CircularProgress size={24} sx={{ mr: 1 }} />
@@ -457,14 +468,14 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         </Box>
       )}
 
-      {/* ADD: Error alert */}
+      {/* Error alert */}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
 
-      {/* ADD: Annotation stats */}
+      {/* Annotation stats */}
       <Box sx={{ mb: 2, display: 'flex', gap: 1 }}>
         <Chip 
           label={`AI: ${existingAnnotations.filter(a => a.source === 'AI_GENERATED').length}`} 
@@ -525,7 +536,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         />
       </Box>
 
-      {/* MODIFIED: Instruction Banner */}
+      {/* Instruction Banner */}
       <Paper sx={{ mt: 2, p: 2, bgcolor: isEditMode ? '#FEF3C7' : '#EEF2FF', border: `1px solid ${isEditMode ? '#FCD34D' : '#C7D2FE'}` }}>
         <Typography variant="body2" fontWeight={600} color={isEditMode ? 'warning.dark' : 'primary'}>
           {isEditMode
@@ -536,7 +547,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         </Typography>
       </Paper>
 
-      {/* MODIFIED: Form - Show for both new and edit mode */}
+      {/* Form - Show for both new and edit mode */}
       {(drawnBox || isEditMode) && (
         <Paper sx={{ mt: 2, p: 2 }}>
           <Stack spacing={2}>
@@ -597,7 +608,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         </Paper>
       )}
 
-      {/* ADD: Delete Confirmation Dialog */}
+      {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteDialogOpen}
         onClose={handleCancelDelete}

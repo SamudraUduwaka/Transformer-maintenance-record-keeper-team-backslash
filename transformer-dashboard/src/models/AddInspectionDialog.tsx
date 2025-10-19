@@ -20,7 +20,7 @@ import dayjs from "dayjs";
 // Types matching the backend DTOs
 export type InspectionDTO = {
   inspectionId: number;
-  inspectionTime: string; // ISO string from backend
+  inspectionTime: string; 
   branch: string;
   inspector: string;
   createdAt: string;
@@ -57,7 +57,7 @@ export const AddInspectionDialog: React.FC<AddInspectionDialogProps> = ({
   const [time, setTime] = React.useState("");
   const [inspector, setInspector] = React.useState("");
 
-  // API base (env override first)
+  // API base
   const API_BASE =
     (import.meta.env as { VITE_API_BASE_URL?: string }).VITE_API_BASE_URL ??
     "http://localhost:8080/api";
@@ -97,7 +97,7 @@ export const AddInspectionDialog: React.FC<AddInspectionDialogProps> = ({
     }
   }, [defaultBranch]);
 
-  // Fetch transformers when dialog opens (only if user needs to choose)
+  // Fetch transformers when dialog opens
   React.useEffect(() => {
     let abort = false;
     async function loadTransformers() {
@@ -124,7 +124,6 @@ export const AddInspectionDialog: React.FC<AddInspectionDialogProps> = ({
 
   const handleSelectTransformer = (value: string) => {
     setTransformerNo(value);
-    // Optional UX: auto-fill branch from selected transformer if branch empty
     if (!branch) {
       const t = transformers.find((x) => x.transformerNo === value);
       if (t?.region) setBranch(t.region);
@@ -139,7 +138,6 @@ export const AddInspectionDialog: React.FC<AddInspectionDialogProps> = ({
     if (!canConfirm) return;
 
     try {
-      // Format date correctly for backend (remove milliseconds and timezone)
       const inspectionTime = new Date(`${date}T${time}`)
         .toISOString()
         .split(".")[0];
@@ -153,7 +151,6 @@ export const AddInspectionDialog: React.FC<AddInspectionDialogProps> = ({
 
       await onConfirm(newInspection);
     } catch (error) {
-      // Error handling is done by parent component
       console.error("Error in AddInspectionDialog:", error);
     }
   };

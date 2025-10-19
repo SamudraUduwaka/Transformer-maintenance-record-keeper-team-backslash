@@ -121,7 +121,6 @@ export const EditInspectionDialog: React.FC<EditInspectionDialogProps> = ({
 
       await onSave(inspectionData.id, updates);
     } catch (error) {
-      // Error handling is done by parent component
       console.error("Error in EditInspectionDialog:", error);
     }
   };
