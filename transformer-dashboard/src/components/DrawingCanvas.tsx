@@ -150,6 +150,16 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   const [annotationToDelete, setAnnotationToDelete] =
     useState<Detection | null>(null);
 
+  // Reset to draw mode when component becomes active
+  useEffect(() => {
+    if (isActive) {
+      setActiveToolbox("draw");
+      setIsEditMode(false);
+      setSelectedAnnotation(null);
+      setTempResizedAnnotation(null);
+    }
+  }, [isActive]);
+
   // Fetch existing annotations
   useEffect(() => {
     if (!predictionId || !isActive) return;
