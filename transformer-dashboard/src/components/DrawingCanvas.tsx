@@ -46,6 +46,8 @@ interface DrawingCanvasProps {
   imageUrl: string;
   onSave: (box: BoundingBox, faultType: string, comments: string) => void;
   onCancel: () => void;
+  onEditFinish?: () => void; // New prop for when editing is finished
+  onEditSave?: () => void; // New prop for refreshing activity log after editing
   isActive: boolean;
   predictionId?: number;
 }
@@ -87,6 +89,8 @@ const BOUNDING_BOX_OPACITY = "20";
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   imageUrl,
   onSave,
+  onEditFinish,
+  onEditSave,
   isActive,
   predictionId,
 }) => {
@@ -974,6 +978,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       const data: Detection[] = await refreshResponse.json();
       setExistingAnnotations(data.filter((d) => d.actionType !== "DELETED"));
 
+      // Refresh activity log after successful edit
+      if (onEditSave) {
+        await onEditSave();
+      }
+
       setSelectedAnnotation(null);
       setIsEditMode(false);
       setComments("");
@@ -982,6 +991,96 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     } catch (err) {
       console.error("Failed to edit annotation:", err);
       setError("Failed to update annotation");
+    }
+  };
+
+  // Handle save and continue - save changes but stay in edit mode
+  const handleSaveAndContinue = async () => {
+    if (!selectedAnnotation) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Use temp resized annotation if it exists, otherwise use selected annotation
+    const annotationToSave = tempResizedAnnotation || selectedAnnotation;
+
+    // Convert annotation coordinates to model coordinates
+    const x1 = annotationToSave.bboxX;
+    const y1 = annotationToSave.bboxY;
+    const x2 = annotationToSave.bboxX + annotationToSave.bboxW;
+    const y2 = annotationToSave.bboxY + annotationToSave.bboxH;
+
+    const faultTypeToClassId: Record<string, number> = {
+      "Point Overload (Faulty)": 0,
+      "Loose Joint (Faulty)": 1,
+      "Point Overload (Potential)": 2,
+      "Loose Joint (Potential)": 3,
+      "Full Wire Overload": 4,
+    };
+
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/detections/${selectedAnnotation.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...authService.getAuthHeader(),
+          },
+          body: JSON.stringify({
+            predictionId: predictionId,
+            classId: faultTypeToClassId[selectedFaultType],
+            confidence: 1.0,
+            x1: Math.round(x1),
+            y1: Math.round(y1),
+            x2: Math.round(x2),
+            y2: Math.round(y2),
+            comments: comments || null,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to update annotation");
+      }
+
+      // Refresh annotations
+      const refreshResponse = await fetch(
+        `http://localhost:8080/api/predictions/${predictionId}/detections`,
+        {
+          headers: authService.getAuthHeader(),
+        }
+      );
+      const data: Detection[] = await refreshResponse.json();
+      const filteredData = data.filter((d) => d.actionType !== "DELETED");
+      setExistingAnnotations(filteredData);
+
+      // Refresh activity log after successful edit
+      if (onEditSave) {
+        await onEditSave();
+      }
+
+      // Exit edit mode and return to default drawing mode
+      setSelectedAnnotation(null);
+      setIsEditMode(false);
+      setComments("");
+      setSelectedFaultType(FAULT_TYPES[0]);
+      setTempResizedAnnotation(null);
+      setError(null);
+
+      // Keep drawing mode active for continued annotation
+    } catch (err) {
+      console.error("Failed to save annotation:", err);
+      setError("Failed to save annotation");
+    }
+  };
+
+  // Handle save and finish - save changes and exit edit mode
+  const handleSaveAndFinish = async () => {
+    await handleEdit(); // Use existing logic which saves and exits
+    // Navigate to comparison page after saving edit
+    if (onEditFinish) {
+      onEditFinish();
     }
   };
 
@@ -1078,6 +1177,82 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     setDrawnBox(null);
     setComments("");
     setSelectedFaultType(FAULT_TYPES[0]);
+  };
+
+  // Handle save and continue for new annotations - save without navigating away
+  const handleSaveNewAndContinue = async () => {
+    if (!drawnBox) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Convert canvas coordinates to model coordinates (640x640)
+    const scaleX = parseFloat(canvas.dataset.scaleX || "1");
+    const scaleY = parseFloat(canvas.dataset.scaleY || "1");
+
+    const modelBox: BoundingBox = {
+      x: drawnBox.x * scaleX,
+      y: drawnBox.y * scaleY,
+      width: drawnBox.width * scaleX,
+      height: drawnBox.height * scaleY,
+    };
+
+    const faultTypeToClassId: Record<string, number> = {
+      "Point Overload (Faulty)": 0,
+      "Loose Joint (Faulty)": 1,
+      "Point Overload (Potential)": 2,
+      "Loose Joint (Potential)": 3,
+      "Full Wire Overload": 4,
+    };
+
+    try {
+      // Save annotation directly to backend without using onSave prop
+      const response = await fetch(`http://localhost:8080/api/detections`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authService.getAuthHeader(),
+        },
+        body: JSON.stringify({
+          predictionId: predictionId,
+          classId: faultTypeToClassId[selectedFaultType],
+          confidence: 1.0,
+          x1: Math.round(modelBox.x),
+          y1: Math.round(modelBox.y),
+          x2: Math.round(modelBox.x + modelBox.width),
+          y2: Math.round(modelBox.y + modelBox.height),
+          comments: comments || null,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save annotation");
+      }
+
+      // Refresh annotations to show the new one
+      const refreshResponse = await fetch(
+        `http://localhost:8080/api/predictions/${predictionId}/detections`,
+        {
+          headers: authService.getAuthHeader(),
+        }
+      );
+      const data: Detection[] = await refreshResponse.json();
+      setExistingAnnotations(data.filter((d) => d.actionType !== "DELETED"));
+
+      // Reset state for next annotation but stay in draw mode
+      setDrawnBox(null);
+      setComments("");
+      setSelectedFaultType(FAULT_TYPES[0]);
+      setError(null);
+    } catch (err) {
+      console.error("Failed to save annotation:", err);
+      setError("Failed to save annotation");
+    }
+  };
+
+  // Handle save and finish for new annotations - save and navigate away
+  const handleSaveNewAndFinish = () => {
+    handleSave(); // Use existing logic which calls onSave and navigates
   };
 
   const handleReset = () => {
@@ -1374,10 +1549,22 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
                   Cancel
                 </Button>
                 <Button
-                  variant="contained"
-                  onClick={isEditMode ? handleEdit : handleSave}
+                  variant="outlined"
+                  onClick={
+                    isEditMode
+                      ? handleSaveAndContinue
+                      : handleSaveNewAndContinue
+                  }
                 >
-                  {isEditMode ? "Update" : "Save"} Annotation
+                  Save and Continue
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={
+                    isEditMode ? handleSaveAndFinish : handleSaveNewAndFinish
+                  }
+                >
+                  Save and Finish
                 </Button>
               </Stack>
             </Stack>

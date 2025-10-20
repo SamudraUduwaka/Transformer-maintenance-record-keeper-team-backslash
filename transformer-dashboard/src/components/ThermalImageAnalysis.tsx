@@ -52,7 +52,7 @@ interface ThermalAnalysisData {
   issues: ThermalIssue[];
   overallScore: number;
   processingTime: number;
-  predictionId?: number; 
+  predictionId?: number;
 }
 
 interface ThermalImageAnalysisProps {
@@ -61,7 +61,7 @@ interface ThermalImageAnalysisProps {
   onAnalysisComplete?: (analysis: ThermalAnalysisData) => void;
   loading?: boolean;
   transformerNo?: string;
-  inspectionId?: number; 
+  inspectionId?: number;
 }
 
 const SEVERITY_COLORS = {
@@ -363,7 +363,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [currentScale, setCurrentScale] = useState(1);
 
-  const [isDrawingMode, setIsDrawingMode] = useState(false); 
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
 
   // ADD: Snackbar state
   const [snackbar, setSnackbar] = useState<{
@@ -381,62 +381,64 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   const inFlightRef = useRef<string | null>(null);
 
   // API call to analyze thermal image
-  const analyzeThermalImage = useCallback(async (): Promise<ThermalAnalysisData> => {
-    if (!transformerNo) {
-      console.warn(
-        "ThermalImageAnalysis: transformerNo not provided; prediction persistence will be skipped on backend."
-      );
-    }
-  
-    const apiUrl = "http://localhost:8080/api/images/thermal-analysis";
-  
-    try {
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authService.getAuthHeader(),
-        },
-        body: JSON.stringify({
-          thermalImageUrl,
-          baselineImageUrl,
-          transformerNo,
-          inspectionId, 
-        }),
-      });
-  
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => "");
-        throw new Error(
-          `Analysis failed: ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ""
-          }`
+  const analyzeThermalImage =
+    useCallback(async (): Promise<ThermalAnalysisData> => {
+      if (!transformerNo) {
+        console.warn(
+          "ThermalImageAnalysis: transformerNo not provided; prediction persistence will be skipped on backend."
         );
       }
-  
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error("Thermal analysis error:", error);
-      throw error;
-    }
-  }, [thermalImageUrl, baselineImageUrl, transformerNo, inspectionId]);
-  
+
+      const apiUrl = "http://localhost:8080/api/images/thermal-analysis";
+
+      try {
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authService.getAuthHeader(),
+          },
+          body: JSON.stringify({
+            thermalImageUrl,
+            baselineImageUrl,
+            transformerNo,
+            inspectionId,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => "");
+          throw new Error(
+            `Analysis failed: ${response.status} ${response.statusText}${
+              errorText ? ` - ${errorText}` : ""
+            }`
+          );
+        }
+
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error("Thermal analysis error:", error);
+        throw error;
+      }
+    }, [thermalImageUrl, baselineImageUrl, transformerNo, inspectionId]);
+
   // Trigger analysis when thermal image URL changes
   useEffect(() => {
     if (!thermalImageUrl) return;
     if (loading) return; // respect external loading gate
-  
+
     // If already analyzing this exact URL, skip.
     if (inFlightRef.current === thermalImageUrl) return;
-  
+
     // If we've already successfully analyzed this URL in this component lifecycle, skip.
     if (analyzedImagesRef.current.has(thermalImageUrl)) return;
-  
+
     // Mark as in-flight early to avoid race if effect fires twice quickly.
     inFlightRef.current = thermalImageUrl;
     setIsAnalyzing(true);
     setError(null);
-  
+
     analyzeThermalImage()
       .then((data) => {
         analyzedImagesRef.current.add(thermalImageUrl);
@@ -603,6 +605,29 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     setIsDrawingMode(false);
   };
 
+  const handleEditFinish = async () => {
+    // Refresh analysis to show updated annotations before returning to comparison view
+    analyzedImagesRef.current.delete(thermalImageUrl || "");
+    if (thermalImageUrl) {
+      setIsAnalyzing(true);
+      try {
+        const data = await analyzeThermalImage();
+        setAnalysisData(data);
+        onAnalysisComplete?.(data);
+      } catch (err) {
+        setError(
+          `Failed to refresh analysis: ${
+            err instanceof Error ? err.message : "Unknown error"
+          }`
+        );
+      } finally {
+        setIsAnalyzing(false);
+      }
+    }
+
+    setIsDrawingMode(false); // Exit drawing mode and return to comparison view
+  };
+
   const handleSaveDrawing = async (
     box: { x: number; y: number; width: number; height: number },
     faultType: string,
@@ -617,16 +642,21 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       return;
     }
 
-    console.log("Saving manual annotation:", { box, faultType, comments, predictionId });
+    console.log("Saving manual annotation:", {
+      box,
+      faultType,
+      comments,
+      predictionId,
+    });
 
     try {
       // Map fault type to class_id
       const faultTypeToClassId: Record<string, number> = {
-        'Loose Joint (Faulty)': 1,
-        'Loose Joint (Potential)': 3,
-        'Point Overload (Faulty)': 0,
-        'Point Overload (Potential)': 2,
-        'Full Wire Overload': 4,
+        "Loose Joint (Faulty)": 1,
+        "Loose Joint (Potential)": 3,
+        "Point Overload (Faulty)": 0,
+        "Point Overload (Potential)": 2,
+        "Full Wire Overload": 4,
       };
 
       const classId = faultTypeToClassId[faultType];
@@ -636,10 +666,10 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       }
 
       // Call backend API to save manual annotation
-      const response = await fetch('http://localhost:8080/api/detections', {
-        method: 'POST',
+      const response = await fetch("http://localhost:8080/api/detections", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           ...authService.getAuthHeader(),
         },
         body: JSON.stringify({
@@ -656,11 +686,13 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Failed to save annotation: ${response.status} ${errorText}`);
+        throw new Error(
+          `Failed to save annotation: ${response.status} ${errorText}`
+        );
       }
 
       const savedAnnotation = await response.json();
-      console.log('Annotation saved successfully:', savedAnnotation);
+      console.log("Annotation saved successfully:", savedAnnotation);
 
       // Show success snackbar instead of alert
       setSnackbar({
@@ -676,7 +708,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       await fetchActivityLog();
 
       // Refresh analysis to show new annotation
-      analyzedImagesRef.current.delete(thermalImageUrl || '');
+      analyzedImagesRef.current.delete(thermalImageUrl || "");
       if (thermalImageUrl) {
         setIsAnalyzing(true);
         analyzeThermalImage()
@@ -691,13 +723,14 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
             setIsAnalyzing(false);
           });
       }
-
     } catch (error) {
       console.error("Failed to save annotation:", error);
       // Show error snackbar instead of alert
       setSnackbar({
         open: true,
-        message: `Failed to save annotation: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        message: `Failed to save annotation: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
         severity: "error",
       });
     }
@@ -751,12 +784,16 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     if (activityLogFilter !== "deleted" && entry.actionType === "DELETED") {
       return false;
     }
-    
+
     // Then filter by source
-    if (activityLogFilter === "ai") return entry.source === "AI_GENERATED" && entry.actionType !== "DELETED";
-    if (activityLogFilter === "manual") return entry.source === "MANUALLY_ADDED" && entry.actionType !== "DELETED";
+    if (activityLogFilter === "ai")
+      return entry.source === "AI_GENERATED" && entry.actionType !== "DELETED";
+    if (activityLogFilter === "manual")
+      return (
+        entry.source === "MANUALLY_ADDED" && entry.actionType !== "DELETED"
+      );
     if (activityLogFilter === "deleted") return entry.actionType === "DELETED";
-    
+
     return entry.actionType !== "DELETED"; // "all" - show all except deleted
   });
 
@@ -767,27 +804,29 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
   // Export functions
   const exportToJSON = () => {
-    const exportData = filteredActivityLog.map(entry => ({
+    const exportData = filteredActivityLog.map((entry) => ({
       detectionId: entry.detectionId,
       source: entry.source,
       actionType: entry.actionType,
-      faultClass: FAULT_TYPE_LABELS_MAP[entry.classId] || 'Unknown',
+      faultClass: FAULT_TYPE_LABELS_MAP[entry.classId] || "Unknown",
       faultClassId: entry.classId,
-      confidence: entry.source === 'AI_GENERATED' ? 'N/A' : 'Manual',
+      confidence: entry.source === "AI_GENERATED" ? "N/A" : "Manual",
       userName: entry.userName,
-      userId: entry.userId || 'N/A',
-      comments: entry.comments || '',
+      userId: entry.userId || "N/A",
+      comments: entry.comments || "",
       timestamp: new Date(entry.createdAt).toISOString(),
       inspectionId: inspectionId,
       transformerNo: transformerNo,
     }));
 
     const dataStr = JSON.stringify(exportData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const dataBlob = new Blob([dataStr], { type: "application/json" });
     const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = `activity-log-${transformerNo || 'unknown'}-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `activity-log-${transformerNo || "unknown"}-${
+      new Date().toISOString().split("T")[0]
+    }.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -795,50 +834,54 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
     setSnackbar({
       open: true,
-      message: 'Activity log exported as JSON successfully!',
-      severity: 'success',
+      message: "Activity log exported as JSON successfully!",
+      severity: "success",
     });
   };
 
   const exportToCSV = () => {
     const headers = [
-      'Detection ID',
-      'Source',
-      'Action Type',
-      'Fault Class',
-      'Fault Class ID',
-      'User Name',
-      'User ID',
-      'Comments',
-      'Timestamp',
-      'Inspection ID',
-      'Transformer No'
+      "Detection ID",
+      "Source",
+      "Action Type",
+      "Fault Class",
+      "Fault Class ID",
+      "User Name",
+      "User ID",
+      "Comments",
+      "Timestamp",
+      "Inspection ID",
+      "Transformer No",
     ];
 
-    const rows = filteredActivityLog.map(entry => [
+    const rows = filteredActivityLog.map((entry) => [
       entry.detectionId,
       entry.source,
       entry.actionType,
-      FAULT_TYPE_LABELS_MAP[entry.classId] || 'Unknown',
+      FAULT_TYPE_LABELS_MAP[entry.classId] || "Unknown",
       entry.classId,
       entry.userName,
-      entry.userId || 'N/A',
-      entry.comments ? `"${entry.comments.replace(/"/g, '""')}"` : '',
+      entry.userId || "N/A",
+      entry.comments ? `"${entry.comments.replace(/"/g, '""')}"` : "",
       new Date(entry.createdAt).toISOString(),
-      inspectionId || 'N/A',
-      transformerNo || 'N/A'
+      inspectionId || "N/A",
+      transformerNo || "N/A",
     ]);
 
     const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.join(','))
-    ].join('\n');
+      headers.join(","),
+      ...rows.map((row) => row.join(",")),
+    ].join("\n");
 
-    const dataBlob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const dataBlob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = `activity-log-${transformerNo || 'unknown'}-${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `activity-log-${transformerNo || "unknown"}-${
+      new Date().toISOString().split("T")[0]
+    }.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -846,14 +889,13 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
     setSnackbar({
       open: true,
-      message: 'Activity log exported as CSV successfully!',
-      severity: 'success',
+      message: "Activity log exported as CSV successfully!",
+      severity: "success",
     });
   };
 
   return (
     <Box>
-
       {/* annotations error */}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -872,6 +914,8 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
             imageUrl={thermalImageUrl}
             onSave={handleSaveDrawing}
             onCancel={handleCancelDrawing}
+            onEditFinish={handleEditFinish}
+            onEditSave={fetchActivityLog}
             isActive={isDrawingMode}
             predictionId={predictionId}
           />
@@ -879,7 +923,11 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       ) : (
         /* Main Analysis Display - Only show when NOT in drawing mode */
         <>
-          <Box display="flex" flexDirection={{ xs: "column", md: "row" }} gap={3}>
+          <Box
+            display="flex"
+            flexDirection={{ xs: "column", md: "row" }}
+            gap={3}
+          >
             {/* Baseline Image */}
             <Box flex={1}>
               <Paper sx={{ p: 2.5 }}>
@@ -967,7 +1015,9 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                       <FormControl size="small" sx={{ minWidth: 120 }}>
                         <Select
                           value={selectedIssueFilter}
-                          onChange={(e) => setSelectedIssueFilter(e.target.value)}
+                          onChange={(e) =>
+                            setSelectedIssueFilter(e.target.value)
+                          }
                           startAdornment={
                             <FilterListIcon sx={{ mr: 1, fontSize: 16 }} />
                           }
@@ -988,7 +1038,10 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
                       <Box display="flex" gap={0.5} alignItems="center">
                         <Tooltip title="Reupload" arrow>
-                          <IconButton size="small" sx={{ color: "primary.main" }}>
+                          <IconButton
+                            size="small"
+                            sx={{ color: "primary.main" }}
+                          >
                             <UploadIcon />
                           </IconButton>
                         </Tooltip>
@@ -1014,50 +1067,77 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
           {/* Analysis Log */}
           {analysisData && (
             <Paper sx={{ p: 2.5, mt: 3 }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+              <Box
+                display="flex"
+                justifyContent="space-between"
+                alignItems="center"
+                mb={2}
+              >
                 <Typography variant="subtitle1" fontWeight={700}>
-                  Activity Log ({filteredActivityLog.length} {activityLogFilter === "deleted" ? "deleted" : "active"} entries)
+                  Activity Log ({filteredActivityLog.length}{" "}
+                  {activityLogFilter === "deleted" ? "deleted" : "active"}{" "}
+                  entries)
                 </Typography>
-                
+
                 <Box display="flex" gap={1} alignItems="center">
                   {/* ADD: Export buttons */}
                   <Tooltip title="Export as JSON" arrow>
-                    <IconButton 
-                      size="small" 
+                    <IconButton
+                      size="small"
                       onClick={exportToJSON}
                       disabled={filteredActivityLog.length === 0}
-                      sx={{ color: 'primary.main' }}
+                      sx={{ color: "primary.main" }}
                     >
                       <DownloadIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
-                  
+
                   <Tooltip title="Export as CSV" arrow>
-                    <IconButton 
-                      size="small" 
+                    <IconButton
+                      size="small"
                       onClick={exportToCSV}
                       disabled={filteredActivityLog.length === 0}
-                      sx={{ color: 'primary.main' }}
+                      sx={{ color: "primary.main" }}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                        <polyline points="10 9 9 9 8 9"/>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <polyline points="10 9 9 9 8 9" />
                       </svg>
                     </IconButton>
                   </Tooltip>
 
                   <Tooltip title="Refresh activity log" arrow>
-                    <IconButton 
-                      size="small" 
+                    <IconButton
+                      size="small"
                       onClick={handleRefreshActivityLog}
                       disabled={loadingActivityLog}
-                      sx={{ color: 'primary.main' }}
+                      sx={{ color: "primary.main" }}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
                       </svg>
                     </IconButton>
                   </Tooltip>
@@ -1084,7 +1164,13 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
               ) : filteredActivityLog.length === 0 ? (
                 <Box display="flex" justifyContent="center" p={3}>
                   <Typography variant="body2" color="text.secondary">
-                    No {activityLogFilter === "all" ? "" : activityLogFilter === "ai" ? "AI" : "manual"} detections found
+                    No{" "}
+                    {activityLogFilter === "all"
+                      ? ""
+                      : activityLogFilter === "ai"
+                      ? "AI"
+                      : "manual"}{" "}
+                    detections found
                   </Typography>
                 </Box>
               ) : (
@@ -1094,18 +1180,38 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                       key={entry.detectionId}
                       variant="outlined"
                       sx={{
-                        bgcolor: entry.source === "AI_GENERATED" ? "#E3F2FD" : "#E8F5E9",
+                        bgcolor:
+                          entry.source === "AI_GENERATED"
+                            ? "#E3F2FD"
+                            : "#E8F5E9",
                         borderLeft: 4,
-                        borderLeftColor: entry.source === "AI_GENERATED" ? "#2196f3" : "#4caf50",
+                        borderLeftColor:
+                          entry.source === "AI_GENERATED"
+                            ? "#2196f3"
+                            : "#4caf50",
                       }}
                     >
-                      <CardContent sx={{ py: 1.5, px: 2, "&:last-child": { pb: 1.5 } }}>
-                        <Box display="flex" alignItems="center" justifyContent="space-between">
+                      <CardContent
+                        sx={{ py: 1.5, px: 2, "&:last-child": { pb: 1.5 } }}
+                      >
+                        <Box
+                          display="flex"
+                          alignItems="center"
+                          justifyContent="space-between"
+                        >
                           <Box display="flex" alignItems="center" gap={1}>
                             <Chip
-                              label={entry.source === "AI_GENERATED" ? "AI" : "Manual"}
+                              label={
+                                entry.source === "AI_GENERATED"
+                                  ? "AI"
+                                  : "Manual"
+                              }
                               size="small"
-                              color={entry.source === "AI_GENERATED" ? "info" : "success"}
+                              color={
+                                entry.source === "AI_GENERATED"
+                                  ? "info"
+                                  : "success"
+                              }
                               sx={{ fontWeight: 600 }}
                             />
                             <Chip
@@ -1121,16 +1227,19 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                               }
                             />
                             <Typography variant="body2" fontWeight={600}>
-                              {FAULT_TYPE_LABELS_MAP[entry.classId] || "Unknown"}
+                              {FAULT_TYPE_LABELS_MAP[entry.classId] ||
+                                "Unknown"}
                             </Typography>
                           </Box>
                           <Typography variant="caption" color="text.secondary">
                             {new Date(entry.createdAt).toLocaleString()}
                           </Typography>
                         </Box>
-                        
+
                         <Box display="flex" alignItems="center" gap={1} mt={1}>
-                          <PersonIcon sx={{ fontSize: 14, color: "text.secondary" }} />
+                          <PersonIcon
+                            sx={{ fontSize: 14, color: "text.secondary" }}
+                          />
                           <Typography variant="caption" color="text.secondary">
                             {entry.userName}
                           </Typography>
@@ -1138,7 +1247,10 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
                         {entry.comments && (
                           <Box mt={1}>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
                               <strong>Comments:</strong> {entry.comments}
                             </Typography>
                           </Box>
