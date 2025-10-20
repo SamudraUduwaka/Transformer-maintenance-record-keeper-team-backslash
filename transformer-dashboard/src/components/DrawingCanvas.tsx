@@ -311,7 +311,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       ctx.globalAlpha = opacity;
       ctx.strokeStyle = strokeColor;
       ctx.lineWidth = lineWidth;
-      ctx.setLineDash(isAI ? [5, 3] : []);
+      ctx.setLineDash([]); // Always use solid lines for all bounding boxes
       ctx.strokeRect(x, y, width, height);
 
       // Fill with subtle background using base color with opacity
