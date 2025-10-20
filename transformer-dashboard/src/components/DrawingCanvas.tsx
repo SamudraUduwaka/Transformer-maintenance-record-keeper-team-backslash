@@ -66,6 +66,24 @@ const CLASS_ID_TO_FAULT_TYPE: Record<number, string> = {
   4: "Full Wire Overload",
 };
 
+// Color scheme matching thermal analysis page
+const SEVERITY_COLORS = {
+  warning: "#ff9800", // Orange for potential issues
+  critical: "#f44336", // Red for faulty issues
+};
+
+// Color mapping based on fault type severity
+const FAULT_TYPE_COLORS: Record<string, string> = {
+  "Point Overload (Faulty)": SEVERITY_COLORS.critical,
+  "Loose Joint (Faulty)": SEVERITY_COLORS.critical,
+  "Point Overload (Potential)": SEVERITY_COLORS.warning,
+  "Loose Joint (Potential)": SEVERITY_COLORS.warning,
+  "Full Wire Overload": SEVERITY_COLORS.critical,
+};
+
+// Opacity for bounding box background (matching thermal analysis)
+const BOUNDING_BOX_OPACITY = "20";
+
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   imageUrl,
   onSave,
@@ -273,13 +291,18 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       // Dim other annotations when one is selected for editing
       const isDimmed = isEditMode && selectedAnnotation && !isSelected;
 
-      // Different colors for AI vs Manual
-      const baseColor = isAI ? "#3B82F6" : "#10B981";
-      const strokeColor = isSelected
-        ? "#EF4444"
+      // Get fault type and determine base color from thermal analysis color scheme
+      const faultType = CLASS_ID_TO_FAULT_TYPE[annotation.classId] || "Unknown";
+      const baseColor = FAULT_TYPE_COLORS[faultType] || SEVERITY_COLORS.warning;
+
+      // Create brighter colors for hover and selected states
+      const brighterColor = isSelected
+        ? "#ff1744" // Bright red for selected
         : isHovered
-        ? "#F59E0B"
+        ? "#ffa726" // Bright orange for hover
         : baseColor;
+
+      const strokeColor = brighterColor;
       const lineWidth = isSelected ? 4 : isHovered ? 3 : 2;
 
       // Apply dimming effect
@@ -291,15 +314,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       ctx.setLineDash(isAI ? [5, 3] : []);
       ctx.strokeRect(x, y, width, height);
 
-      // Fill with subtle background
-      const fillAlpha = isSelected ? 0.2 : isHovered ? 0.15 : 0.1;
-      ctx.fillStyle = isSelected
-        ? "rgba(239, 68, 68, " + fillAlpha + ")"
-        : isHovered
-        ? "rgba(245, 158, 11, " + fillAlpha + ")"
-        : isAI
-        ? "rgba(59, 130, 246, " + fillAlpha + ")"
-        : "rgba(16, 185, 129, " + fillAlpha + ")";
+      // Fill with subtle background using base color with opacity
+      ctx.fillStyle = baseColor + BOUNDING_BOX_OPACITY;
       ctx.fillRect(x, y, width, height);
 
       // Only draw label when hovering or selected (and not dimmed)
@@ -333,7 +349,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
     // Draw current box if drawing
     if (currentBox && activeToolbox === "draw") {
-      ctx.strokeStyle = "#9333EA";
+      ctx.strokeStyle = SEVERITY_COLORS.warning;
       ctx.lineWidth = 3;
       ctx.setLineDash([5, 3]);
       ctx.strokeRect(
@@ -343,7 +359,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         currentBox.height
       );
 
-      ctx.fillStyle = "rgba(147, 51, 234, 0.1)";
+      ctx.fillStyle = SEVERITY_COLORS.warning + BOUNDING_BOX_OPACITY;
       ctx.fillRect(
         currentBox.x,
         currentBox.y,
@@ -355,11 +371,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
     // Draw finalized box
     if (drawnBox && !isDrawing && activeToolbox === "draw") {
-      ctx.strokeStyle = "#9333EA";
+      ctx.strokeStyle = SEVERITY_COLORS.warning;
       ctx.lineWidth = 3;
       ctx.strokeRect(drawnBox.x, drawnBox.y, drawnBox.width, drawnBox.height);
 
-      ctx.fillStyle = "rgba(147, 51, 234, 0.15)";
+      ctx.fillStyle = SEVERITY_COLORS.warning + BOUNDING_BOX_OPACITY;
       ctx.fillRect(drawnBox.x, drawnBox.y, drawnBox.width, drawnBox.height);
     }
   }, [
