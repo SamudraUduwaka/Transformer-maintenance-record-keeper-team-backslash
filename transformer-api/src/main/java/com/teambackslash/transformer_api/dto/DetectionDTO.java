@@ -14,7 +14,6 @@ public class DetectionDTO {
     private String className;
     private String reason;
     private Double confidence;
-    // Polygon as list of [x,y] pairs flattened or nested
     private List<List<Double>> polygon; // each inner list is [x,y]
     private BoundingBoxDTO boundingBox; // derived axis-aligned rectangle
 }

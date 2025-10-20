@@ -10,9 +10,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PredictionDTO {
-    private String imagePath;          // Source image path passed to script
+    private String imagePath;          
     private String predictedImageLabel; // Faulty / Potentially Faulty / Normal
     private List<DetectionDTO> detections;
-    private String timestamp;          // ISO timestamp from script
-    private String rawJson;            // Raw JSON line for traceability
+    private String timestamp;          
+    private String rawJson;           
 }

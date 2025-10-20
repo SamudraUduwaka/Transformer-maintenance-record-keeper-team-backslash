@@ -6,15 +6,15 @@ import lombok.Data;
 import java.time.LocalDateTime;
 import java.util.List;
 
-@JsonIgnoreProperties(ignoreUnknown = true) // tolerate extra fields from client
+@JsonIgnoreProperties(ignoreUnknown = true) 
 @Data
 public class TransformerDTO {
     private String transformerNo;
-    private String poleNo;           // now String
+    private String poleNo;           
     private String region;
     private String type;
-    private String location;         // new
-    private Boolean favorite;        // new
+    private String location;         
+    private Boolean favorite;        
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<InspectionDTO> inspections;

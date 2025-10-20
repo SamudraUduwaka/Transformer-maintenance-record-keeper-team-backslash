@@ -16,7 +16,6 @@ public class Transformer {
     @Column(name = "transformer_no", nullable = false, unique = true, length = 100)
     private String transformerNo;
 
-    // CHANGED: Integer -> String (frontend uses values like "EN-122-A")
     @Column(name = "pole_no", nullable = false, length = 100)
     private String poleNo;
 
@@ -26,7 +25,6 @@ public class Transformer {
     @Column(name = "type", nullable = false, length = 50)
     private String type;
 
-    // NEW: fields used by the frontend
     @Column(name = "location", length = 255)
     private String location;
 

@@ -420,7 +420,7 @@ export default function Dashboard() {
         err instanceof Error ? err.message : `Failed to ${action} transformer`,
         "error"
       );
-      throw err; // Re-throw so dialog can handle error state
+      throw err; 
     } finally {
       setSaving(false);
     }
@@ -453,7 +453,7 @@ export default function Dashboard() {
         err instanceof Error ? err.message : "Failed to delete transformer",
         "error"
       );
-      throw err; // Re-throw so dialog can handle error state
+      throw err; 
     }
   };
 
@@ -549,40 +549,7 @@ export default function Dashboard() {
             alignItems="center"
             sx={{ ml: 1 }}
           >
-            {/* <Avatar src="./user.png" sx={{ width: 36, height: 36 }} />
-            <Box sx={{ display: { xs: "none", md: "block" } }}>
-              <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
-                Test User
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                testuser@gmail.com
-              </Typography>
-            </Box> */}
-            {/* Login Button */}
-      {/* <Button
-        variant="outlined"
-        size="small"
-        sx={{
-          textTransform: "none",
-          borderRadius: 999,
-          px: 2,
-          py: 0.5,
-          fontWeight: 600,
-          borderColor: "primary.main",
-          color: "primary.main",
-          "&:hover": {
-            borderColor: "primary.dark",
-            bgcolor: "primary.50",
-          },
-        }}
-        onClick={() => {
-          // Add login functionality here
-          console.log("Login clicked");
-        }}
-      >
-        Login
-      </Button> */}
-      {/* Conditionally show Login button or User info */}
+            
   {!isAuthenticated ? (
     // Show Login button when not logged in
     <Button

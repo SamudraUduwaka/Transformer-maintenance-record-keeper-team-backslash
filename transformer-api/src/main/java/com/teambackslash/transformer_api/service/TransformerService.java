@@ -57,7 +57,6 @@ public class TransformerService {
                 case "type"     -> transformer.setType((String) value);
                 case "location" -> transformer.setLocation((String) value);
                 case "favorite" -> transformer.setFavorite(Boolean.parseBoolean(String.valueOf(value)));
-                // unknown keys are ignored
             }
         }
 

@@ -260,7 +260,6 @@ export default function InspectionDetails() {
     image?: InspectionImage;
     branch?: string;
     inspector?: string;
-    // Add other fields as needed
     transformerNo?: string;
     transformer?: { transformerNo?: string };
   };
@@ -535,7 +534,7 @@ export default function InspectionDetails() {
   const handleConfirmUpload = async () => {
     if (!file) return;
     setUploadOpen(false);
-    startUploadProgress(); // keep your overlay/progress UI
+    startUploadProgress(); 
 
     try {
       // 1) Upload directly to Cloudinary (unsigned)
@@ -728,14 +727,6 @@ export default function InspectionDetails() {
     if (managePreview) URL.revokeObjectURL(managePreview);
     setManagePreview(f ? URL.createObjectURL(f) : null);
   };
-  // const confirmBaselineUpload = () => {
-  //   if (!manageWeather || !managePreview) return;
-  //   setBaselines((b) => ({
-  //     ...b,
-  //     [manageWeather]: { url: managePreview, updatedAt: new Date().toISOString(), by: "You" },
-  //   }));
-  //   setManageWeather(null);
-  // };
 
   const confirmBaselineUpload = async () => {
     if (!manageWeather || !manageFile) return;
@@ -786,7 +777,7 @@ export default function InspectionDetails() {
           if (copy[w]?.url?.startsWith("blob:"))
             URL.revokeObjectURL(copy[w]!.url);
         } catch {
-          // Intentionally left blank: ignore errors when revoking object URL
+          // Ignore
         }
         delete copy[w];
         return copy;
@@ -794,7 +785,7 @@ export default function InspectionDetails() {
     }
   };
   const viewBaseline = (w: Weather) => {
-    const url = baselineImage?.url; // Changed from baselines[w]?.url to baselineImage?.url
+    const url = baselineImage?.url; 
     if (!url) return;
     setViewer({ open: true, url, weather: w });
   };
@@ -1055,7 +1046,6 @@ export default function InspectionDetails() {
                   </Stack>
                 </Box>
 
-                {/* Right - Remove the last updated from here since it's now on the left */}
                 <Stack
                   direction="column"
                   alignItems="flex-end"

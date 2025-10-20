@@ -38,7 +38,7 @@ public class TransformerController {
     @PutMapping("/{transformerNo}")
     public ResponseEntity<TransformerDTO> updateTransformer(@PathVariable String transformerNo,
             @RequestBody TransformerDTO transformerDTO) {
-        transformerDTO.setTransformerNo(transformerNo); // ensure ID consistency
+        transformerDTO.setTransformerNo(transformerNo); 
         TransformerDTO updated = transformerService.saveTransformer(transformerDTO);
         return ResponseEntity.ok(updated);
     }

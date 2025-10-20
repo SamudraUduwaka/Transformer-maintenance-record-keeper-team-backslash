@@ -5,6 +5,7 @@ import com.teambackslash.transformer_api.dto.ThermalAnalysisDTO;
 import com.teambackslash.transformer_api.dto.ThermalAnalysisRequestDTO;
 import com.teambackslash.transformer_api.service.ImageService;
 import com.teambackslash.transformer_api.service.ThermalAnalysisService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +15,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/images")
+@Slf4j
 public class ImageController {
 
     private final ImageService imageService;
@@ -43,7 +45,7 @@ public class ImageController {
     @PutMapping("/{id}")
     public ResponseEntity<ImageDTO> updateImage(@PathVariable Integer id,
             @RequestBody ImageDTO imageDTO) {
-        imageDTO.setImageId(id); // ensure ID consistency
+        imageDTO.setImageId(id); 
         ImageDTO updated = imageService.saveImage(imageDTO);
         return ResponseEntity.ok(updated);
     }
@@ -76,16 +78,15 @@ public class ImageController {
 
     @PostMapping("/thermal-analysis")
     public ResponseEntity<ThermalAnalysisDTO> analyzeThermalImage(@RequestBody ThermalAnalysisRequestDTO request) {
-        try {
-            ThermalAnalysisDTO analysis = thermalAnalysisService.analyzeThermalImage(
-                request.getThermalImageUrl(), 
-                request.getTransformerNo(),
-                request.getInspectionId()
-            );
-            return ResponseEntity.ok(analysis);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        log.info("Thermal analysis request: {}", request);
+        
+        ThermalAnalysisDTO result = thermalAnalysisService.analyzeThermalImage(
+            request.getThermalImageUrl(),
+            request.getBaselineImageUrl(),
+            request.getInspectionId()
+        );
+
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/thermal-analysis")
