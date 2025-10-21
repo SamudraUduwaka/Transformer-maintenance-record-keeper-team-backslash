@@ -18,6 +18,7 @@ import {
   DialogContentText,
   DialogActions,
 } from "@mui/material";
+import { Slider, InputAdornment } from "@mui/material";
 import { Add, Edit } from "@mui/icons-material";
 import { authService } from "../services/authService";
 
@@ -125,6 +126,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
   const [selectedFaultType, setSelectedFaultType] = useState(FAULT_TYPES[0]);
   const [comments, setComments] = useState("");
+  // Advanced editable fields
+  const [coordX1, setCoordX1] = useState<number | "">("");
+  const [coordY1, setCoordY1] = useState<number | "">("");
+  const [coordX2, setCoordX2] = useState<number | "">("");
+  const [coordY2, setCoordY2] = useState<number | "">("");
+  const [confidencePct, setConfidencePct] = useState<number>(100);
 
   // Existing annotations state
   const [existingAnnotations, setExistingAnnotations] = useState<
@@ -178,6 +185,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       setIsEditMode(false);
       setSelectedAnnotation(null);
       setTempResizedAnnotation(null);
+      setCoordX1("");
+      setCoordY1("");
+      setCoordX2("");
+      setCoordY2("");
+      setConfidencePct(100);
     }
   }, [isActive]);
 
@@ -297,6 +309,87 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       canvas.removeEventListener("selectstart", selectStartHandler);
     };
   }, [imageUrl, isEditMode]);
+
+  // Keep form coordinate fields in sync when selection/draw changes
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const scaleX = parseFloat(canvas.dataset.scaleX || "1");
+    const scaleY = parseFloat(canvas.dataset.scaleY || "1");
+
+    // Edit mode takes precedence
+    const ann = (tempResizedAnnotation || selectedAnnotation);
+    if (isEditMode && ann && hasValidBbox(ann)) {
+      const x1 = Math.round(ann.bboxX!);
+      const y1 = Math.round(ann.bboxY!);
+      const x2 = Math.round(ann.bboxX! + ann.bboxW!);
+      const y2 = Math.round(ann.bboxY! + ann.bboxH!);
+      setCoordX1(x1);
+      setCoordY1(y1);
+      setCoordX2(x2);
+      setCoordY2(y2);
+      setConfidencePct(Math.round((ann.confidence ?? 1) * 100));
+      return;
+    }
+
+    // New drawing
+    if (drawnBox) {
+      const x1 = Math.round(drawnBox.x * scaleX);
+      const y1 = Math.round(drawnBox.y * scaleY);
+      const x2 = Math.round((drawnBox.x + drawnBox.width) * scaleX);
+      const y2 = Math.round((drawnBox.y + drawnBox.height) * scaleY);
+      setCoordX1(x1);
+      setCoordY1(y1);
+      setCoordX2(x2);
+      setCoordY2(y2);
+    }
+  }, [selectedAnnotation, tempResizedAnnotation, drawnBox, isEditMode]);
+
+  // Helper to clamp values to [0, 640]
+  const clamp0640 = (v: number) => Math.max(0, Math.min(640, Math.round(v)));
+
+  // When user edits coordinate fields, update preview (drawnBox or tempResizedAnnotation)
+  const applyCoordinateFieldUpdate = (
+    nextX1?: number,
+    nextY1?: number,
+    nextX2?: number,
+    nextY2?: number
+  ) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const scaleX = parseFloat(canvas.dataset.scaleX || "1");
+    const scaleY = parseFloat(canvas.dataset.scaleY || "1");
+
+    const x1 = clamp0640(nextX1 ?? (typeof coordX1 === "number" ? coordX1 : 0));
+    const y1 = clamp0640(nextY1 ?? (typeof coordY1 === "number" ? coordY1 : 0));
+    const x2 = clamp0640(nextX2 ?? (typeof coordX2 === "number" ? coordX2 : 0));
+    const y2 = clamp0640(nextY2 ?? (typeof coordY2 === "number" ? coordY2 : 0));
+
+    // Ensure proper ordering
+    const left = Math.min(x1, x2);
+    const top = Math.min(y1, y2);
+    const right = Math.max(x1, x2);
+    const bottom = Math.max(y1, y2);
+
+    if (isEditMode && (selectedAnnotation || tempResizedAnnotation)) {
+      const base = tempResizedAnnotation || selectedAnnotation!;
+      const updated = {
+        ...base,
+        bboxX: left,
+        bboxY: top,
+        bboxW: right - left,
+        bboxH: bottom - top,
+      } as ActivityLogEntry;
+      setTempResizedAnnotation(updated);
+    } else if (drawnBox) {
+      // Update drawnBox overlay from model coords back to canvas
+      const x = left / scaleX;
+      const y = top / scaleY;
+      const width = (right - left) / scaleX;
+      const height = (bottom - top) / scaleY;
+      setDrawnBox({ x, y, width, height });
+    }
+  };
 
   // Redraw canvas with existing annotations
   useEffect(() => {
@@ -776,6 +869,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           CLASS_ID_TO_FAULT_TYPE[clickedAnnotation.classId] || FAULT_TYPES[0]
         );
         setComments(clickedAnnotation.comments || "");
+        setConfidencePct(Math.round((clickedAnnotation.confidence ?? 1) * 100));
         setDrawnBox(null); // Clear any drawn box
         setTempResizedAnnotation(null); // Clear any temp resize state
         return;
@@ -981,7 +1075,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     if (!canvas) return;
 
     // Use temp resized annotation if it exists, otherwise use selected annotation
-    const annotationToSave = tempResizedAnnotation || selectedAnnotation;
+  const annotationToSave = tempResizedAnnotation || selectedAnnotation;
 
     if (!hasValidBbox(annotationToSave)) return;
 
@@ -1011,11 +1105,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           body: JSON.stringify({
             predictionId: predictionId,
             classId: faultTypeToClassId[selectedFaultType],
-            confidence: 1.0,
-            x1: Math.round(x1!),
-            y1: Math.round(y1!),
-            x2: Math.round(x2),
-            y2: Math.round(y2),
+            confidence: Math.max(0, Math.min(1, confidencePct / 100)),
+            x1: clamp0640(x1!),
+            y1: clamp0640(y1!),
+            x2: clamp0640(x2),
+            y2: clamp0640(y2),
             comments: comments || null,
           }),
         }
@@ -1044,6 +1138,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       setIsEditMode(false);
       setComments("");
       setSelectedFaultType(FAULT_TYPES[0]);
+      setCoordX1("");
+      setCoordY1("");
+      setCoordX2("");
+      setCoordY2("");
+      setConfidencePct(100);
       setTempResizedAnnotation(null); // Clear temp state
       setActiveToolbox("draw"); // Return to drawing mode after editing
     } catch (err) {
@@ -1060,7 +1159,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     if (!canvas) return;
 
     // Use temp resized annotation if it exists, otherwise use selected annotation
-    const annotationToSave = tempResizedAnnotation || selectedAnnotation;
+  const annotationToSave = tempResizedAnnotation || selectedAnnotation;
 
     if (!hasValidBbox(annotationToSave)) return;
 
@@ -1090,11 +1189,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           body: JSON.stringify({
             predictionId: predictionId,
             classId: faultTypeToClassId[selectedFaultType],
-            confidence: 1.0,
-            x1: Math.round(x1!),
-            y1: Math.round(y1!),
-            x2: Math.round(x2),
-            y2: Math.round(y2),
+            confidence: Math.max(0, Math.min(1, confidencePct / 100)),
+            x1: clamp0640(x1!),
+            y1: clamp0640(y1!),
+            x2: clamp0640(x2),
+            y2: clamp0640(y2),
             comments: comments || null,
           }),
         }
@@ -1125,6 +1224,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       setIsEditMode(false);
       setComments("");
       setSelectedFaultType(FAULT_TYPES[0]);
+  setCoordX1("");
+  setCoordY1("");
+  setCoordX2("");
+  setCoordY2("");
+  setConfidencePct(100);
       setTempResizedAnnotation(null);
       setHoveredAnnotation(null); // Clear any hover highlights
       setError(null);
@@ -1227,12 +1331,26 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     const scaleX = parseFloat(canvas.dataset.scaleX || "1");
     const scaleY = parseFloat(canvas.dataset.scaleY || "1");
 
-    const modelBox: BoundingBox = {
-      x: drawnBox.x * scaleX,
-      y: drawnBox.y * scaleY,
-      width: drawnBox.width * scaleX,
-      height: drawnBox.height * scaleY,
-    };
+    // Prefer user-entered coordinates if available
+    const useFields =
+      typeof coordX1 === "number" &&
+      typeof coordY1 === "number" &&
+      typeof coordX2 === "number" &&
+      typeof coordY2 === "number";
+
+    const modelBox: BoundingBox = useFields
+      ? {
+          x: clamp0640(coordX1)!,
+          y: clamp0640(coordY1)!,
+          width: clamp0640(coordX2) - clamp0640(coordX1),
+          height: clamp0640(coordY2) - clamp0640(coordY1),
+        }
+      : {
+          x: drawnBox.x * scaleX,
+          y: drawnBox.y * scaleY,
+          width: drawnBox.width * scaleX,
+          height: drawnBox.height * scaleY,
+        };
 
     onSave(modelBox, selectedFaultType, comments);
 
@@ -1240,6 +1358,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     setDrawnBox(null);
     setComments("");
     setSelectedFaultType(FAULT_TYPES[0]);
+    setCoordX1("");
+    setCoordY1("");
+    setCoordX2("");
+    setCoordY2("");
+    setConfidencePct(100);
   };
 
   // Handle save and continue for new annotations - save without navigating away
@@ -1253,12 +1376,26 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     const scaleX = parseFloat(canvas.dataset.scaleX || "1");
     const scaleY = parseFloat(canvas.dataset.scaleY || "1");
 
-    const modelBox: BoundingBox = {
-      x: drawnBox.x * scaleX,
-      y: drawnBox.y * scaleY,
-      width: drawnBox.width * scaleX,
-      height: drawnBox.height * scaleY,
-    };
+    // Prefer user-entered coordinates if available
+    const useFields =
+      typeof coordX1 === "number" &&
+      typeof coordY1 === "number" &&
+      typeof coordX2 === "number" &&
+      typeof coordY2 === "number";
+
+    const modelBox: BoundingBox = useFields
+      ? {
+          x: clamp0640(coordX1)!,
+          y: clamp0640(coordY1)!,
+          width: clamp0640(coordX2) - clamp0640(coordX1),
+          height: clamp0640(coordY2) - clamp0640(coordY1),
+        }
+      : {
+          x: drawnBox.x * scaleX,
+          y: drawnBox.y * scaleY,
+          width: drawnBox.width * scaleX,
+          height: drawnBox.height * scaleY,
+        };
 
     const faultTypeToClassId: Record<string, number> = {
       "Point Overload (Faulty)": 0,
@@ -1279,11 +1416,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         body: JSON.stringify({
           predictionId: predictionId,
           classId: faultTypeToClassId[selectedFaultType],
-          confidence: 1.0,
-          x1: Math.round(modelBox.x),
-          y1: Math.round(modelBox.y),
-          x2: Math.round(modelBox.x + modelBox.width),
-          y2: Math.round(modelBox.y + modelBox.height),
+          confidence: Math.max(0, Math.min(1, confidencePct / 100)),
+          x1: clamp0640(modelBox.x),
+          y1: clamp0640(modelBox.y),
+          x2: clamp0640(modelBox.x + modelBox.width),
+          y2: clamp0640(modelBox.y + modelBox.height),
           comments: comments || null,
         }),
       });
@@ -1311,6 +1448,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       setDrawnBox(null);
       setComments("");
       setSelectedFaultType(FAULT_TYPES[0]);
+  setCoordX1("");
+  setCoordY1("");
+  setCoordX2("");
+  setCoordY2("");
+  setConfidencePct(100);
       setSelectedAnnotation(null); // Clear any selection
       setHoveredAnnotation(null); // Clear any hover highlights
       setIsEditMode(false); // Ensure we're not in edit mode
@@ -1584,6 +1726,93 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
               </Select>
             </FormControl>
 
+            {/* Boundary coordinates editing */}
+            <Box>
+              <Typography variant="caption" sx={{ mb: 0.5, fontWeight: 600, display: "block" }}>
+                Boundary Coordinates (model 640×640)
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                <TextField
+                  label="x1"
+                  type="number"
+                  size="small"
+                  value={coordX1}
+                  onChange={(e) => {
+                    const v = e.target.value === "" ? "" : Number(e.target.value);
+                    setCoordX1(v as number | "");
+                    if (v !== "") applyCoordinateFieldUpdate(Number(v), undefined, undefined, undefined);
+                  }}
+                  inputProps={{ min: 0, max: 640 }}
+                />
+                <TextField
+                  label="y1"
+                  type="number"
+                  size="small"
+                  value={coordY1}
+                  onChange={(e) => {
+                    const v = e.target.value === "" ? "" : Number(e.target.value);
+                    setCoordY1(v as number | "");
+                    if (v !== "") applyCoordinateFieldUpdate(undefined, Number(v), undefined, undefined);
+                  }}
+                  inputProps={{ min: 0, max: 640 }}
+                />
+                <TextField
+                  label="x2"
+                  type="number"
+                  size="small"
+                  value={coordX2}
+                  onChange={(e) => {
+                    const v = e.target.value === "" ? "" : Number(e.target.value);
+                    setCoordX2(v as number | "");
+                    if (v !== "") applyCoordinateFieldUpdate(undefined, undefined, Number(v), undefined);
+                  }}
+                  inputProps={{ min: 0, max: 640 }}
+                />
+                <TextField
+                  label="y2"
+                  type="number"
+                  size="small"
+                  value={coordY2}
+                  onChange={(e) => {
+                    const v = e.target.value === "" ? "" : Number(e.target.value);
+                    setCoordY2(v as number | "");
+                    if (v !== "") applyCoordinateFieldUpdate(undefined, undefined, undefined, Number(v));
+                  }}
+                  inputProps={{ min: 0, max: 640 }}
+                />
+              </Stack>
+            </Box>
+
+            {/* Confidence */}
+            <Box>
+              <Typography variant="caption" sx={{ mb: 0.5, fontWeight: 600, display: "block" }}>
+                Confidence
+              </Typography>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Slider
+                  value={confidencePct}
+                  onChange={(_, v) => setConfidencePct(Array.isArray(v) ? v[0] : v)}
+                  min={0}
+                  max={100}
+                  step={1}
+                  sx={{ width: 200 }}
+                />
+                <TextField
+                  value={confidencePct}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (!Number.isNaN(v)) setConfidencePct(Math.max(0, Math.min(100, v)));
+                  }}
+                  size="small"
+                  type="number"
+                  inputProps={{ min: 0, max: 100 }}
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                  }}
+                />
+              </Stack>
+            </Box>
+
             <TextField
               label="Comments (optional)"
               multiline
@@ -1612,6 +1841,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
                     setComments("");
                     setSelectedFaultType(FAULT_TYPES[0]);
                     setTempResizedAnnotation(null); // Clear temp state when canceling
+                    setCoordX1("");
+                    setCoordY1("");
+                    setCoordX2("");
+                    setCoordY2("");
+                    setConfidencePct(100);
                     setIsDragging(false);
                     setDragStartPoint(null);
                     setDragStartBox(null);
