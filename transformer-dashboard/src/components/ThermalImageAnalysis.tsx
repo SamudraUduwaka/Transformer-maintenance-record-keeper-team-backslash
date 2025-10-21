@@ -327,6 +327,8 @@ const ZoomableImage: React.FC<ZoomableImageProps> = ({
 interface ActivityLogEntry {
   detectionId: number;
   originalDetectionId?: number; // Reference to original detection for EDITED/DELETED
+  logEntryId?: number; // Unique per inspection, not globally unique
+  inspectionId?: number; // Reference to inspection
   source: "AI_GENERATED" | "MANUALLY_ADDED";
   actionType: "ADDED" | "EDITED" | "DELETED";
   classId: number;
@@ -479,6 +481,23 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
         setIsAnalyzing(false);
       });
   }, [thermalImageUrl, loading, analyzeThermalImage, onAnalysisComplete]);
+
+  // Helper function to get the logEntryId of the original detection
+  const getOriginalLogEntryId = (
+    originalDetectionId: number
+  ): number | undefined => {
+    if (!predictionSessions) return undefined;
+
+    for (const session of predictionSessions) {
+      const originalDetection = session.detections.find(
+        (detection) => detection.detectionId === originalDetectionId
+      );
+      if (originalDetection) {
+        return originalDetection.logEntryId || originalDetection.detectionId;
+      }
+    }
+    return undefined;
+  };
 
   // Get the latest state of all detections for drawing
   const getLatestDetections = (): ActivityLogEntry[] => {
@@ -733,7 +752,9 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       // Draw filled background with transparency
       ctx.fillStyle = color + BOUNDING_BOX_OPACITY;
       ctx.fillRect(clampedX, clampedY, clampedWidth, clampedHeight);
-      const detectionNumber = detection.detectionId.toString();
+      const detectionNumber = (
+        detection.logEntryId || detection.detectionId
+      ).toString();
 
       // Draw small circular badge for number in top-left corner (using clamped coordinates)
       const badgeX = clampedX + badgeSize / 2;
@@ -1457,7 +1478,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                       : activityLogFilter === "ai"
                       ? "AI"
                       : "manual"}{" "}
-                    detections found
+                    activities found
                   </Typography>
                 </Box>
               ) : (
@@ -1512,7 +1533,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                               variant="caption"
                               color="text.secondary"
                             >
-                              ({session.detections.length} detections)
+                              ({session.detections.length} activities)
                             </Typography>
                           </Box>
                           <Box display="flex" alignItems="center" gap={1}>
@@ -1596,12 +1617,17 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                                         color="primary.main"
                                         sx={{ fontWeight: 600 }}
                                       >
-                                        ID: {detection.detectionId}
+                                        ID:{" "}
+                                        {detection.logEntryId ||
+                                          detection.detectionId}
                                         {detection.originalDetectionId && (
                                           <span style={{ color: "orange" }}>
                                             {" "}
                                             (orig:{" "}
-                                            {detection.originalDetectionId})
+                                            {getOriginalLogEntryId(
+                                              detection.originalDetectionId
+                                            ) || detection.originalDetectionId}
+                                            )
                                           </span>
                                         )}
                                       </Typography>

@@ -31,6 +31,8 @@ interface BoundingBox {
 interface ActivityLogEntry {
   detectionId: number;
   originalDetectionId?: number;
+  logEntryId?: number; // Unique per inspection, not globally unique
+  inspectionId?: number; // Reference to inspection
   source: "AI_GENERATED" | "MANUALLY_ADDED";
   actionType: "ADDED" | "EDITED" | "DELETED";
   classId: number;
@@ -1558,7 +1560,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
                   {selectedAnnotation.source === "AI_GENERATED"
                     ? "AI"
                     : "Manual"}{" "}
-                  Detection (ID: {selectedAnnotation.detectionId})
+                  Detection (ID:{" "}
+                  {selectedAnnotation.logEntryId ||
+                    selectedAnnotation.detectionId}
+                  )
                 </Typography>
               </Alert>
             )}
