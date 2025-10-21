@@ -1509,10 +1509,8 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                       key={session.predictionId}
                       variant="outlined"
                       sx={{
-                        bgcolor:
-                          session.sessionType === "AI_ANALYSIS"
-                            ? "#E3F2FD"
-                            : "#FFF3E0",
+                        // Make session card background white to reduce distraction
+                        bgcolor: "background.paper",
                         borderLeft: 4,
                         borderLeftColor:
                           session.sessionType === "AI_ANALYSIS"
