@@ -26,6 +26,12 @@ public class PredictionDetection {
     @JoinColumn(name = "prediction_id", nullable = false)
     private Prediction prediction;
 
+    @Column(name = "inspection_id", nullable = false)
+    private Integer inspectionId;
+
+    @Column(name = "log_entry_id", nullable = false)
+    private Integer logEntryId;
+
     @Column(name = "class_id")
     private Integer classId;
 
