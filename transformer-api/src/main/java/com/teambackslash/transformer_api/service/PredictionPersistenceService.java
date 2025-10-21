@@ -5,9 +5,11 @@ import com.teambackslash.transformer_api.dto.DetectionDTO;
 import com.teambackslash.transformer_api.dto.PredictionDTO;
 import com.teambackslash.transformer_api.entity.Prediction;
 import com.teambackslash.transformer_api.entity.PredictionDetection;
+import com.teambackslash.transformer_api.entity.User;
 import com.teambackslash.transformer_api.repository.PredictionRepository;
 import com.teambackslash.transformer_api.repository.TransformerRepository;
 import com.teambackslash.transformer_api.repository.InspectionRepository;
+import com.teambackslash.transformer_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +23,7 @@ public class PredictionPersistenceService {
     private final PredictionRepository predictionRepository;
     private final TransformerRepository transformerRepository;
     private final InspectionRepository inspectionRepository;
+    private final UserRepository userRepository;
 
     @Transactional
     public Long persistPrediction(String transformerNo, PredictionDTO dto, Integer inspectionId) {
@@ -37,6 +40,12 @@ public class PredictionPersistenceService {
         }
 
         Prediction p = new Prediction();
+        
+        // Set AI user for AI-generated predictions
+        User aiUser = getOrCreateAiUser();
+        p.setUser(aiUser);
+        p.setSessionType("AI_ANALYSIS");
+        
         if (inspectionId != null) {
             inspectionRepository.findById(inspectionId).ifPresentOrElse(
                 p::setInspection,
@@ -65,7 +74,6 @@ public class PredictionPersistenceService {
                 // Set annotation tracking fields for AI-generated detections
                 pd.setSource("AI_GENERATED");
                 pd.setActionType("ADDED");
-                pd.setUser(null); // AI has no user
                 pd.setComments(null);
                 
                 p.addDetection(pd);
@@ -81,7 +89,7 @@ public class PredictionPersistenceService {
             .filter(d -> "MANUALLY_ADDED".equals(d.getSource()))
             .count();
         
-        log.info("Saved prediction id={} transformer={} totalDetections={} (AI={}, Manual={})", 
+        log.info("Saved AI prediction id={} transformer={} totalDetections={} (AI={}, Manual={})", 
             saved.getId(), 
             transformerNo, 
             p.getDetections().size(),
@@ -89,5 +97,21 @@ public class PredictionPersistenceService {
             manualDetections);
         
         return saved.getId();
+    }
+    
+    /**
+     * Get or create the special AI user for AI-generated predictions
+     */
+    private User getOrCreateAiUser() {
+        return userRepository.findByEmail("ai@system.local")
+            .orElseGet(() -> {
+                User aiUser = User.builder()
+                    .name("AI System")
+                    .email("ai@system.local")
+                    .password("$2a$10$dummy.hash.for.ai.user") // Dummy password hash
+                    .role("SYSTEM")
+                    .build();
+                return userRepository.save(aiUser);
+            });
     }
 }
