@@ -160,14 +160,11 @@ const ZoomableImage: React.FC<ZoomableImageProps> = ({
 
   const handleImageLoad = () => {
     if (imageRef.current && canvasRef?.current) {
-      // Get the actual displayed image dimensions (not natural dimensions)
       const imgElement = imageRef.current;
       const containerElement = containerRef.current;
 
       if (containerElement) {
-        // Calculate the actual displayed size of the image within the container
         const containerRect = containerElement.getBoundingClientRect();
-        // Set canvas to match the actual displayed image size, not natural size
         const displayWidth = Math.min(
           imgElement.naturalWidth,
           containerRect.width
@@ -177,7 +174,6 @@ const ZoomableImage: React.FC<ZoomableImageProps> = ({
           containerRect.height
         );
 
-        // Maintain aspect ratio
         const aspectRatio = imgElement.naturalWidth / imgElement.naturalHeight;
         let finalWidth = displayWidth;
         let finalHeight = displayHeight;
@@ -188,7 +184,6 @@ const ZoomableImage: React.FC<ZoomableImageProps> = ({
           finalHeight = displayWidth / aspectRatio;
         }
 
-        // Set canvas dimensions to match the actual displayed image
         canvasRef.current.width = finalWidth;
         canvasRef.current.height = finalHeight;
 
@@ -1054,6 +1049,32 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     );
   }, 0);
 
+  // Helper: derive severity and colors from classId
+  const getSeverityStyle = (
+    classId: number
+  ): { severity: "CRITICAL" | "WARNING"; color: string; bg: string } => {
+    const isCritical = [0, 1, 4].includes(classId); // Faulty + Full Wire -> Critical
+    const color = isCritical ? "#e53935" : "#fb8c00"; // red / orange
+    const bg = isCritical
+      ? "rgba(229,57,53,0.08)"
+      : "rgba(251,140,0,0.10)";
+    return { severity: isCritical ? "CRITICAL" : "WARNING", color, bg };
+  };
+
+  // Helper: format coordinates text (AI model basis 640x640)
+  const formatCoords = (d: ActivityLogEntry) => {
+    if (
+      d.bboxX === undefined ||
+      d.bboxY === undefined ||
+      d.bboxW === undefined ||
+      d.bboxH === undefined
+    )
+      return "";
+    return `AI Model Coordinates: (${Math.round(d.bboxX)}, ${Math.round(
+      d.bboxY
+    )}) - ${Math.round(d.bboxW)}x${Math.round(d.bboxH)} (640x640 basis)`;
+  };
+
   // Manual refresh handler for activity log
   const handleRefreshActivityLog = () => {
     fetchActivityLog();
@@ -1554,108 +1575,132 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                         {/* Expandable content */}
                         {expandedSessions.has(session.predictionId) && (
                           <Box mt={2}>
-                            {session.detections.map((detection) => (
-                              <Card
-                                key={detection.detectionId}
-                                variant="outlined"
-                                sx={{
-                                  mb: 1,
-                                  ml: 2,
-                                  bgcolor:
-                                    detection.actionType === "DELETED"
-                                      ? "rgba(244, 67, 54, 0.05)"
-                                      : "background.default",
-                                  borderColor:
-                                    detection.actionType === "DELETED"
-                                      ? "error.light"
-                                      : "divider",
-                                  opacity:
-                                    detection.actionType === "DELETED"
-                                      ? 0.7
-                                      : 1,
-                                }}
-                              >
-                                <CardContent
+                            {session.detections.map((detection, idx) => {
+                              const { severity, color, bg } = getSeverityStyle(
+                                detection.classId
+                              );
+                              const confidencePct =
+                                detection.confidence !== undefined
+                                  ? Math.round(
+                                      (detection.confidence <= 1
+                                        ? detection.confidence * 100
+                                        : detection.confidence) || 0
+                                    )
+                                  : undefined;
+
+                              return (
+                                <Card
+                                  key={detection.detectionId}
+                                  variant="outlined"
                                   sx={{
-                                    py: 1,
-                                    px: 1.5,
-                                    "&:last-child": { pb: 1 },
+                                    mb: 1,
+                                    ml: 2,
+                                    bgcolor:
+                                      detection.actionType === "DELETED"
+                                        ? "rgba(244, 67, 54, 0.05)"
+                                        : bg,
+                                    borderLeft: 4,
+                                    borderLeftColor: color,
+                                    opacity:
+                                      detection.actionType === "DELETED"
+                                        ? 0.7
+                                        : 1,
                                   }}
                                 >
-                                  <Box
-                                    display="flex"
-                                    alignItems="center"
-                                    justifyContent="space-between"
+                                  <CardContent
+                                    sx={{
+                                      py: 1,
+                                      px: 1.5,
+                                      "&:last-child": { pb: 1 },
+                                    }}
                                   >
                                     <Box
                                       display="flex"
                                       alignItems="center"
+                                      justifyContent="space-between"
                                       gap={1}
                                     >
-                                      <Chip
-                                        label={detection.actionType}
-                                        size="small"
-                                        variant="outlined"
-                                        color={
-                                          detection.actionType === "DELETED"
-                                            ? "error"
-                                            : detection.actionType === "EDITED"
-                                            ? "warning"
-                                            : "default"
-                                        }
-                                      />
-                                      <Typography
-                                        variant="body2"
-                                        fontWeight={500}
-                                      >
-                                        {FAULT_TYPE_LABELS_MAP[
-                                          detection.classId
-                                        ] || "Unknown"}
-                                      </Typography>
-                                      <Typography
-                                        variant="caption"
-                                        color="primary.main"
-                                        sx={{ fontWeight: 600 }}
-                                      >
-                                        ID:{" "}
-                                        {detection.logEntryId ||
-                                          detection.detectionId}
-                                        {detection.originalDetectionId && (
-                                          <span style={{ color: "orange" }}>
-                                            {" "}
-                                            (orig:{" "}
-                                            {getOriginalLogEntryId(
-                                              detection.originalDetectionId
-                                            ) || detection.originalDetectionId}
-                                            )
-                                          </span>
-                                        )}
-                                      </Typography>
-                                    </Box>
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                    >
-                                      {new Date(
-                                        detection.createdAt
-                                      ).toLocaleString()}
-                                    </Typography>
-                                  </Box>
+                                      <Box display="flex" alignItems="center" gap={1.25}>
+                                        <Box
+                                          sx={{
+                                            width: 22,
+                                            height: 22,
+                                            borderRadius: "50%",
+                                            bgcolor: color,
+                                            color: "#fff",
+                                            fontSize: 12,
+                                            fontWeight: 700,
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                          }}
+                                        >
+                                          {idx + 1}
+                                        </Box>
 
-                                  {detection.comments && (
-                                    <Box mt={0.5}>
-                                      <Typography
-                                        variant="caption"
-                                        color="text.secondary"
-                                      >
-                                        <strong>Comments:</strong>{" "}
-                                        {detection.comments}
-                                      </Typography>
+                                        <Box>
+                                          <Typography variant="body2" fontWeight={700} sx={{ color }}>
+                                            {FAULT_TYPE_LABELS_MAP[detection.classId] || "Unknown"}
+                                          </Typography>
+                                          <Typography variant="caption" color="text.secondary">
+                                            {formatCoords(detection)}
+                                          </Typography>
+                                          {detection.comments && (
+                                            <Typography variant="caption" color="text.secondary" display="block">
+                                              <strong>Comments:</strong> {detection.comments}
+                                            </Typography>
+                                          )}
+                                          <Typography variant="caption" color="primary.main" sx={{ fontWeight: 600 }}>
+                                            ID: {detection.logEntryId || detection.detectionId}
+                                            {detection.originalDetectionId && (
+                                              <span style={{ color: "orange" }}>
+                                                {" "}(orig: {getOriginalLogEntryId(
+                                                  detection.originalDetectionId
+                                                ) || detection.originalDetectionId})
+                                              </span>
+                                            )}
+                                          </Typography>
+                                        </Box>
+                                      </Box>
+
+                                      <Box display="flex" alignItems="center" gap={1.25}>
+                                        {confidencePct !== undefined && (
+                                          <Chip
+                                            label={`${confidencePct}%`}
+                                            size="small"
+                                            sx={{
+                                              bgcolor: "#e8f5e9",
+                                              color: "#2e7d32",
+                                              fontWeight: 700,
+                                            }}
+                                          />
+                                        )}
+                                        <Chip
+                                          label={severity}
+                                          size="small"
+                                          sx={{ bgcolor: color, color: "#fff", fontWeight: 700 }}
+                                        />
+                                        <Chip
+                                          label={detection.actionType}
+                                          size="small"
+                                          variant="outlined"
+                                          color={
+                                            detection.actionType === "DELETED"
+                                              ? "error"
+                                              : detection.actionType === "EDITED"
+                                              ? "warning"
+                                              : "default"
+                                          }
+                                        />
+                                        <Typography variant="caption" color="text.secondary">
+                                          {new Date(detection.createdAt).toLocaleString()}
+                                        </Typography>
+                                      </Box>
                                     </Box>
-                                  )}
-                                </CardContent>
-                              </Card>
-                            ))}
+                                  </CardContent>
+                                </Card>
+                              );
+                            })}
                           </Box>
                         )}
                       </CardContent>

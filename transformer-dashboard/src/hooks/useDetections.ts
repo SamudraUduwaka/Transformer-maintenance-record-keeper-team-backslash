@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import { annotationService, AnnotationData, CreateAnnotationRequest } from '../services/annotationService';
+import { annotationService } from '../services/annotationService';
+import type { AnnotationData, CreateAnnotationRequest } from '../services/annotationService';
 
 interface UseDetectionsOptions {
   predictionId: number | null;
