@@ -1,6 +1,7 @@
 package com.teambackslash.transformer_api.service;
 
 import com.teambackslash.transformer_api.dto.BoundingBoxDTO;
+import com.teambackslash.transformer_api.dto.DetectionDTO;
 import com.teambackslash.transformer_api.dto.ThermalAnalysisDTO;
 import com.teambackslash.transformer_api.dto.ThermalIssueDTO;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,7 +11,6 @@ import com.teambackslash.transformer_api.repository.ImageRepository;
 import com.teambackslash.transformer_api.repository.PredictionRepository;
 import com.teambackslash.transformer_api.entity.Transformer;
 import com.teambackslash.transformer_api.entity.Prediction;
-import com.teambackslash.transformer_api.entity.PredictionDetection;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import com.teambackslash.transformer_api.dto.PredictionDTO;
@@ -23,6 +23,7 @@ import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -109,22 +110,21 @@ public class ThermalAnalysisService {
             PredictionDTO prediction = pythonInferenceService.runInferenceFromUrl(imageUrl);
             long proc = System.currentTimeMillis() - startTime;
             ThermalAnalysisDTO adapted = inferenceToThermalMapper.adapt(imageUrl, prediction, proc);
+            
             if (persistEnabled) {
                 String resolvedTransformer = transformerNo != null && !transformerNo.isBlank() ? transformerNo : extractTransformerNo(imageUrl);
                 try {
                     if (!"UNKNOWN".equals(resolvedTransformer)) {
                         ensureTransformerExists(resolvedTransformer);
-                        // Persist with resolved inspection id (if any)
                         Long id = predictionPersistenceService.persistPrediction(resolvedTransformer, prediction, finalInspectionId);
-                        adapted.setPredictionId(id);
+                        adapted.setPredictionId(id); // THIS LINE MUST BE HERE
                         log.info("Persisted prediction id={} transformer={} detections={}", id, resolvedTransformer, prediction.getDetections().size());
-                    } else {
-                        log.warn("Skipping persistence - unresolved transformer number for imageUrl={} (provide transformerNo)", imageUrl);
                     }
                 } catch (Exception e) {
-                    log.error("Failed to persist prediction for transformer={} imageUrl={} : {}", resolvedTransformer, imageUrl, e.getMessage());
+                    log.error("Failed to persist prediction: {}", e.getMessage());
                 }
             }
+            
             return adapted;
         }
 
@@ -158,30 +158,33 @@ public class ThermalAnalysisService {
         var dto = new PredictionDTO();
         dto.setPredictedImageLabel(p.getPredictedLabel());
         dto.setTimestamp(p.getModelTimestamp());
-        var detDtos = new ArrayList<com.teambackslash.transformer_api.dto.DetectionDTO>();
         if (p.getDetections() != null) {
-            for (PredictionDetection d : p.getDetections()) {
-                Integer classId = d.getClassId();
-                String className = d.getDetectionClass() != null ? d.getDetectionClass().getClassName() : null;
-                String reason = d.getDetectionClass() != null ? d.getDetectionClass().getReason() : null;
-                var bbox = new BoundingBoxDTO(
-                    d.getBboxX() != null ? d.getBboxX() : 0,
-                    d.getBboxY() != null ? d.getBboxY() : 0,
-                    d.getBboxW() != null ? d.getBboxW() : 0,
-                    d.getBboxH() != null ? d.getBboxH() : 0
-                );
-                // polygon no longer stored; return empty list
-                detDtos.add(new com.teambackslash.transformer_api.dto.DetectionDTO(
-                    classId,
-                    className,
-                    reason,
-                    d.getConfidence(),
-                    java.util.List.of(),
-                    bbox
-                ));
-            }
+            // When converting Prediction to ThermalAnalysisDTO, filter detections:
+            List<DetectionDTO> activeDetections = p.getDetections().stream()
+                .filter(d -> !"DELETED".equals(d.getActionType()))  
+                .map(detection -> {
+                    Integer classId = detection.getClassId();
+                    String className = detection.getDetectionClass() != null ? detection.getDetectionClass().getClassName() : null;
+                    String reason = detection.getDetectionClass() != null ? detection.getDetectionClass().getReason() : null;
+                    var bbox = new BoundingBoxDTO(
+                        detection.getBboxX() != null ? detection.getBboxX() : 0,
+                        detection.getBboxY() != null ? detection.getBboxY() : 0,
+                        detection.getBboxW() != null ? detection.getBboxW() : 0,
+                        detection.getBboxH() != null ? detection.getBboxH() : 0
+                    );
+                    // return empty list
+                    return new com.teambackslash.transformer_api.dto.DetectionDTO(
+                        classId,
+                        className,
+                        reason,
+                        detection.getConfidence(),
+                        java.util.List.of(),
+                        bbox
+                    );
+                })
+                .collect(Collectors.toList());
+            dto.setDetections(activeDetections);
         }
-        dto.setDetections(detDtos);
         return dto;
     }
 
@@ -307,8 +310,6 @@ public class ThermalAnalysisService {
     }
 
     private String extractTransformerNo(String imageUrl) {
-        // Placeholder heuristic: look for '/T' followed by digits and optional underscore, else return 'UNKNOWN'.
-        // You should replace this with an explicit transformerNo parameter plumbed from controller/request DTO.
         String upper = imageUrl.toUpperCase();
         int idx = upper.indexOf("/T");
         if (idx == -1) idx = upper.indexOf("T");

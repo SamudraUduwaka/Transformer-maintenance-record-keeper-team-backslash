@@ -1,5 +1,6 @@
 package com.teambackslash.transformer_api.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -21,22 +22,24 @@ public class Prediction {
     @Column(name = "prediction_id")
     private Long id;
 
-    // Optional link to an inspection if later desired
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "inspection_id")
     private Inspection inspection;
 
-    // transformer_no removed per request; predictions are no longer tied to a transformer column
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 
-    // source_image_path removed per request; not stored in DB anymore
+    @Column(name = "session_type", length = 50, nullable = false)
+    private String sessionType = "AI_ANALYSIS"; // AI_ANALYSIS, MANUAL_EDITING
 
     @Column(name = "predicted_label", length = 100)
     private String predictedLabel;
 
     @Column(name = "model_timestamp", length = 50)
-    private String modelTimestamp; // keep original string from Python
-
-    // overall_score removed; we don’t persist it on predictions anymore
+    private String modelTimestamp; 
 
     @Column(name = "issue_count")
     private Integer issueCount;
@@ -53,5 +56,11 @@ public class Prediction {
     public void addDetection(PredictionDetection d){
         d.setPrediction(this);
         detections.add(d);
+    }
+    
+    public List<PredictionDetection> getActiveDetections() {
+        return detections.stream()
+            .filter(d -> !"DELETED".equals(d.getActionType()))
+            .collect(java.util.stream.Collectors.toList());
     }
 }

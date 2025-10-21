@@ -93,7 +93,6 @@ public class PythonInferenceService {
 
     public PredictionDTO runInference(MultipartFile file) {
         try {
-            // Ensure upload dir exists
             Path uploadRoot = Path.of(uploadDir);
             Files.createDirectories(uploadRoot);
             String runId = UUID.randomUUID().toString();
@@ -113,7 +112,6 @@ public class PythonInferenceService {
                 throw new RuntimeException("Weights not found: " + weights.toAbsolutePath());
             }
 
-            // Build command
             List<String> cmd = new ArrayList<>();
             cmd.add(pythonCommand);
             cmd.add(scriptPath);

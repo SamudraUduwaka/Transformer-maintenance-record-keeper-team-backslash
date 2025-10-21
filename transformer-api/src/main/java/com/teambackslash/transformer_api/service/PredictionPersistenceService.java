@@ -5,9 +5,11 @@ import com.teambackslash.transformer_api.dto.DetectionDTO;
 import com.teambackslash.transformer_api.dto.PredictionDTO;
 import com.teambackslash.transformer_api.entity.Prediction;
 import com.teambackslash.transformer_api.entity.PredictionDetection;
+import com.teambackslash.transformer_api.entity.User;
 import com.teambackslash.transformer_api.repository.PredictionRepository;
 import com.teambackslash.transformer_api.repository.TransformerRepository;
 import com.teambackslash.transformer_api.repository.InspectionRepository;
+import com.teambackslash.transformer_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import lombok.extern.slf4j.Slf4j;
@@ -21,38 +23,62 @@ public class PredictionPersistenceService {
     private final PredictionRepository predictionRepository;
     private final TransformerRepository transformerRepository;
     private final InspectionRepository inspectionRepository;
-    // Removed ObjectMapper; polygon_json no longer stored
+    private final UserRepository userRepository;
+    private final com.teambackslash.transformer_api.repository.PredictionDetectionRepository detectionRepository;
 
     @Transactional
     public Long persistPrediction(String transformerNo, PredictionDTO dto, Integer inspectionId) {
-    log.debug("Persisting prediction for transformer={} label={} detections={}", transformerNo, dto.getPredictedImageLabel(), dto.getDetections()==null?0:dto.getDetections().size());
-    // Optional validation: ensure transformer exists; if not, either throw or just log and continue.
-    if (transformerNo != null && !transformerNo.isBlank()) {
-        boolean transformerExists = transformerRepository.existsById(transformerNo);
-        if (!transformerExists) {
-            log.warn("Transformer {} not found; persisting prediction (column removed)", transformerNo);
+        log.debug("Persisting prediction for transformer={} label={} detections={}", 
+            transformerNo, 
+            dto.getPredictedImageLabel(), 
+            dto.getDetections() == null ? 0 : dto.getDetections().size());
+        
+        if (transformerNo != null && !transformerNo.isBlank()) {
+            boolean transformerExists = transformerRepository.existsById(transformerNo);
+            if (!transformerExists) {
+                log.warn("Transformer {} not found; persisting prediction (column removed)", transformerNo);
+            }
         }
-    }
 
         Prediction p = new Prediction();
-        // Link to inspection if provided
+        
+        // Set AI user for AI-generated predictions
+        User aiUser = getOrCreateAiUser();
+        p.setUser(aiUser);
+        p.setSessionType("AI_ANALYSIS");
+        
         if (inspectionId != null) {
             inspectionRepository.findById(inspectionId).ifPresentOrElse(
                 p::setInspection,
                 () -> log.warn("Inspection {} not found; prediction will not link to inspection", inspectionId)
             );
         }
-    // No transformer reference stored on prediction anymore
-    // No longer storing source image path on predictions
+
         p.setPredictedLabel(dto.getPredictedImageLabel());
         p.setModelTimestamp(dto.getTimestamp());
         p.setIssueCount(dto.getDetections() != null ? dto.getDetections().size() : 0);
 
         if (dto.getDetections() != null) {
+            Integer inspectionIdForDetection = (p.getInspection() != null) ? p.getInspection().getInspectionId() : null;
+            Integer nextLogEntryId = null;
+            
+            // Get the starting log entry ID for this batch of detections
+            if (inspectionIdForDetection != null) {
+                nextLogEntryId = getNextLogEntryId(inspectionIdForDetection);
+            }
+            
             for (DetectionDTO d : dto.getDetections()) {
                 PredictionDetection pd = new PredictionDetection();
                 pd.setClassId(d.getClassId());
                 pd.setConfidence(d.getConfidence());
+                
+                // Set inspection ID and log entry ID for new fields
+                if (inspectionIdForDetection != null && nextLogEntryId != null) {
+                    pd.setInspectionId(inspectionIdForDetection);
+                    pd.setLogEntryId(nextLogEntryId);
+                    nextLogEntryId++; // Increment for next detection in the same batch
+                }
+                
                 if (d.getBoundingBox() != null) {
                     BoundingBoxDTO b = d.getBoundingBox();
                     pd.setBboxX(b.getX());
@@ -60,13 +86,57 @@ public class PredictionPersistenceService {
                     pd.setBboxW(b.getWidth());
                     pd.setBboxH(b.getHeight());
                 }
-                // polygon_json removed; not persisted
+                
+                // Set annotation tracking fields for AI-generated detections
+                pd.setSource("AI_GENERATED");
+                pd.setActionType("ADDED");
+                pd.setComments(null);
+                
                 p.addDetection(pd);
             }
         }
 
         Prediction saved = predictionRepository.save(p);
-        log.info("Saved prediction id={} transformer={} detections={}", saved.getId(), transformerNo, p.getDetections().size());
+        
+        long aiDetections = p.getDetections().stream()
+            .filter(d -> "AI_GENERATED".equals(d.getSource()))
+            .count();
+        long manualDetections = p.getDetections().stream()
+            .filter(d -> "MANUALLY_ADDED".equals(d.getSource()))
+            .count();
+        
+        log.info("Saved AI prediction id={} transformer={} totalDetections={} (AI={}, Manual={})", 
+            saved.getId(), 
+            transformerNo, 
+            p.getDetections().size(),
+            aiDetections,
+            manualDetections);
+        
         return saved.getId();
+    }
+    
+    /**
+     * Get or create the special AI user for AI-generated predictions
+     */
+    private User getOrCreateAiUser() {
+        return userRepository.findByEmail("ai@system.local")
+            .orElseGet(() -> {
+                User aiUser = User.builder()
+                    .name("AI System")
+                    .email("ai@system.local")
+                    .password("$2a$10$dummy.hash.for.ai.user") // Dummy password hash
+                    .role("SYSTEM")
+                    .build();
+                return userRepository.save(aiUser);
+            });
+    }
+
+    /**
+     * Generate the next log entry ID for a given inspection
+     * Log entry IDs are unique per inspection but not globally unique
+     */
+    private Integer getNextLogEntryId(Integer inspectionId) {
+        Integer maxLogEntryId = detectionRepository.getMaxLogEntryIdForInspection(inspectionId);
+        return maxLogEntryId + 1;
     }
 }

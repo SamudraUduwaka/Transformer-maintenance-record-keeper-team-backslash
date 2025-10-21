@@ -13,7 +13,7 @@ public class InspectionDTO {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // Nested: transformer reference
+    // transformer reference
     private String transformerNo;
 
     // Related images

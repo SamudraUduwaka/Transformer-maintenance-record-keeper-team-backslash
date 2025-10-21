@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Box,
   Paper,
@@ -12,26 +12,22 @@ import {
   IconButton,
   Card,
   CardContent,
-  Collapse,
-  CardActions,
-  Button,
-  TextField,
-  Divider,
   Tooltip,
+  Snackbar,
 } from "@mui/material";
 import {
   FilterList as FilterListIcon,
   ZoomIn as ZoomInIcon,
   ZoomOut as ZoomOutIcon,
   CenterFocusStrong as CenterFocusStrongIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
   Edit as EditIcon,
-  Comment as CommentIcon,
-  Person as PersonIcon,
-  Timer as TimerIcon,
   Upload as UploadIcon,
+  Download as DownloadIcon,
+  ExpandMore,
+  ExpandLess,
 } from "@mui/icons-material";
+import { authService } from "../services/authService";
+import DrawingCanvas from "./DrawingCanvas";
 
 // TypeScript interfaces matching the API response
 interface BoundingBox {
@@ -57,6 +53,7 @@ interface ThermalAnalysisData {
   issues: ThermalIssue[];
   overallScore: number;
   processingTime: number;
+  predictionId?: number;
 }
 
 interface ThermalImageAnalysisProps {
@@ -64,13 +61,9 @@ interface ThermalImageAnalysisProps {
   baselineImageUrl?: string;
   onAnalysisComplete?: (analysis: ThermalAnalysisData) => void;
   loading?: boolean;
-  transformerNo?: string; // new: required for backend persistence of predictions
+  transformerNo?: string;
+  inspectionId?: number;
 }
-
-const SEVERITY_COLORS = {
-  warning: "#ff9800",
-  critical: "#f44336",
-};
 
 const ISSUE_TYPE_LABELS: Record<string, string> = {
   "Loose Joint (Faulty)": "Loose Joint - Faulty",
@@ -330,12 +323,52 @@ const ZoomableImage: React.FC<ZoomableImageProps> = ({
   );
 };
 
+// Activity Log interfaces
+interface ActivityLogEntry {
+  detectionId: number;
+  originalDetectionId?: number; // Reference to original detection for EDITED/DELETED
+  logEntryId?: number; // Unique per inspection, not globally unique
+  inspectionId?: number; // Reference to inspection
+  source: "AI_GENERATED" | "MANUALLY_ADDED";
+  actionType: "ADDED" | "EDITED" | "DELETED";
+  classId: number;
+  comments?: string;
+  createdAt: string;
+  userId?: number;
+  userName: string;
+  // Bounding box coordinates
+  bboxX?: number;
+  bboxY?: number;
+  bboxW?: number;
+  bboxH?: number;
+  confidence?: number;
+}
+
+interface PredictionSession {
+  predictionId: number;
+  sessionType: "AI_ANALYSIS" | "MANUAL_EDITING";
+  userName: string;
+  userId: number;
+  createdAt: string;
+  issueCount: number;
+  detections: ActivityLogEntry[];
+}
+
+const FAULT_TYPE_LABELS_MAP: Record<number, string> = {
+  0: "Point Overload (Faulty)",
+  1: "Loose Joint (Faulty)",
+  2: "Point Overload (Potential)",
+  3: "Loose Joint (Potential)",
+  4: "Full Wire Overload",
+};
+
 const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   thermalImageUrl,
   baselineImageUrl,
   onAnalysisComplete,
   loading = false,
   transformerNo,
+  inspectionId,
 }) => {
   const [analysisData, setAnalysisData] = useState<ThermalAnalysisData | null>(
     null
@@ -344,66 +377,76 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentScale, setCurrentScale] = useState(1);
-  const [isLogExpanded, setIsLogExpanded] = useState(false);
-  const [newComment, setNewComment] = useState("");
-  const [selectedLogEntry, setSelectedLogEntry] =
-    useState<string>("ai-analysis");
+
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
+
+  // ADD: Snackbar state
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: "success" | "error" | "info" | "warning";
+  }>({
+    open: false,
+    message: "",
+    severity: "success",
+  });
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // Track which image URLs have already triggered an analysis to avoid
-  // duplicate calls (e.g., React StrictMode double effect invocation or
-  // parent prop identity changes). Also track an in-flight request to
-  // prevent overlap.
   const analyzedImagesRef = useRef<Set<string>>(new Set());
   const inFlightRef = useRef<string | null>(null);
 
+  // Activity log states
+  const [predictionSessions, setPredictionSessions] = useState<
+    PredictionSession[]
+  >([]);
+  const [loadingActivityLog, setLoadingActivityLog] = useState(false);
+  const [activityLogFilter, setActivityLogFilter] = useState<string>("all");
+  const [expandedSessions, setExpandedSessions] = useState<Set<number>>(
+    new Set()
+  );
+
   // API call to analyze thermal image
-  const analyzeThermalImage = async (
-    imageUrl: string
-  ): Promise<ThermalAnalysisData> => {
-    if (!transformerNo) {
-      console.warn(
-        "ThermalImageAnalysis: transformerNo not provided; prediction persistence will be skipped on backend."
-      );
-    }
-    // Try relative URL first (with proxy), then fall back to direct URL
-    const apiUrls = [
-      "/api/images/thermal-analysis",
-      "http://localhost:8080/api/images/thermal-analysis",
-    ];
+  const analyzeThermalImage =
+    useCallback(async (): Promise<ThermalAnalysisData> => {
+      if (!transformerNo) {
+        console.warn(
+          "ThermalImageAnalysis: transformerNo not provided; prediction persistence will be skipped on backend."
+        );
+      }
 
-    let lastError: Error | null = null;
+      const apiUrl = "http://localhost:8080/api/images/thermal-analysis";
 
-    for (const apiUrl of apiUrls) {
       try {
         const response = await fetch(apiUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...authService.getAuthHeader(),
+          },
           body: JSON.stringify({
-            imageUrl: imageUrl,
-            analysisType: "thermal",
-            transformerNo: transformerNo || undefined,
+            thermalImageUrl,
+            baselineImageUrl,
+            transformerNo,
+            inspectionId,
           }),
         });
 
         if (!response.ok) {
+          const errorText = await response.text().catch(() => "");
           throw new Error(
-            `Analysis failed: ${response.status} ${response.statusText}`
+            `Analysis failed: ${response.status} ${response.statusText}${
+              errorText ? ` - ${errorText}` : ""
+            }`
           );
         }
 
         const data = await response.json();
         return data;
       } catch (error) {
-        console.warn(`Failed to connect to ${apiUrl}:`, error);
-        lastError = error as Error;
-        // Continue to try next URL
+        console.error("Thermal analysis error:", error);
+        throw error;
       }
-    }
-
-    // If all URLs failed, throw the last error
-    throw lastError || new Error("All API endpoints failed");
-  };
+    }, [thermalImageUrl, baselineImageUrl, transformerNo, inspectionId]);
 
   // Trigger analysis when thermal image URL changes
   useEffect(() => {
@@ -421,7 +464,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     setIsAnalyzing(true);
     setError(null);
 
-    analyzeThermalImage(thermalImageUrl)
+    analyzeThermalImage()
       .then((data) => {
         analyzedImagesRef.current.add(thermalImageUrl);
         setAnalysisData(data);
@@ -437,13 +480,164 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
         }
         setIsAnalyzing(false);
       });
-  }, [thermalImageUrl, loading]);
+  }, [thermalImageUrl, loading, analyzeThermalImage, onAnalysisComplete]);
+
+  // Helper function to get the logEntryId of the original detection
+  const getOriginalLogEntryId = (
+    originalDetectionId: number
+  ): number | undefined => {
+    if (!predictionSessions) return undefined;
+
+    for (const session of predictionSessions) {
+      const originalDetection = session.detections.find(
+        (detection) => detection.detectionId === originalDetectionId
+      );
+      if (originalDetection) {
+        return originalDetection.logEntryId || originalDetection.detectionId;
+      }
+    }
+    return undefined;
+  };
+
+  // Get the latest state of all detections for drawing
+  const getLatestDetections = (): ActivityLogEntry[] => {
+    if (!predictionSessions || predictionSessions.length === 0) {
+      // If no activity log, show original AI detections
+      return (
+        analysisData?.issues.map(
+          (issue, index) =>
+            ({
+              detectionId: index + 1,
+              source: "AI_GENERATED",
+              actionType: "ADDED",
+              classId: getClassIdFromIssueType(issue.type),
+              bboxX: issue.boundingBox.x,
+              bboxY: issue.boundingBox.y,
+              bboxW: issue.boundingBox.width,
+              bboxH: issue.boundingBox.height,
+              confidence: issue.confidence,
+              createdAt: new Date().toISOString(),
+              userName: "AI",
+            } as ActivityLogEntry)
+        ) || []
+      );
+    }
+
+    // Build a comprehensive map to track all detection states
+    const detectionStateMap = new Map<number, ActivityLogEntry>();
+    const processedDetections = new Set<number>(); // Track which detections we've already included
+
+    // Process all detections from all sessions to build latest state
+    predictionSessions.forEach((session) => {
+      session.detections.forEach((detection) => {
+        if (detection.originalDetectionId) {
+          // This is an EDITED or DELETED detection of an existing one
+          const originalId = detection.originalDetectionId;
+          detectionStateMap.set(originalId, detection);
+          processedDetections.add(originalId); // Mark original as processed
+        } else {
+          // This is a new ADDED detection - only add if not already processed by an edit/delete
+          if (!processedDetections.has(detection.detectionId)) {
+            detectionStateMap.set(detection.detectionId, detection);
+          }
+        }
+      });
+    });
+
+    const result: ActivityLogEntry[] = [];
+
+    // First, handle original AI detections
+    if (analysisData?.issues) {
+      analysisData.issues.forEach((issue, index) => {
+        const detectionId = index + 1; // Assuming AI detection IDs start from 1
+        const latestState = detectionStateMap.get(detectionId);
+
+        if (!latestState) {
+          // Original AI detection unchanged
+          result.push({
+            detectionId: detectionId,
+            source: "AI_GENERATED",
+            actionType: "ADDED",
+            classId: getClassIdFromIssueType(issue.type),
+            bboxX: issue.boundingBox.x,
+            bboxY: issue.boundingBox.y,
+            bboxW: issue.boundingBox.width,
+            bboxH: issue.boundingBox.height,
+            confidence: issue.confidence,
+            createdAt: new Date().toISOString(),
+            userName: "AI",
+          } as ActivityLogEntry);
+        } else if (latestState.actionType !== "DELETED") {
+          // Use edited version with fallback coordinates if needed
+          result.push({
+            ...latestState,
+            bboxX: latestState.bboxX ?? issue.boundingBox.x,
+            bboxY: latestState.bboxY ?? issue.boundingBox.y,
+            bboxW: latestState.bboxW ?? issue.boundingBox.width,
+            bboxH: latestState.bboxH ?? issue.boundingBox.height,
+          });
+        }
+        // If DELETED, don't add to result
+      });
+    }
+
+    // Then, handle all other detections (manually added ones)
+    detectionStateMap.forEach((detection, detectionId) => {
+      // Skip if this was already handled in the AI detections section
+      const aiDetectionCount = analysisData?.issues?.length || 0;
+      if (detectionId <= aiDetectionCount) {
+        return; // Already processed above
+      }
+
+      // Only show the latest state if not deleted and has coordinates
+      if (
+        detection.actionType !== "DELETED" &&
+        detection.bboxX !== undefined &&
+        detection.bboxY !== undefined &&
+        detection.bboxW !== undefined &&
+        detection.bboxH !== undefined
+      ) {
+        result.push(detection);
+      }
+    });
+
+    console.log("Latest detections for drawing:", {
+      totalDetections: result.length,
+      aiDetections: result.filter((d) => d.source === "AI_GENERATED").length,
+      manualDetections: result.filter((d) => d.source === "MANUALLY_ADDED")
+        .length,
+      detectionStateMap: Array.from(detectionStateMap.entries()).map(
+        ([id, det]) => ({
+          id,
+          action: det.actionType,
+          source: det.source,
+          originalId: det.originalDetectionId,
+          hasCoords: !!(det.bboxX && det.bboxY && det.bboxW && det.bboxH),
+        })
+      ),
+      resultIds: result.map((d) => d.detectionId),
+    });
+
+    return result;
+  };
+
+  // Helper function to map issue type to class ID
+  const getClassIdFromIssueType = (issueType: string): number => {
+    const typeToClassId: Record<string, number> = {
+      "Point Overload (Faulty)": 0,
+      "Loose Joint (Faulty)": 1,
+      "Point Overload (Potential)": 2,
+      "Loose Joint (Potential)": 3,
+      "Full Wire Overload": 4,
+    };
+    return typeToClassId[issueType] ?? 0;
+  };
 
   // Draw bounding boxes on canvas
   const drawBoundingBoxes = () => {
     const canvas = canvasRef.current;
 
-    if (!canvas || !analysisData) return;
+    if (!canvas) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -455,10 +649,15 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     const displayedImageWidth = canvas.width;
     const displayedImageHeight = canvas.height;
 
+    // Get latest detection states
+    const latestDetections = getLatestDetections();
+
     console.log("Drawing bounding boxes:", {
       canvasSize: { width: displayedImageWidth, height: displayedImageHeight },
-      issuesCount: analysisData.issues.length,
+      detectionsCount: latestDetections.length,
     });
+
+    if (latestDetections.length === 0) return;
 
     // AI model processes images at 640x640, so coordinates are relative to that size
     const AI_MODEL_SIZE = 640;
@@ -469,15 +668,20 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
     console.log("Scaling factors:", { scaleX, scaleY });
 
-    // Filter issues based on selected filter
-    const filteredIssues = analysisData.issues.filter(
-      (issue) =>
-        selectedIssueFilter === "all" || issue.type === selectedIssueFilter
-    );
+    // Filter detections based on selected filter (by fault class)
+    const filteredDetections = latestDetections.filter((detection) => {
+      if (selectedIssueFilter === "all") return true;
+      const faultType = FAULT_TYPE_LABELS_MAP[detection.classId];
+      return faultType === selectedIssueFilter;
+    });
 
     // Draw bounding boxes
-    filteredIssues.forEach((issue, index) => {
-      const { x, y, width, height } = issue.boundingBox;
+    filteredDetections.forEach((detection, index) => {
+      // Detection uses bbox coordinates (x, y, w, h format)
+      const x = detection.bboxX || 0;
+      const y = detection.bboxY || 0;
+      const width = detection.bboxW || 0;
+      const height = detection.bboxH || 0;
 
       // Scale the coordinates to match the actual displayed image size
       const scaledX = x * scaleX;
@@ -485,7 +689,9 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       const scaledWidth = width * scaleX;
       const scaledHeight = height * scaleY;
 
-      console.log(`Issue ${index + 1}:`, {
+      console.log(`Detection ${index + 1}:`, {
+        detectionId: detection.detectionId,
+        actionType: detection.actionType,
         original: { x, y, width, height },
         scaled: {
           x: scaledX,
@@ -513,13 +719,24 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
       // Skip drawing if the box is completely outside the canvas
       if (clampedWidth <= 0 || clampedHeight <= 0) {
-        console.warn(`Skipping issue ${index + 1} - outside canvas bounds`);
+        console.warn(`Skipping detection ${index + 1} - outside canvas bounds`);
         return;
       }
 
-      const color =
-        SEVERITY_COLORS[issue.severity as keyof typeof SEVERITY_COLORS] ||
-        "#ff9800"; // fallback to warning color
+      // Determine color based on detection source and action type
+      let color;
+      if (detection.source === "AI_GENERATED") {
+        color = "#2196f3"; // Blue for AI detections
+      } else if (detection.source === "MANUALLY_ADDED") {
+        color = "#4caf50"; // Green for manual detections
+      } else {
+        color = "#ff9800"; // Orange fallback
+      }
+
+      // Different styling for edited detections
+      if (detection.actionType === "EDITED") {
+        color = "#ff9800"; // Orange for edited
+      }
 
       // Scale based on zoom level for consistent visual appearance
       const scaleFactor = 1 / currentScale;
@@ -535,12 +752,9 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       // Draw filled background with transparency
       ctx.fillStyle = color + BOUNDING_BOX_OPACITY;
       ctx.fillRect(clampedX, clampedY, clampedWidth, clampedHeight);
-
-      // Draw small number in top-left corner
-      const originalIndex = analysisData.issues.findIndex(
-        (i) => i.id === issue.id
-      );
-      const issueNumber = (originalIndex + 1).toString();
+      const detectionNumber = (
+        detection.logEntryId || detection.detectionId
+      ).toString();
 
       // Draw small circular badge for number in top-left corner (using clamped coordinates)
       const badgeX = clampedX + badgeSize / 2;
@@ -563,7 +777,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
         ctx.font = `bold ${fontSize}px Arial`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(issueNumber, badgeX, badgeY);
+        ctx.fillText(detectionNumber, badgeX, badgeY);
 
         // Reset text alignment for future drawings
         ctx.textAlign = "start";
@@ -572,10 +786,12 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     });
   };
 
-  // Update canvas when image loads or bounding box settings change
+  // Effect to redraw bounding boxes when data changes
   useEffect(() => {
-    drawBoundingBoxes();
-  }, [analysisData, selectedIssueFilter, currentScale]);
+    if (analysisData && canvasRef.current) {
+      drawBoundingBoxes();
+    }
+  }, [analysisData, predictionSessions, selectedIssueFilter, currentScale]);
 
   const filteredIssues =
     analysisData?.issues.filter(
@@ -583,489 +799,891 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
         selectedIssueFilter === "all" || issue.type === selectedIssueFilter
     ) || [];
 
+  // Annotation toolbar handlers
+  const handleAddAnnotation = () => {
+    setIsDrawingMode(true);
+  };
+
+  const handleCancelDrawing = () => {
+    setIsDrawingMode(false);
+  };
+
+  const handleEditFinish = async () => {
+    if (!predictionId) {
+      setSnackbar({
+        open: true,
+        message: "No prediction found to finish editing session.",
+        severity: "error",
+      });
+      return;
+    }
+
+    try {
+      // Finish the current editing session
+      const response = await fetch(
+        `http://localhost:8080/api/predictions/${predictionId}/finish-editing`,
+        {
+          method: "POST",
+          headers: {
+            ...authService.getAuthHeader(),
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to finish editing session: ${response.status}`);
+      }
+
+      setSnackbar({
+        open: true,
+        message: "Editing session completed successfully!",
+        severity: "success",
+      });
+
+      console.log("Editing session finished successfully");
+
+      // Refresh activity log to show the completed session
+      await fetchActivityLog();
+
+      // Refresh analysis to show updated annotations before returning to comparison view
+      analyzedImagesRef.current.delete(thermalImageUrl || "");
+      if (thermalImageUrl) {
+        setIsAnalyzing(true);
+        try {
+          const data = await analyzeThermalImage();
+          setAnalysisData(data);
+          onAnalysisComplete?.(data);
+        } catch (err) {
+          setError(
+            `Failed to refresh analysis: ${
+              err instanceof Error ? err.message : "Unknown error"
+            }`
+          );
+        } finally {
+          setIsAnalyzing(false);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to finish editing session:", error);
+      setSnackbar({
+        open: true,
+        message: `Failed to finish editing session: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+        severity: "error",
+      });
+    }
+
+    setIsDrawingMode(false); // Exit drawing mode and return to comparison view
+  };
+
+  const handleSaveDrawing = async (
+    box: { x: number; y: number; width: number; height: number },
+    faultType: string,
+    comments: string
+  ) => {
+    if (!predictionId) {
+      setSnackbar({
+        open: true,
+        message: "No prediction found. Please run thermal analysis first.",
+        severity: "error",
+      });
+      return;
+    }
+
+    console.log("Saving manual annotation:", {
+      box,
+      faultType,
+      comments,
+      predictionId,
+    });
+
+    try {
+      // Map fault type to class_id
+      const faultTypeToClassId: Record<string, number> = {
+        "Loose Joint (Faulty)": 1,
+        "Loose Joint (Potential)": 3,
+        "Point Overload (Faulty)": 0,
+        "Point Overload (Potential)": 2,
+        "Full Wire Overload": 4,
+      };
+
+      const classId = faultTypeToClassId[faultType];
+
+      if (classId === undefined) {
+        throw new Error(`Unknown fault type: ${faultType}`);
+      }
+
+      // Call backend API to save manual annotation
+      const response = await fetch("http://localhost:8080/api/detections", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authService.getAuthHeader(),
+        },
+        body: JSON.stringify({
+          predictionId: predictionId,
+          classId: classId,
+          confidence: 1.0,
+          x1: Math.round(box.x),
+          y1: Math.round(box.y),
+          x2: Math.round(box.x + box.width),
+          y2: Math.round(box.y + box.height),
+          comments: comments || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Failed to save annotation: ${response.status} ${errorText}`
+        );
+      }
+
+      const savedAnnotation = await response.json();
+      console.log("Annotation saved successfully:", savedAnnotation);
+
+      // Show success snackbar instead of alert
+      setSnackbar({
+        open: true,
+        message: `Manual annotation saved successfully!`,
+        severity: "success",
+      });
+
+      // Exit drawing mode
+      setIsDrawingMode(false);
+
+      // Refresh activity log immediately after saving
+      await fetchActivityLog();
+
+      // Refresh analysis to show new annotation
+      analyzedImagesRef.current.delete(thermalImageUrl || "");
+      if (thermalImageUrl) {
+        setIsAnalyzing(true);
+        analyzeThermalImage()
+          .then((data) => {
+            setAnalysisData(data);
+            onAnalysisComplete?.(data);
+          })
+          .catch((err) => {
+            setError(`Failed to refresh analysis: ${err.message}`);
+          })
+          .finally(() => {
+            setIsAnalyzing(false);
+          });
+      }
+    } catch (error) {
+      console.error("Failed to save annotation:", error);
+      // Show error snackbar instead of alert
+      setSnackbar({
+        open: true,
+        message: `Failed to save annotation: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+        severity: "error",
+      });
+    }
+  };
+
+  // Snackbar close handler
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  // Extract predictionId from analysisData
+  const predictionId = analysisData?.predictionId;
+
+  // Extract fetchActivityLog as a separate function for reusability
+  const fetchActivityLog = useCallback(async () => {
+    if (!predictionId) return;
+
+    setLoadingActivityLog(true);
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/predictions/${predictionId}/activity-log`,
+        {
+          headers: authService.getAuthHeader(),
+        }
+      );
+
+      if (response.ok) {
+        const data: PredictionSession[] = await response.json();
+        setPredictionSessions(data);
+        console.log("Prediction sessions refreshed:", data.length, "sessions");
+      }
+    } catch (err) {
+      console.error("Failed to fetch activity log:", err);
+    } finally {
+      setLoadingActivityLog(false);
+    }
+  }, [predictionId]);
+
+  // Fetch activity log when predictionId is available
+  useEffect(() => {
+    fetchActivityLog();
+  }, [fetchActivityLog]);
+
+  // Filter prediction sessions based on selected filter
+  const filteredSessions = predictionSessions.filter((session) => {
+    if (activityLogFilter === "ai") {
+      return session.sessionType === "AI_ANALYSIS";
+    }
+    if (activityLogFilter === "manual") {
+      return session.sessionType === "MANUAL_EDITING";
+    }
+    return true; // "all" shows all sessions
+  });
+
+  // Get total detection count for display
+  const totalDetections = filteredSessions.reduce((total, session) => {
+    return total + session.detections.length;
+  }, 0);
+
+  // Get count of active and deleted detections separately
+  const activeDetections = filteredSessions.reduce((total, session) => {
+    return (
+      total +
+      session.detections.filter((d) => d.actionType !== "DELETED").length
+    );
+  }, 0);
+
+  const deletedDetections = filteredSessions.reduce((total, session) => {
+    return (
+      total +
+      session.detections.filter((d) => d.actionType === "DELETED").length
+    );
+  }, 0);
+
+  // Manual refresh handler for activity log
+  const handleRefreshActivityLog = () => {
+    fetchActivityLog();
+  };
+
+  // Toggle session expansion
+  const toggleSessionExpansion = (sessionId: number) => {
+    setExpandedSessions((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(sessionId)) {
+        newSet.delete(sessionId);
+      } else {
+        newSet.add(sessionId);
+      }
+      return newSet;
+    });
+  };
+
+  // Export functions
+  const exportToJSON = () => {
+    const exportData = filteredSessions.flatMap((session) =>
+      session.detections
+        .filter((d) => {
+          if (activityLogFilter === "deleted")
+            return d.actionType === "DELETED";
+          if (activityLogFilter === "all") return true;
+          if (activityLogFilter === "ai")
+            return session.sessionType === "AI_ANALYSIS";
+          if (activityLogFilter === "manual")
+            return session.sessionType === "MANUAL_EDITING";
+          return d.actionType !== "DELETED"; // default: show active only
+        })
+        .map((entry) => ({
+          sessionId: session.predictionId,
+          sessionType: session.sessionType,
+          sessionUserName: session.userName,
+          detectionId: entry.detectionId,
+          originalDetectionId: entry.originalDetectionId || "N/A",
+          source: entry.source,
+          actionType: entry.actionType,
+          faultClass: FAULT_TYPE_LABELS_MAP[entry.classId] || "Unknown",
+          faultClassId: entry.classId,
+          confidence: entry.source === "AI_GENERATED" ? "N/A" : "Manual",
+          userName: entry.userName,
+          userId: entry.userId || "N/A",
+          comments: entry.comments || "",
+          timestamp: new Date(entry.createdAt).toISOString(),
+          inspectionId: inspectionId,
+          transformerNo: transformerNo,
+        }))
+    );
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `activity-log-${transformerNo || "unknown"}-${
+      new Date().toISOString().split("T")[0]
+    }.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setSnackbar({
+      open: true,
+      message: "Activity log exported as JSON successfully!",
+      severity: "success",
+    });
+  };
+
+  const exportToCSV = () => {
+    const headers = [
+      "Session ID",
+      "Session Type",
+      "Session User",
+      "Detection ID",
+      "Original Detection ID",
+      "Source",
+      "Action Type",
+      "Fault Class",
+      "Fault Class ID",
+      "User Name",
+      "User ID",
+      "Comments",
+      "Timestamp",
+      "Inspection ID",
+      "Transformer No",
+    ];
+
+    const rows = filteredSessions.flatMap((session) =>
+      session.detections
+        .filter((d) => {
+          if (activityLogFilter === "deleted")
+            return d.actionType === "DELETED";
+          if (activityLogFilter === "all") return true;
+          if (activityLogFilter === "ai")
+            return session.sessionType === "AI_ANALYSIS";
+          if (activityLogFilter === "manual")
+            return session.sessionType === "MANUAL_EDITING";
+          return d.actionType !== "DELETED"; // default: show active only
+        })
+        .map((entry) => [
+          session.predictionId,
+          session.sessionType,
+          session.userName,
+          entry.detectionId,
+          entry.originalDetectionId || "N/A",
+          entry.source,
+          entry.actionType,
+          FAULT_TYPE_LABELS_MAP[entry.classId] || "Unknown",
+          entry.classId,
+          entry.userName,
+          entry.userId || "N/A",
+          entry.comments ? `"${entry.comments.replace(/"/g, '""')}"` : "",
+          new Date(entry.createdAt).toISOString(),
+          inspectionId || "N/A",
+          transformerNo || "N/A",
+        ])
+    );
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.join(",")),
+    ].join("\n");
+
+    const dataBlob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `activity-log-${transformerNo || "unknown"}-${
+      new Date().toISOString().split("T")[0]
+    }.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setSnackbar({
+      open: true,
+      message: "Activity log exported as CSV successfully!",
+      severity: "success",
+    });
+  };
+
   return (
     <Box>
-      {/* Main Analysis Display */}
-      <Box display="flex" flexDirection={{ xs: "column", md: "row" }} gap={3}>
-        {/* Baseline Image */}
-        <Box flex={1}>
-          <Paper sx={{ p: 2.5 }}>
-            <Typography variant="subtitle1" fontWeight={700}>
-              Baseline Image
-            </Typography>
-            <Box mt={2} sx={{ position: "relative" }}>
-              {baselineImageUrl ? (
-                <ZoomableImage
-                  src={baselineImageUrl}
-                  alt="Baseline"
-                  maxHeight={300}
-                />
-              ) : (
-                <Typography color="text.secondary">
-                  No baseline image available
-                </Typography>
-              )}
-            </Box>
+      {/* annotations error */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
-            {/* Baseline Image Controls */}
-            <Box mt={2} display="flex" justifyContent="flex-end">
-              <Tooltip title="Reupload" arrow>
-                <IconButton size="small" sx={{ color: "primary.main" }}>
-                  <UploadIcon />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          </Paper>
-        </Box>
+      {/* Drawing Mode - Replace thermal image with DrawingCanvas */}
+      {isDrawingMode && thermalImageUrl ? (
+        <Paper sx={{ p: 2.5, mb: 3 }}>
+          <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
+            Draw Bounding Box
+          </Typography>
 
-        {/* Thermal Image with Analysis */}
-        <Box flex={1}>
-          <Paper sx={{ p: 2.5 }}>
-            <Box
-              display="flex"
-              justifyContent="space-between"
-              alignItems="center"
-              mb={2}
-            >
-              <Typography variant="subtitle1" fontWeight={700}>
-                Maintenance Image Analysis
-              </Typography>
-            </Box>
-
-            <Box sx={{ position: "relative" }}>
-              {isAnalyzing ? (
-                <Box
-                  display="flex"
-                  justifyContent="center"
-                  alignItems="center"
-                  minHeight={200}
-                >
-                  <CircularProgress />
-                  <Typography ml={2}>Analyzing thermal image...</Typography>
-                </Box>
-              ) : error ? (
-                <Alert severity="error">{error}</Alert>
-              ) : thermalImageUrl ? (
-                <ZoomableImage
-                  src={thermalImageUrl}
-                  alt="Thermal"
-                  maxHeight={300}
-                  canvasRef={canvasRef}
-                  onImageLoad={drawBoundingBoxes}
-                  onScaleChange={setCurrentScale}
-                />
-              ) : (
-                <Typography color="text.secondary">
-                  No thermal image available
-                </Typography>
-              )}
-            </Box>
-
-            {/* Analysis Controls */}
-            {analysisData && (
-              <Box mt={2}>
-                <Box
-                  display="flex"
-                  gap={1}
-                  alignItems="center"
-                  flexWrap="wrap"
-                  justifyContent="space-between"
-                >
-                  <FormControl size="small" sx={{ minWidth: 120 }}>
-                    <Select
-                      value={selectedIssueFilter}
-                      onChange={(e) => setSelectedIssueFilter(e.target.value)}
-                      startAdornment={
-                        <FilterListIcon sx={{ mr: 1, fontSize: 16 }} />
-                      }
-                    >
-                      <MenuItem value="all">All Issues</MenuItem>
-                      {Object.keys(ISSUE_TYPE_LABELS).map((type) => (
-                        <MenuItem key={type} value={type}>
-                          {ISSUE_TYPE_LABELS[type]}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <Typography variant="caption" color="text.secondary">
-                    {filteredIssues.length} of {analysisData.issues.length}{" "}
-                    issues shown
-                  </Typography>
-
-                  <Box display="flex" gap={0.5} alignItems="center">
-                    <Tooltip title="Reupload" arrow>
-                      <IconButton size="small" sx={{ color: "primary.main" }}>
-                        <UploadIcon />
-                      </IconButton>
-                    </Tooltip>
-
-                    <Tooltip title="Edit" arrow>
-                      <IconButton size="small" sx={{ color: "primary.main" }}>
-                        <EditIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                </Box>
-              </Box>
-            )}
-          </Paper>
-        </Box>
-      </Box>
-
-      {/* Analysis Log */}
-      {analysisData && (
-        <Paper sx={{ p: 2.5, mt: 3 }}>
+          <DrawingCanvas
+            imageUrl={thermalImageUrl}
+            onSave={handleSaveDrawing}
+            onCancel={handleCancelDrawing}
+            onEditFinish={handleEditFinish}
+            onEditSave={fetchActivityLog}
+            isActive={isDrawingMode}
+            predictionId={predictionId}
+            existingDetections={getLatestDetections()}
+          />
+        </Paper>
+      ) : (
+        /* Main Analysis Display - Only show when NOT in drawing mode */
+        <>
           <Box
             display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-            mb={2}
+            flexDirection={{ xs: "column", md: "row" }}
+            gap={3}
           >
-            <Typography variant="subtitle1" fontWeight={700}>
-              Activity Log
-            </Typography>
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <Select
-                value={selectedLogEntry}
-                onChange={(e) => setSelectedLogEntry(e.target.value)}
-                displayEmpty
-              >
-                <MenuItem value="all">All Entries</MenuItem>
-                <MenuItem value="ai-analysis">
-                  AI Analysis -{" "}
-                  {new Date(
-                    analysisData.analysisTimestamp
-                  ).toLocaleDateString()}
-                </MenuItem>
-                {/* Future log entries can be added here */}
-              </Select>
-            </FormControl>
-          </Box>
+            {/* Baseline Image */}
+            <Box flex={1}>
+              <Paper sx={{ p: 2.5 }}>
+                <Typography variant="subtitle1" fontWeight={700}>
+                  Baseline Image
+                </Typography>
+                <Box mt={2} sx={{ position: "relative" }}>
+                  {baselineImageUrl ? (
+                    <ZoomableImage
+                      src={baselineImageUrl}
+                      alt="Baseline"
+                      maxHeight={300}
+                    />
+                  ) : (
+                    <Typography color="text.secondary">
+                      No baseline image available
+                    </Typography>
+                  )}
+                </Box>
 
-          {/* AI Analysis Log Entry */}
-          {(selectedLogEntry === "ai-analysis" ||
-            selectedLogEntry === "all") && (
-            <Card
-              variant="outlined"
-              sx={{
-                bgcolor: "#f8f9fa",
-                borderLeft: 4,
-                borderLeftColor: "#2196f3",
-                transition: "all 0.2s ease",
-                "&:hover": {
-                  boxShadow: 2,
-                },
-              }}
-            >
-              <CardContent sx={{ py: 1.5, px: 2, pb: 0.5 }}>
+                {/* Baseline Image Controls */}
+                <Box mt={2} display="flex" justifyContent="flex-end">
+                  <Tooltip title="Reupload" arrow>
+                    <IconButton size="small" sx={{ color: "primary.main" }}>
+                      <UploadIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              </Paper>
+            </Box>
+
+            {/* Thermal Image with Analysis */}
+            <Box flex={1}>
+              <Paper sx={{ p: 2.5 }}>
                 <Box
                   display="flex"
-                  alignItems="center"
                   justifyContent="space-between"
-                  mb={1}
+                  alignItems="center"
+                  mb={2}
                 >
-                  <Box display="flex" alignItems="center" gap={0.5}>
-                    <Typography
-                      variant="subtitle1"
-                      fontWeight={700}
-                      color="primary"
+                  <Typography variant="subtitle1" fontWeight={700}>
+                    Maintenance Image Analysis
+                  </Typography>
+                </Box>
+
+                <Box sx={{ position: "relative" }}>
+                  {isAnalyzing ? (
+                    <Box
+                      display="flex"
+                      justifyContent="center"
+                      alignItems="center"
+                      minHeight={200}
                     >
-                      AI Analysis
-                    </Typography>
-                    <Chip
-                      label="COMPLETED"
-                      size="small"
-                      color="success"
-                      variant="filled"
-                      sx={{ fontSize: 9, height: 18, fontWeight: 600 }}
+                      <CircularProgress />
+                      <Typography ml={2}>Analyzing thermal image...</Typography>
+                    </Box>
+                  ) : error ? (
+                    <Alert severity="error">{error}</Alert>
+                  ) : thermalImageUrl ? (
+                    <ZoomableImage
+                      src={thermalImageUrl}
+                      alt="Thermal"
+                      maxHeight={300}
+                      canvasRef={canvasRef}
+                      onImageLoad={drawBoundingBoxes}
+                      onScaleChange={setCurrentScale}
                     />
-                  </Box>
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <Typography variant="caption" color="text.secondary">
-                      {new Date(
-                        analysisData.analysisTimestamp
-                      ).toLocaleDateString()}{" "}
-                      {new Date(
-                        analysisData.analysisTimestamp
-                      ).toLocaleTimeString()}
+                  ) : (
+                    <Typography color="text.secondary">
+                      No thermal image available
                     </Typography>
+                  )}
+                </Box>
+
+                {/* Analysis Controls */}
+                {analysisData && (
+                  <Box mt={2}>
+                    <Box
+                      display="flex"
+                      gap={1}
+                      alignItems="center"
+                      flexWrap="wrap"
+                      justifyContent="space-between"
+                    >
+                      <FormControl size="small" sx={{ minWidth: 120 }}>
+                        <Select
+                          value={selectedIssueFilter}
+                          onChange={(e) =>
+                            setSelectedIssueFilter(e.target.value)
+                          }
+                          startAdornment={
+                            <FilterListIcon sx={{ mr: 1, fontSize: 16 }} />
+                          }
+                        >
+                          <MenuItem value="all">All Issues</MenuItem>
+                          {Object.keys(ISSUE_TYPE_LABELS).map((type) => (
+                            <MenuItem key={type} value={type}>
+                              {ISSUE_TYPE_LABELS[type]}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <Typography variant="caption" color="text.secondary">
+                        {filteredIssues.length} of {analysisData.issues.length}{" "}
+                        issues shown
+                      </Typography>
+
+                      <Box display="flex" gap={0.5} alignItems="center">
+                        <Tooltip title="Reupload" arrow>
+                          <IconButton
+                            size="small"
+                            sx={{ color: "primary.main" }}
+                          >
+                            <UploadIcon />
+                          </IconButton>
+                        </Tooltip>
+
+                        {/* MODIFIED: Edit button triggers drawing mode */}
+                        <Tooltip title="Add manual annotations" arrow>
+                          <IconButton
+                            size="small"
+                            sx={{ color: "primary.main" }}
+                            onClick={handleAddAnnotation}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </Box>
+                  </Box>
+                )}
+              </Paper>
+            </Box>
+          </Box>
+
+          {/* Analysis Log */}
+          {analysisData && (
+            <Paper sx={{ p: 2.5, mt: 3 }}>
+              <Box
+                display="flex"
+                justifyContent="space-between"
+                alignItems="center"
+                mb={2}
+              >
+                <Typography variant="subtitle1" fontWeight={700}>
+                  Activity Log ({totalDetections} total: {activeDetections}{" "}
+                  active, {deletedDetections} deleted)
+                </Typography>
+
+                <Box display="flex" gap={1} alignItems="center">
+                  {/* ADD: Export buttons */}
+                  <Tooltip title="Export as JSON" arrow>
                     <IconButton
                       size="small"
-                      onClick={() => setIsLogExpanded(!isLogExpanded)}
+                      onClick={exportToJSON}
+                      disabled={totalDetections === 0}
                       sx={{ color: "primary.main" }}
                     >
-                      {isLogExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                      <DownloadIcon fontSize="small" />
                     </IconButton>
-                  </Box>
-                </Box>
-              </CardContent>
+                  </Tooltip>
 
-              {/* Expandable Metadata Section */}
-              <Collapse in={isLogExpanded} timeout="auto" unmountOnExit>
-                <Divider />
-                <CardContent sx={{ py: 1.5, px: 2 }}>
-                  <Box display="flex" flexDirection="column" gap={1}>
-                    {/* Detailed Issues */}
-                    <Box>
-                      <Box
-                        display="flex"
-                        flexDirection="column"
-                        gap={0.25}
-                        mt={0.25}
+                  <Tooltip title="Export as CSV" arrow>
+                    <IconButton
+                      size="small"
+                      onClick={exportToCSV}
+                      disabled={totalDetections === 0}
+                      sx={{ color: "primary.main" }}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                       >
-                        {analysisData.issues.map((issue, index) => {
-                          // Light color variants for the cards
-                          const lightColors = {
-                            warning: "#fff3e0", // Light orange
-                            critical: "#ffebee", // Light red
-                          };
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <polyline points="10 9 9 9 8 9" />
+                      </svg>
+                    </IconButton>
+                  </Tooltip>
 
-                          const borderColors = {
-                            warning: "#ffb74d", // Medium orange
-                            critical: "#ef5350", // Medium red
-                          };
+                  <Tooltip title="Refresh activity log" arrow>
+                    <IconButton
+                      size="small"
+                      onClick={handleRefreshActivityLog}
+                      disabled={loadingActivityLog}
+                      sx={{ color: "primary.main" }}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+                      </svg>
+                    </IconButton>
+                  </Tooltip>
 
-                          return (
-                            <Card
-                              key={issue.id}
-                              variant="outlined"
-                              sx={{
-                                bgcolor:
-                                  lightColors[
-                                    issue.severity as keyof typeof lightColors
-                                  ] || "#f5f5f5",
-                                borderLeft: 2,
-                                borderLeftColor:
-                                  borderColors[
-                                    issue.severity as keyof typeof borderColors
-                                  ] || "#ff9800",
-                                transition: "all 0.2s ease",
-                                "&:hover": {
-                                  boxShadow: 1,
-                                  transform: "translateY(-1px)",
-                                },
-                              }}
+                  <FormControl size="small" sx={{ minWidth: 150 }}>
+                    <Select
+                      value={activityLogFilter}
+                      onChange={(e) => setActivityLogFilter(e.target.value)}
+                      displayEmpty
+                    >
+                      <MenuItem value="all">All Active</MenuItem>
+                      <MenuItem value="ai">AI Only</MenuItem>
+                      <MenuItem value="manual">Manual Only</MenuItem>
+                      <MenuItem value="deleted">Deleted Only</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Box>
+
+              {loadingActivityLog ? (
+                <Box display="flex" justifyContent="center" p={2}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : totalDetections === 0 ? (
+                <Box display="flex" justifyContent="center" p={3}>
+                  <Typography variant="body2" color="text.secondary">
+                    No{" "}
+                    {activityLogFilter === "all"
+                      ? ""
+                      : activityLogFilter === "ai"
+                      ? "AI"
+                      : "manual"}{" "}
+                    activities found
+                  </Typography>
+                </Box>
+              ) : (
+                <Box display="flex" flexDirection="column" gap={1}>
+                  {filteredSessions.map((session) => (
+                    <Card
+                      key={session.predictionId}
+                      variant="outlined"
+                      sx={{
+                        bgcolor:
+                          session.sessionType === "AI_ANALYSIS"
+                            ? "#E3F2FD"
+                            : "#FFF3E0",
+                        borderLeft: 4,
+                        borderLeftColor:
+                          session.sessionType === "AI_ANALYSIS"
+                            ? "#2196f3"
+                            : "#ff9800",
+                      }}
+                    >
+                      <CardContent
+                        sx={{ py: 1.5, px: 2, "&:last-child": { pb: 1.5 } }}
+                      >
+                        <Box
+                          display="flex"
+                          alignItems="center"
+                          justifyContent="space-between"
+                          sx={{ cursor: "pointer" }}
+                          onClick={() =>
+                            toggleSessionExpansion(session.predictionId)
+                          }
+                        >
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Chip
+                              label={
+                                session.sessionType === "AI_ANALYSIS"
+                                  ? "AI Analysis"
+                                  : "Manual Editing"
+                              }
+                              size="small"
+                              color={
+                                session.sessionType === "AI_ANALYSIS"
+                                  ? "info"
+                                  : "warning"
+                              }
+                              sx={{ fontWeight: 600 }}
+                            />
+                            <Typography variant="body2" fontWeight={600}>
+                              {session.userName}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
                             >
-                              <CardContent
+                              ({session.detections.length} activities)
+                            </Typography>
+                          </Box>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              {new Date(session.createdAt).toLocaleString()}
+                            </Typography>
+                            {expandedSessions.has(session.predictionId) ? (
+                              <ExpandLess />
+                            ) : (
+                              <ExpandMore />
+                            )}
+                          </Box>
+                        </Box>
+
+                        {/* Expandable content */}
+                        {expandedSessions.has(session.predictionId) && (
+                          <Box mt={2}>
+                            {session.detections.map((detection) => (
+                              <Card
+                                key={detection.detectionId}
+                                variant="outlined"
                                 sx={{
-                                  py: 0.75,
-                                  px: 1.25,
-                                  "&:last-child": { pb: 0.75 },
+                                  mb: 1,
+                                  ml: 2,
+                                  bgcolor:
+                                    detection.actionType === "DELETED"
+                                      ? "rgba(244, 67, 54, 0.05)"
+                                      : "background.default",
+                                  borderColor:
+                                    detection.actionType === "DELETED"
+                                      ? "error.light"
+                                      : "divider",
+                                  opacity:
+                                    detection.actionType === "DELETED"
+                                      ? 0.7
+                                      : 1,
                                 }}
                               >
-                                <Box
-                                  display="flex"
-                                  alignItems="center"
-                                  gap={0.75}
+                                <CardContent
+                                  sx={{
+                                    py: 1,
+                                    px: 1.5,
+                                    "&:last-child": { pb: 1 },
+                                  }}
                                 >
-                                  {/* Issue Number Badge */}
-                                  <Box
-                                    sx={{
-                                      width: 18,
-                                      height: 18,
-                                      borderRadius: "50%",
-                                      bgcolor:
-                                        borderColors[
-                                          issue.severity as keyof typeof borderColors
-                                        ] || "#ff9800",
-                                      color: "white",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      fontSize: 9,
-                                      fontWeight: 700,
-                                      boxShadow: 1,
-                                    }}
-                                  >
-                                    {index + 1}
-                                  </Box>
-
-                                  {/* Issue Info */}
                                   <Box
                                     display="flex"
                                     alignItems="center"
-                                    gap={0.5}
-                                    flex={1}
+                                    justifyContent="space-between"
                                   >
+                                    <Box
+                                      display="flex"
+                                      alignItems="center"
+                                      gap={1}
+                                    >
+                                      <Chip
+                                        label={detection.actionType}
+                                        size="small"
+                                        variant="outlined"
+                                        color={
+                                          detection.actionType === "DELETED"
+                                            ? "error"
+                                            : detection.actionType === "EDITED"
+                                            ? "warning"
+                                            : "default"
+                                        }
+                                      />
+                                      <Typography
+                                        variant="body2"
+                                        fontWeight={500}
+                                      >
+                                        {FAULT_TYPE_LABELS_MAP[
+                                          detection.classId
+                                        ] || "Unknown"}
+                                      </Typography>
+                                      <Typography
+                                        variant="caption"
+                                        color="primary.main"
+                                        sx={{ fontWeight: 600 }}
+                                      >
+                                        ID:{" "}
+                                        {detection.logEntryId ||
+                                          detection.detectionId}
+                                        {detection.originalDetectionId && (
+                                          <span style={{ color: "orange" }}>
+                                            {" "}
+                                            (orig:{" "}
+                                            {getOriginalLogEntryId(
+                                              detection.originalDetectionId
+                                            ) || detection.originalDetectionId}
+                                            )
+                                          </span>
+                                        )}
+                                      </Typography>
+                                    </Box>
                                     <Typography
                                       variant="caption"
-                                      fontWeight={600}
-                                      flex={1}
-                                      sx={{ fontSize: 12 }}
+                                      color="text.secondary"
                                     >
-                                      {ISSUE_TYPE_LABELS[issue.type] ||
-                                        issue.type}
+                                      {new Date(
+                                        detection.createdAt
+                                      ).toLocaleString()}
                                     </Typography>
-                                    <Chip
-                                      label={`${Math.round(
-                                        issue.confidence * 100
-                                      )}%`}
-                                      size="small"
-                                      color={
-                                        issue.confidence > 0.8
-                                          ? "success"
-                                          : issue.confidence > 0.6
-                                          ? "warning"
-                                          : "default"
-                                      }
-                                      variant="filled"
-                                      sx={{
-                                        fontWeight: 600,
-                                        height: 16,
-                                        fontSize: 8,
-                                      }}
-                                    />
-                                    <Chip
-                                      label={issue.severity.toUpperCase()}
-                                      size="small"
-                                      color={
-                                        issue.severity === "critical"
-                                          ? "error"
-                                          : "warning"
-                                      }
-                                      variant="outlined"
-                                      sx={{
-                                        fontSize: 7,
-                                        height: 14,
-                                        fontWeight: 600,
-                                        ml: 0.5,
-                                      }}
-                                    />
                                   </Box>
-                                </Box>
 
-                                {/* Issue Description */}
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                  sx={{
-                                    ml: 2.25,
-                                    lineHeight: 1.1,
-                                    fontSize: 9,
-                                    display: "block",
-                                    mt: 0.125,
-                                  }}
-                                >
-                                  {issue.description}
-                                </Typography>
-
-                                {/* Bounding Box Location */}
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                  sx={{
-                                    ml: 2.25,
-                                    lineHeight: 1.1,
-                                    fontSize: 8,
-                                    display: "block",
-                                    fontStyle: "italic",
-                                    mt: 0.125,
-                                  }}
-                                >
-                                  AI Model Coordinates: ({issue.boundingBox.x},{" "}
-                                  {issue.boundingBox.y}) -{" "}
-                                  {issue.boundingBox.width}×
-                                  {issue.boundingBox.height}px (640×640 basis)
-                                </Typography>
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
-                      </Box>
-                    </Box>
-
-                    {/* Permissions & Access */}
-                    <Box>
-                      <Box display="flex" gap={1} mt={0.25} alignItems="center">
-                        <PersonIcon
-                          sx={{ fontSize: 14, color: "text.secondary" }}
-                        />
-                        <Typography variant="caption" sx={{ fontSize: 11 }}>
-                          <strong>Created by:</strong> AI System (Auto-analysis)
-                        </Typography>
-                      </Box>
-                      <Box display="flex" gap={1} mt={0.25} alignItems="center">
-                        <TimerIcon
-                          sx={{ fontSize: 14, color: "text.secondary" }}
-                        />
-                        <Typography variant="caption" sx={{ fontSize: 11 }}>
-                          <strong>Processing Time:</strong>{" "}
-                          {analysisData.processingTime}ms
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Collapse>
-
-              {/* Action Buttons */}
-              <CardActions sx={{ px: 2, py: 1, bgcolor: "rgba(0,0,0,0.02)" }}>
-                <Button
-                  size="small"
-                  startIcon={<CommentIcon />}
-                  onClick={() =>
-                    setNewComment(newComment ? "" : "Add your comment...")
-                  }
-                  sx={{ textTransform: "none" }}
-                >
-                  Add Comment
-                </Button>
-                <Box sx={{ flexGrow: 1 }} />
-                <Typography variant="caption" color="text.secondary">
-                  Log ID: {analysisData.analysisTimestamp.slice(-8)}
-                </Typography>
-              </CardActions>
-
-              {/* Comment Input */}
-              {newComment && (
-                <Box sx={{ px: 2.5, pb: 2 }}>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={2}
-                    placeholder="Add your comment about this analysis..."
-                    value={
-                      newComment === "Add your comment..." ? "" : newComment
-                    }
-                    onChange={(e) => setNewComment(e.target.value)}
-                    size="small"
-                    sx={{ mt: 1 }}
-                  />
-                  <Box display="flex" gap={1} mt={1} justifyContent="flex-end">
-                    <Button
-                      size="small"
-                      onClick={() => setNewComment("")}
-                      sx={{ textTransform: "none" }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      onClick={() => {
-                        // Handle comment submission here
-                        console.log("Comment submitted:", newComment);
-                        setNewComment("");
-                      }}
-                      sx={{ textTransform: "none" }}
-                    >
-                      Post Comment
-                    </Button>
-                  </Box>
+                                  {detection.comments && (
+                                    <Box mt={0.5}>
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                      >
+                                        <strong>Comments:</strong>{" "}
+                                        {detection.comments}
+                                      </Typography>
+                                    </Box>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </Box>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
                 </Box>
               )}
-            </Card>
+            </Paper>
           )}
-
-          {/* Future log entries can be added here with similar conditional rendering */}
-          {/* Example:
-          {selectedLogEntry === "manual-inspection" && (
-            <Card>Manual Inspection Log Content</Card>
-          )}
-          */}
-        </Paper>
+        </>
       )}
+
+      {/* Snackbar notification at the end of the component */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
