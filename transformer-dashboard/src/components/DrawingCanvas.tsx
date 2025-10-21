@@ -425,6 +425,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         annotation.bboxH !== undefined
     );
 
+    // Color is strictly derived from fault type (no manipulation for AI/manual, hover, or selected)
+
     // Draw existing annotations
     validAnnotations.forEach((annotation) => {
       // Use temp resized annotation if this is the one being resized
@@ -443,23 +445,17 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         selectedAnnotation?.detectionId === annotation.detectionId;
       const isHovered =
         hoveredAnnotation?.detectionId === annotation.detectionId;
-      const isAI = annotation.source === "AI_GENERATED";
+  const isAI = annotation.source === "AI_GENERATED";
 
       // Dim other annotations when one is selected for editing
       const isDimmed = isEditMode && selectedAnnotation && !isSelected;
 
-      // Get fault type and determine base color from thermal analysis color scheme
+      // Get fault type and determine base color from fault severity mapping (not source)
       const faultType = CLASS_ID_TO_FAULT_TYPE[annotation.classId] || "Unknown";
       const baseColor = FAULT_TYPE_COLORS[faultType] || SEVERITY_COLORS.warning;
 
-      // Create brighter colors for hover and selected states
-      const brighterColor = isSelected
-        ? "#ff1744" // Bright red for selected
-        : isHovered
-        ? "#ffa726" // Bright orange for hover
-        : baseColor;
-
-      const strokeColor = brighterColor;
+      // Use only the fault color. Thickness indicates selection/hover.
+      const strokeColor = baseColor;
       const lineWidth = isSelected ? 4 : isHovered ? 3 : 2;
 
       // Apply dimming effect
@@ -497,7 +493,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
       // Draw resize handles if selected
       if (isSelected) {
-        drawResizeHandles(ctx, x, y, width, height);
+        drawResizeHandles(ctx, x, y, width, height, baseColor);
       }
 
       ctx.setLineDash([]);
@@ -506,7 +502,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
     // Draw current box if drawing
     if (currentBox && activeToolbox === "draw") {
-      ctx.strokeStyle = SEVERITY_COLORS.warning;
+      const drawColor = FAULT_TYPE_COLORS[selectedFaultType] || SEVERITY_COLORS.warning;
+      ctx.strokeStyle = drawColor;
       ctx.lineWidth = 3;
       ctx.setLineDash([5, 3]);
       ctx.strokeRect(
@@ -516,7 +513,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         currentBox.height
       );
 
-      ctx.fillStyle = SEVERITY_COLORS.warning + BOUNDING_BOX_OPACITY;
+      ctx.fillStyle = drawColor + BOUNDING_BOX_OPACITY;
       ctx.fillRect(
         currentBox.x,
         currentBox.y,
@@ -528,11 +525,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
     // Draw finalized box
     if (drawnBox && !isDrawing && activeToolbox === "draw") {
-      ctx.strokeStyle = SEVERITY_COLORS.warning;
+      const drawColor = FAULT_TYPE_COLORS[selectedFaultType] || SEVERITY_COLORS.warning;
+      ctx.strokeStyle = drawColor;
       ctx.lineWidth = 3;
       ctx.strokeRect(drawnBox.x, drawnBox.y, drawnBox.width, drawnBox.height);
 
-      ctx.fillStyle = SEVERITY_COLORS.warning + BOUNDING_BOX_OPACITY;
+      ctx.fillStyle = drawColor + BOUNDING_BOX_OPACITY;
       ctx.fillRect(drawnBox.x, drawnBox.y, drawnBox.width, drawnBox.height);
     }
   }, [
@@ -554,12 +552,13 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     x: number,
     y: number,
     width: number,
-    height: number
+    height: number,
+    color: string
   ) => {
     const handleSize = 8;
     const halfHandle = handleSize / 2;
 
-    ctx.fillStyle = "#EF4444";
+    ctx.fillStyle = color;
     ctx.strokeStyle = "#FFFFFF";
     ctx.lineWidth = 2;
 

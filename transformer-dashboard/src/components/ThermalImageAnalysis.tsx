@@ -629,7 +629,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   };
 
   // Draw bounding boxes on canvas
-  const drawBoundingBoxes = () => {
+  const drawBoundingBoxes = useCallback(() => {
     const canvas = canvasRef.current;
 
     if (!canvas) return;
@@ -718,20 +718,8 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
         return;
       }
 
-      // Determine color based on detection source and action type
-      let color;
-      if (detection.source === "AI_GENERATED") {
-        color = "#2196f3"; // Blue for AI detections
-      } else if (detection.source === "MANUALLY_ADDED") {
-        color = "#4caf50"; // Green for manual detections
-      } else {
-        color = "#ff9800"; // Orange fallback
-      }
-
-      // Different styling for edited detections
-      if (detection.actionType === "EDITED") {
-        color = "#ff9800"; // Orange for edited
-      }
+      // Determine color strictly by fault type (severity) instead of source
+      const { color } = getSeverityStyle(detection.classId);
 
       // Scale based on zoom level for consistent visual appearance
       const scaleFactor = 1 / currentScale;
@@ -779,14 +767,14 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
         ctx.textBaseline = "alphabetic";
       }
     });
-  };
+  }, [getLatestDetections, selectedIssueFilter, currentScale]);
 
   // Effect to redraw bounding boxes when data changes
   useEffect(() => {
     if (analysisData && canvasRef.current) {
       drawBoundingBoxes();
     }
-  }, [analysisData, predictionSessions, selectedIssueFilter, currentScale]);
+  }, [analysisData, drawBoundingBoxes]);
 
   const filteredIssues =
     analysisData?.issues.filter(
