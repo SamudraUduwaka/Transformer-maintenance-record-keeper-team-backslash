@@ -184,6 +184,9 @@ public class ManualDetectionController {
                                 entry.setBboxW(d.getBboxW());
                                 entry.setBboxH(d.getBboxH());
                                 entry.setConfidence(d.getConfidence());
+                                // Include new fields
+                                entry.setInspectionId(d.getInspectionId());
+                                entry.setLogEntryId(d.getLogEntryId());
                                 return entry;
                             })
                             .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
@@ -253,6 +256,9 @@ public class ManualDetectionController {
         private Integer bboxW;
         private Integer bboxH;
         private Double confidence;
+        // New fields
+        private Integer inspectionId;
+        private Integer logEntryId;
     }
     
     // DTO for prediction session response
