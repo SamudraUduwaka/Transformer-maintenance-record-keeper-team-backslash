@@ -763,7 +763,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         }
       } else {
         setHoveredAnnotation(null);
-        canvas.style.cursor = "not-allowed"; // Show disabled cursor when in edit mode
+        canvas.style.cursor = "default"; // Neutral cursor outside selected box while in edit mode
       }
       return;
     }
@@ -1766,7 +1766,6 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
                 setSelectedAnnotation(null);
                 setTempResizedAnnotation(null);
               }}
-              disabled={isEditMode}
               sx={{
                 minWidth: 32,
                 width: 32,
