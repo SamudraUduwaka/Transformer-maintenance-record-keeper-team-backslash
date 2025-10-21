@@ -28,18 +28,22 @@ interface BoundingBox {
   height: number;
 }
 
-interface Detection {
-  id: number;
-  classId: number;
-  confidence: number;
-  bboxX: number;
-  bboxY: number;
-  bboxW: number;
-  bboxH: number;
+interface ActivityLogEntry {
+  detectionId: number;
+  originalDetectionId?: number;
   source: "AI_GENERATED" | "MANUALLY_ADDED";
   actionType: "ADDED" | "EDITED" | "DELETED";
+  classId: number;
   comments?: string;
   createdAt: string;
+  userId?: number;
+  userName: string;
+  // Bounding box coordinates
+  bboxX?: number;
+  bboxY?: number;
+  bboxW?: number;
+  bboxH?: number;
+  confidence?: number;
 }
 
 interface DrawingCanvasProps {
@@ -50,6 +54,7 @@ interface DrawingCanvasProps {
   onEditSave?: () => void; // New prop for refreshing activity log after editing
   isActive: boolean;
   predictionId?: number;
+  existingDetections?: ActivityLogEntry[]; // Add existing detections to display
 }
 
 const FAULT_TYPES = [
@@ -86,6 +91,16 @@ const FAULT_TYPE_COLORS: Record<string, string> = {
 // Opacity for bounding box background (matching thermal analysis)
 const BOUNDING_BOX_OPACITY = "20";
 
+// Helper function to check if annotation has valid bounding box
+const hasValidBbox = (annotation: ActivityLogEntry): boolean => {
+  return (
+    annotation.bboxX !== undefined &&
+    annotation.bboxY !== undefined &&
+    annotation.bboxW !== undefined &&
+    annotation.bboxH !== undefined
+  );
+};
+
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   imageUrl,
   onSave,
@@ -93,6 +108,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   onEditSave,
   isActive,
   predictionId,
+  existingDetections = [],
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -109,19 +125,18 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   const [comments, setComments] = useState("");
 
   // Existing annotations state
-  const [existingAnnotations, setExistingAnnotations] = useState<Detection[]>(
-    []
-  );
+  const [existingAnnotations, setExistingAnnotations] = useState<
+    ActivityLogEntry[]
+  >([]);
   const [selectedAnnotation, setSelectedAnnotation] =
-    useState<Detection | null>(null);
+    useState<ActivityLogEntry | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // State for hover and resize functionality
-  const [hoveredAnnotation, setHoveredAnnotation] = useState<Detection | null>(
-    null
-  );
+  const [hoveredAnnotation, setHoveredAnnotation] =
+    useState<ActivityLogEntry | null>(null);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const [resizeStartPoint, setResizeStartPoint] = useState<{
@@ -147,12 +162,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
   // State for temporary visual changes during resize (don't commit until save)
   const [tempResizedAnnotation, setTempResizedAnnotation] =
-    useState<Detection | null>(null);
+    useState<ActivityLogEntry | null>(null);
 
   // Delete confirmation dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [annotationToDelete, setAnnotationToDelete] =
-    useState<Detection | null>(null);
+    useState<ActivityLogEntry | null>(null);
 
   // Reset to draw mode when component becomes active
   useEffect(() => {
@@ -165,7 +180,17 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   }, [isActive]);
 
   // Fetch existing annotations
+  // Use passed existingDetections or fetch if not provided
   useEffect(() => {
+    if (existingDetections.length > 0) {
+      // Use passed detections from parent and filter out deleted ones
+      setExistingAnnotations(
+        existingDetections.filter((d) => d.actionType !== "DELETED")
+      );
+      return;
+    }
+
+    // Fallback: fetch from API if no detections passed
     if (!predictionId || !isActive) return;
 
     const fetchAnnotations = async () => {
@@ -183,7 +208,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           throw new Error("Failed to fetch annotations");
         }
 
-        const data: Detection[] = await response.json();
+        const data: ActivityLogEntry[] = await response.json();
         // Filter out deleted annotations
         setExistingAnnotations(data.filter((d) => d.actionType !== "DELETED"));
       } catch (err) {
@@ -195,7 +220,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     };
 
     fetchAnnotations();
-  }, [predictionId, isActive]);
+  }, [predictionId, isActive, existingDetections]); // Add existingDetections to dependency array
 
   // Initialize canvas when image loads
   useEffect(() => {
@@ -285,21 +310,33 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Filter annotations that have complete bounding box data
+    const validAnnotations = existingAnnotations.filter(
+      (annotation) =>
+        annotation.bboxX !== undefined &&
+        annotation.bboxY !== undefined &&
+        annotation.bboxW !== undefined &&
+        annotation.bboxH !== undefined
+    );
+
     // Draw existing annotations
-    existingAnnotations.forEach((annotation) => {
+    validAnnotations.forEach((annotation) => {
       // Use temp resized annotation if this is the one being resized
       const displayAnnotation =
-        tempResizedAnnotation && tempResizedAnnotation.id === annotation.id
+        tempResizedAnnotation &&
+        tempResizedAnnotation.detectionId === annotation.detectionId
           ? tempResizedAnnotation
           : annotation;
 
-      const x = displayAnnotation.bboxX / scaleX;
-      const y = displayAnnotation.bboxY / scaleY;
-      const width = displayAnnotation.bboxW / scaleX;
-      const height = displayAnnotation.bboxH / scaleY;
+      const x = displayAnnotation.bboxX! / scaleX;
+      const y = displayAnnotation.bboxY! / scaleY;
+      const width = displayAnnotation.bboxW! / scaleX;
+      const height = displayAnnotation.bboxH! / scaleY;
 
-      const isSelected = selectedAnnotation?.id === annotation.id;
-      const isHovered = hoveredAnnotation?.id === annotation.id;
+      const isSelected =
+        selectedAnnotation?.detectionId === annotation.detectionId;
+      const isHovered =
+        hoveredAnnotation?.detectionId === annotation.detectionId;
       const isAI = annotation.source === "AI_GENERATED";
 
       // Dim other annotations when one is selected for editing
@@ -540,7 +577,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   };
 
   // Check if mouse is over any annotation
-  const getAnnotationAtPoint = (x: number, y: number): Detection | null => {
+  const getAnnotationAtPoint = (
+    x: number,
+    y: number
+  ): ActivityLogEntry | null => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
 
@@ -553,10 +593,15 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
     return (
       [...existingAnnotations].reverse().find((annotation) => {
-        const ax = annotation.bboxX / scaleX;
-        const ay = annotation.bboxY / scaleY;
-        const aw = annotation.bboxW / scaleX;
-        const ah = annotation.bboxH / scaleY;
+        // Skip annotations without complete bounding box data
+        if (!hasValidBbox(annotation)) {
+          return false;
+        }
+
+        const ax = annotation.bboxX! / scaleX;
+        const ay = annotation.bboxY! / scaleY;
+        const aw = annotation.bboxW! / scaleX;
+        const ah = annotation.bboxH! / scaleY;
 
         return (
           adjustedX >= ax &&
@@ -588,11 +633,14 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       const scaleX = parseFloat(canvas.dataset.scaleX || "1");
       const scaleY = parseFloat(canvas.dataset.scaleY || "1");
 
+      // Skip if annotation doesn't have complete bounding box data
+      if (!hasValidBbox(annotationForHandles)) return;
+
       // Convert to screen coordinates with zoom and pan applied
-      const ax = annotationForHandles.bboxX / scaleX;
-      const ay = annotationForHandles.bboxY / scaleY;
-      const aw = annotationForHandles.bboxW / scaleX;
-      const ah = annotationForHandles.bboxH / scaleY;
+      const ax = annotationForHandles.bboxX! / scaleX;
+      const ay = annotationForHandles.bboxY! / scaleY;
+      const aw = annotationForHandles.bboxW! / scaleX;
+      const ah = annotationForHandles.bboxH! / scaleY;
 
       const isHoveringSelected =
         x >= ax && x <= ax + aw && y >= ay && y <= ay + ah;
@@ -658,10 +706,13 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     if (isEditMode && selectedAnnotation && activeToolbox === "edit") {
       // Check if clicking on a resize handle for the currently selected annotation
       const annotationForHandles = tempResizedAnnotation || selectedAnnotation;
-      const ax = annotationForHandles.bboxX / scaleX;
-      const ay = annotationForHandles.bboxY / scaleY;
-      const aw = annotationForHandles.bboxW / scaleX;
-      const ah = annotationForHandles.bboxH / scaleY;
+
+      if (!hasValidBbox(annotationForHandles)) return;
+
+      const ax = annotationForHandles.bboxX! / scaleX;
+      const ay = annotationForHandles.bboxY! / scaleY;
+      const aw = annotationForHandles.bboxW! / scaleX;
+      const ah = annotationForHandles.bboxH! / scaleY;
 
       const handle = getResizeHandle(x, y, ax, ay, aw, ah);
 
@@ -671,10 +722,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         setResizeHandle(handle);
         setResizeStartPoint({ x: adjustedX, y: adjustedY });
         setResizeStartBox({
-          x: annotationForHandles.bboxX,
-          y: annotationForHandles.bboxY,
-          width: annotationForHandles.bboxW,
-          height: annotationForHandles.bboxH,
+          x: annotationForHandles.bboxX!,
+          y: annotationForHandles.bboxY!,
+          width: annotationForHandles.bboxW!,
+          height: annotationForHandles.bboxH!,
         });
         return;
       }
@@ -688,10 +739,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         setIsDragging(true);
         setDragStartPoint({ x: adjustedX, y: adjustedY });
         setDragStartBox({
-          x: annotationForHandles.bboxX,
-          y: annotationForHandles.bboxY,
-          width: annotationForHandles.bboxW,
-          height: annotationForHandles.bboxH,
+          x: annotationForHandles.bboxX!,
+          y: annotationForHandles.bboxY!,
+          width: annotationForHandles.bboxW!,
+          height: annotationForHandles.bboxH!,
         });
         return;
       }
@@ -705,10 +756,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       const clickedAnnotation = [...existingAnnotations]
         .reverse()
         .find((annotation) => {
-          const ax = annotation.bboxX / scaleX;
-          const ay = annotation.bboxY / scaleY;
-          const aw = annotation.bboxW / scaleX;
-          const ah = annotation.bboxH / scaleY;
+          if (!hasValidBbox(annotation)) return false;
+
+          const ax = annotation.bboxX! / scaleX;
+          const ay = annotation.bboxY! / scaleY;
+          const aw = annotation.bboxW! / scaleX;
+          const ah = annotation.bboxH! / scaleY;
 
           return x >= ax && x <= ax + aw && y >= ay && y <= ay + ah;
         });
@@ -928,11 +981,13 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     // Use temp resized annotation if it exists, otherwise use selected annotation
     const annotationToSave = tempResizedAnnotation || selectedAnnotation;
 
+    if (!hasValidBbox(annotationToSave)) return;
+
     // Convert annotation coordinates to model coordinates
-    const x1 = annotationToSave.bboxX;
-    const y1 = annotationToSave.bboxY;
-    const x2 = annotationToSave.bboxX + annotationToSave.bboxW;
-    const y2 = annotationToSave.bboxY + annotationToSave.bboxH;
+    const x1 = annotationToSave.bboxX!;
+    const y1 = annotationToSave.bboxY!;
+    const x2 = annotationToSave.bboxX! + annotationToSave.bboxW!;
+    const y2 = annotationToSave.bboxY! + annotationToSave.bboxH!;
 
     const faultTypeToClassId: Record<string, number> = {
       "Point Overload (Faulty)": 0,
@@ -944,7 +999,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/detections/${selectedAnnotation.id}`,
+        `http://localhost:8080/api/detections/${selectedAnnotation.detectionId}`,
         {
           method: "PUT",
           headers: {
@@ -955,8 +1010,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
             predictionId: predictionId,
             classId: faultTypeToClassId[selectedFaultType],
             confidence: 1.0,
-            x1: Math.round(x1),
-            y1: Math.round(y1),
+            x1: Math.round(x1!),
+            y1: Math.round(y1!),
             x2: Math.round(x2),
             y2: Math.round(y2),
             comments: comments || null,
@@ -975,7 +1030,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           headers: authService.getAuthHeader(),
         }
       );
-      const data: Detection[] = await refreshResponse.json();
+      const data: ActivityLogEntry[] = await refreshResponse.json();
       setExistingAnnotations(data.filter((d) => d.actionType !== "DELETED"));
 
       // Refresh activity log after successful edit
@@ -988,6 +1043,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       setComments("");
       setSelectedFaultType(FAULT_TYPES[0]);
       setTempResizedAnnotation(null); // Clear temp state
+      setActiveToolbox("draw"); // Return to drawing mode after editing
     } catch (err) {
       console.error("Failed to edit annotation:", err);
       setError("Failed to update annotation");
@@ -1004,11 +1060,13 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     // Use temp resized annotation if it exists, otherwise use selected annotation
     const annotationToSave = tempResizedAnnotation || selectedAnnotation;
 
+    if (!hasValidBbox(annotationToSave)) return;
+
     // Convert annotation coordinates to model coordinates
-    const x1 = annotationToSave.bboxX;
-    const y1 = annotationToSave.bboxY;
-    const x2 = annotationToSave.bboxX + annotationToSave.bboxW;
-    const y2 = annotationToSave.bboxY + annotationToSave.bboxH;
+    const x1 = annotationToSave.bboxX!;
+    const y1 = annotationToSave.bboxY!;
+    const x2 = annotationToSave.bboxX! + annotationToSave.bboxW!;
+    const y2 = annotationToSave.bboxY! + annotationToSave.bboxH!;
 
     const faultTypeToClassId: Record<string, number> = {
       "Point Overload (Faulty)": 0,
@@ -1020,7 +1078,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/detections/${selectedAnnotation.id}`,
+        `http://localhost:8080/api/detections/${selectedAnnotation.detectionId}`,
         {
           method: "PUT",
           headers: {
@@ -1031,8 +1089,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
             predictionId: predictionId,
             classId: faultTypeToClassId[selectedFaultType],
             confidence: 1.0,
-            x1: Math.round(x1),
-            y1: Math.round(y1),
+            x1: Math.round(x1!),
+            y1: Math.round(y1!),
             x2: Math.round(x2),
             y2: Math.round(y2),
             comments: comments || null,
@@ -1051,7 +1109,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           headers: authService.getAuthHeader(),
         }
       );
-      const data: Detection[] = await refreshResponse.json();
+      const data: ActivityLogEntry[] = await refreshResponse.json();
       const filteredData = data.filter((d) => d.actionType !== "DELETED");
       setExistingAnnotations(filteredData);
 
@@ -1066,7 +1124,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       setComments("");
       setSelectedFaultType(FAULT_TYPES[0]);
       setTempResizedAnnotation(null);
+      setHoveredAnnotation(null); // Clear any hover highlights
       setError(null);
+      setActiveToolbox("draw"); // Return to drawing mode after editing
 
       // Keep drawing mode active for continued annotation
     } catch (err) {
@@ -1104,7 +1164,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/detections/${annotationToDelete.id}?reason=User%20deleted`,
+        `http://localhost:8080/api/detections/${annotationToDelete.detectionId}?reason=User%20deleted`,
         {
           method: "DELETE",
           headers: authService.getAuthHeader(),
@@ -1130,7 +1190,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         throw new Error("Failed to refresh annotations");
       }
 
-      const data: Detection[] = await refreshResponse.json();
+      const data: ActivityLogEntry[] = await refreshResponse.json();
       setExistingAnnotations(data.filter((d) => d.actionType !== "DELETED"));
 
       setSelectedAnnotation(null);
@@ -1139,6 +1199,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       setSelectedFaultType(FAULT_TYPES[0]);
       setError(null);
       setAnnotationToDelete(null);
+      setActiveToolbox("draw"); // Return to drawing mode after deleting
     } catch (err) {
       console.error("Failed to delete annotation:", err);
       setError(
@@ -1236,13 +1297,23 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           headers: authService.getAuthHeader(),
         }
       );
-      const data: Detection[] = await refreshResponse.json();
+      const data: ActivityLogEntry[] = await refreshResponse.json();
       setExistingAnnotations(data.filter((d) => d.actionType !== "DELETED"));
+
+      // Refresh activity log in parent component too
+      if (onEditSave) {
+        await onEditSave();
+      }
 
       // Reset state for next annotation but stay in draw mode
       setDrawnBox(null);
       setComments("");
       setSelectedFaultType(FAULT_TYPES[0]);
+      setSelectedAnnotation(null); // Clear any selection
+      setHoveredAnnotation(null); // Clear any hover highlights
+      setIsEditMode(false); // Ensure we're not in edit mode
+      setTempResizedAnnotation(null); // Clear any temp state
+      setActiveToolbox("draw"); // Ensure we're in draw mode
       setError(null);
     } catch (err) {
       console.error("Failed to save annotation:", err);
@@ -1487,7 +1558,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
                   {selectedAnnotation.source === "AI_GENERATED"
                     ? "AI"
                     : "Manual"}{" "}
-                  Detection (ID: {selectedAnnotation.id})
+                  Detection (ID: {selectedAnnotation.detectionId})
                 </Typography>
               </Alert>
             )}
@@ -1543,7 +1614,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
                     setResizeHandle(null);
                     setResizeStartPoint(null);
                     setResizeStartBox(null);
-                    setActiveToolbox("view");
+                    setActiveToolbox("draw"); // Return to drawing mode after canceling
                   }}
                 >
                   Cancel
