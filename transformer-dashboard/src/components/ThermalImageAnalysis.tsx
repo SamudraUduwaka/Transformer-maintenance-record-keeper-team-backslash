@@ -21,9 +21,10 @@ import {
   ZoomOut as ZoomOutIcon,
   CenterFocusStrong as CenterFocusStrongIcon,
   Edit as EditIcon,
-  Person as PersonIcon,
   Upload as UploadIcon,
   Download as DownloadIcon,
+  ExpandMore,
+  ExpandLess,
 } from "@mui/icons-material";
 import { authService } from "../services/authService";
 import DrawingCanvas from "./DrawingCanvas";
@@ -63,11 +64,6 @@ interface ThermalImageAnalysisProps {
   transformerNo?: string;
   inspectionId?: number;
 }
-
-const SEVERITY_COLORS = {
-  warning: "#ff9800",
-  critical: "#f44336",
-};
 
 const ISSUE_TYPE_LABELS: Record<string, string> = {
   "Loose Joint (Faulty)": "Loose Joint - Faulty",
@@ -330,6 +326,7 @@ const ZoomableImage: React.FC<ZoomableImageProps> = ({
 // Activity Log interfaces
 interface ActivityLogEntry {
   detectionId: number;
+  originalDetectionId?: number; // Reference to original detection for EDITED/DELETED
   source: "AI_GENERATED" | "MANUALLY_ADDED";
   actionType: "ADDED" | "EDITED" | "DELETED";
   classId: number;
@@ -337,6 +334,22 @@ interface ActivityLogEntry {
   createdAt: string;
   userId?: number;
   userName: string;
+  // Bounding box coordinates
+  bboxX?: number;
+  bboxY?: number;
+  bboxW?: number;
+  bboxH?: number;
+  confidence?: number;
+}
+
+interface PredictionSession {
+  predictionId: number;
+  sessionType: "AI_ANALYSIS" | "MANUAL_EDITING";
+  userName: string;
+  userId: number;
+  createdAt: string;
+  issueCount: number;
+  detections: ActivityLogEntry[];
 }
 
 const FAULT_TYPE_LABELS_MAP: Record<number, string> = {
@@ -379,6 +392,16 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const analyzedImagesRef = useRef<Set<string>>(new Set());
   const inFlightRef = useRef<string | null>(null);
+
+  // Activity log states
+  const [predictionSessions, setPredictionSessions] = useState<
+    PredictionSession[]
+  >([]);
+  const [loadingActivityLog, setLoadingActivityLog] = useState(false);
+  const [activityLogFilter, setActivityLogFilter] = useState<string>("all");
+  const [expandedSessions, setExpandedSessions] = useState<Set<number>>(
+    new Set()
+  );
 
   // API call to analyze thermal image
   const analyzeThermalImage =
@@ -457,11 +480,145 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       });
   }, [thermalImageUrl, loading, analyzeThermalImage, onAnalysisComplete]);
 
+  // Get the latest state of all detections for drawing
+  const getLatestDetections = (): ActivityLogEntry[] => {
+    if (!predictionSessions || predictionSessions.length === 0) {
+      // If no activity log, show original AI detections
+      return (
+        analysisData?.issues.map(
+          (issue, index) =>
+            ({
+              detectionId: index + 1,
+              source: "AI_GENERATED",
+              actionType: "ADDED",
+              classId: getClassIdFromIssueType(issue.type),
+              bboxX: issue.boundingBox.x,
+              bboxY: issue.boundingBox.y,
+              bboxW: issue.boundingBox.width,
+              bboxH: issue.boundingBox.height,
+              confidence: issue.confidence,
+              createdAt: new Date().toISOString(),
+              userName: "AI",
+            } as ActivityLogEntry)
+        ) || []
+      );
+    }
+
+    // Build a comprehensive map to track all detection states
+    const detectionStateMap = new Map<number, ActivityLogEntry>();
+    const processedDetections = new Set<number>(); // Track which detections we've already included
+
+    // Process all detections from all sessions to build latest state
+    predictionSessions.forEach((session) => {
+      session.detections.forEach((detection) => {
+        if (detection.originalDetectionId) {
+          // This is an EDITED or DELETED detection of an existing one
+          const originalId = detection.originalDetectionId;
+          detectionStateMap.set(originalId, detection);
+          processedDetections.add(originalId); // Mark original as processed
+        } else {
+          // This is a new ADDED detection - only add if not already processed by an edit/delete
+          if (!processedDetections.has(detection.detectionId)) {
+            detectionStateMap.set(detection.detectionId, detection);
+          }
+        }
+      });
+    });
+
+    const result: ActivityLogEntry[] = [];
+
+    // First, handle original AI detections
+    if (analysisData?.issues) {
+      analysisData.issues.forEach((issue, index) => {
+        const detectionId = index + 1; // Assuming AI detection IDs start from 1
+        const latestState = detectionStateMap.get(detectionId);
+
+        if (!latestState) {
+          // Original AI detection unchanged
+          result.push({
+            detectionId: detectionId,
+            source: "AI_GENERATED",
+            actionType: "ADDED",
+            classId: getClassIdFromIssueType(issue.type),
+            bboxX: issue.boundingBox.x,
+            bboxY: issue.boundingBox.y,
+            bboxW: issue.boundingBox.width,
+            bboxH: issue.boundingBox.height,
+            confidence: issue.confidence,
+            createdAt: new Date().toISOString(),
+            userName: "AI",
+          } as ActivityLogEntry);
+        } else if (latestState.actionType !== "DELETED") {
+          // Use edited version with fallback coordinates if needed
+          result.push({
+            ...latestState,
+            bboxX: latestState.bboxX ?? issue.boundingBox.x,
+            bboxY: latestState.bboxY ?? issue.boundingBox.y,
+            bboxW: latestState.bboxW ?? issue.boundingBox.width,
+            bboxH: latestState.bboxH ?? issue.boundingBox.height,
+          });
+        }
+        // If DELETED, don't add to result
+      });
+    }
+
+    // Then, handle all other detections (manually added ones)
+    detectionStateMap.forEach((detection, detectionId) => {
+      // Skip if this was already handled in the AI detections section
+      const aiDetectionCount = analysisData?.issues?.length || 0;
+      if (detectionId <= aiDetectionCount) {
+        return; // Already processed above
+      }
+
+      // Only show the latest state if not deleted and has coordinates
+      if (
+        detection.actionType !== "DELETED" &&
+        detection.bboxX !== undefined &&
+        detection.bboxY !== undefined &&
+        detection.bboxW !== undefined &&
+        detection.bboxH !== undefined
+      ) {
+        result.push(detection);
+      }
+    });
+
+    console.log("Latest detections for drawing:", {
+      totalDetections: result.length,
+      aiDetections: result.filter((d) => d.source === "AI_GENERATED").length,
+      manualDetections: result.filter((d) => d.source === "MANUALLY_ADDED")
+        .length,
+      detectionStateMap: Array.from(detectionStateMap.entries()).map(
+        ([id, det]) => ({
+          id,
+          action: det.actionType,
+          source: det.source,
+          originalId: det.originalDetectionId,
+          hasCoords: !!(det.bboxX && det.bboxY && det.bboxW && det.bboxH),
+        })
+      ),
+      resultIds: result.map((d) => d.detectionId),
+    });
+
+    return result;
+  };
+
+  // Helper function to map issue type to class ID
+  const getClassIdFromIssueType = (issueType: string): number => {
+    const typeToClassId: Record<string, number> = {
+      "Point Overload (Faulty)": 0,
+      "Loose Joint (Faulty)": 1,
+      "Point Overload (Potential)": 2,
+      "Loose Joint (Potential)": 3,
+      "Full Wire Overload": 4,
+    };
+    return typeToClassId[issueType] ?? 0;
+  };
+
   // Draw bounding boxes on canvas
   const drawBoundingBoxes = () => {
     const canvas = canvasRef.current;
 
-    if (!canvas || !analysisData) return;
+    if (!canvas) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -473,10 +630,15 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     const displayedImageWidth = canvas.width;
     const displayedImageHeight = canvas.height;
 
+    // Get latest detection states
+    const latestDetections = getLatestDetections();
+
     console.log("Drawing bounding boxes:", {
       canvasSize: { width: displayedImageWidth, height: displayedImageHeight },
-      issuesCount: analysisData.issues.length,
+      detectionsCount: latestDetections.length,
     });
+
+    if (latestDetections.length === 0) return;
 
     // AI model processes images at 640x640, so coordinates are relative to that size
     const AI_MODEL_SIZE = 640;
@@ -487,15 +649,20 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
     console.log("Scaling factors:", { scaleX, scaleY });
 
-    // Filter issues based on selected filter
-    const filteredIssues = analysisData.issues.filter(
-      (issue) =>
-        selectedIssueFilter === "all" || issue.type === selectedIssueFilter
-    );
+    // Filter detections based on selected filter (by fault class)
+    const filteredDetections = latestDetections.filter((detection) => {
+      if (selectedIssueFilter === "all") return true;
+      const faultType = FAULT_TYPE_LABELS_MAP[detection.classId];
+      return faultType === selectedIssueFilter;
+    });
 
     // Draw bounding boxes
-    filteredIssues.forEach((issue, index) => {
-      const { x, y, width, height } = issue.boundingBox;
+    filteredDetections.forEach((detection, index) => {
+      // Detection uses bbox coordinates (x, y, w, h format)
+      const x = detection.bboxX || 0;
+      const y = detection.bboxY || 0;
+      const width = detection.bboxW || 0;
+      const height = detection.bboxH || 0;
 
       // Scale the coordinates to match the actual displayed image size
       const scaledX = x * scaleX;
@@ -503,7 +670,9 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       const scaledWidth = width * scaleX;
       const scaledHeight = height * scaleY;
 
-      console.log(`Issue ${index + 1}:`, {
+      console.log(`Detection ${index + 1}:`, {
+        detectionId: detection.detectionId,
+        actionType: detection.actionType,
         original: { x, y, width, height },
         scaled: {
           x: scaledX,
@@ -531,13 +700,24 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
       // Skip drawing if the box is completely outside the canvas
       if (clampedWidth <= 0 || clampedHeight <= 0) {
-        console.warn(`Skipping issue ${index + 1} - outside canvas bounds`);
+        console.warn(`Skipping detection ${index + 1} - outside canvas bounds`);
         return;
       }
 
-      const color =
-        SEVERITY_COLORS[issue.severity as keyof typeof SEVERITY_COLORS] ||
-        "#ff9800"; // fallback to warning color
+      // Determine color based on detection source and action type
+      let color;
+      if (detection.source === "AI_GENERATED") {
+        color = "#2196f3"; // Blue for AI detections
+      } else if (detection.source === "MANUALLY_ADDED") {
+        color = "#4caf50"; // Green for manual detections
+      } else {
+        color = "#ff9800"; // Orange fallback
+      }
+
+      // Different styling for edited detections
+      if (detection.actionType === "EDITED") {
+        color = "#ff9800"; // Orange for edited
+      }
 
       // Scale based on zoom level for consistent visual appearance
       const scaleFactor = 1 / currentScale;
@@ -553,12 +733,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       // Draw filled background with transparency
       ctx.fillStyle = color + BOUNDING_BOX_OPACITY;
       ctx.fillRect(clampedX, clampedY, clampedWidth, clampedHeight);
-
-      // Draw small number in top-left corner
-      const originalIndex = analysisData.issues.findIndex(
-        (i) => i.id === issue.id
-      );
-      const issueNumber = (originalIndex + 1).toString();
+      const detectionNumber = detection.detectionId.toString();
 
       // Draw small circular badge for number in top-left corner (using clamped coordinates)
       const badgeX = clampedX + badgeSize / 2;
@@ -581,7 +756,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
         ctx.font = `bold ${fontSize}px Arial`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(issueNumber, badgeX, badgeY);
+        ctx.fillText(detectionNumber, badgeX, badgeY);
 
         // Reset text alignment for future drawings
         ctx.textAlign = "start";
@@ -589,6 +764,13 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       }
     });
   };
+
+  // Effect to redraw bounding boxes when data changes
+  useEffect(() => {
+    if (analysisData && canvasRef.current) {
+      drawBoundingBoxes();
+    }
+  }, [analysisData, predictionSessions, selectedIssueFilter, currentScale]);
 
   const filteredIssues =
     analysisData?.issues.filter(
@@ -606,23 +788,69 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   };
 
   const handleEditFinish = async () => {
-    // Refresh analysis to show updated annotations before returning to comparison view
-    analyzedImagesRef.current.delete(thermalImageUrl || "");
-    if (thermalImageUrl) {
-      setIsAnalyzing(true);
-      try {
-        const data = await analyzeThermalImage();
-        setAnalysisData(data);
-        onAnalysisComplete?.(data);
-      } catch (err) {
-        setError(
-          `Failed to refresh analysis: ${
-            err instanceof Error ? err.message : "Unknown error"
-          }`
-        );
-      } finally {
-        setIsAnalyzing(false);
+    if (!predictionId) {
+      setSnackbar({
+        open: true,
+        message: "No prediction found to finish editing session.",
+        severity: "error",
+      });
+      return;
+    }
+
+    try {
+      // Finish the current editing session
+      const response = await fetch(
+        `http://localhost:8080/api/predictions/${predictionId}/finish-editing`,
+        {
+          method: "POST",
+          headers: {
+            ...authService.getAuthHeader(),
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to finish editing session: ${response.status}`);
       }
+
+      setSnackbar({
+        open: true,
+        message: "Editing session completed successfully!",
+        severity: "success",
+      });
+
+      console.log("Editing session finished successfully");
+
+      // Refresh activity log to show the completed session
+      await fetchActivityLog();
+
+      // Refresh analysis to show updated annotations before returning to comparison view
+      analyzedImagesRef.current.delete(thermalImageUrl || "");
+      if (thermalImageUrl) {
+        setIsAnalyzing(true);
+        try {
+          const data = await analyzeThermalImage();
+          setAnalysisData(data);
+          onAnalysisComplete?.(data);
+        } catch (err) {
+          setError(
+            `Failed to refresh analysis: ${
+              err instanceof Error ? err.message : "Unknown error"
+            }`
+          );
+        } finally {
+          setIsAnalyzing(false);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to finish editing session:", error);
+      setSnackbar({
+        open: true,
+        message: `Failed to finish editing session: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+        severity: "error",
+      });
     }
 
     setIsDrawingMode(false); // Exit drawing mode and return to comparison view
@@ -744,10 +972,6 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   // Extract predictionId from analysisData
   const predictionId = analysisData?.predictionId;
 
-  const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
-  const [loadingActivityLog, setLoadingActivityLog] = useState(false);
-  const [activityLogFilter, setActivityLogFilter] = useState<string>("all");
-
   // Extract fetchActivityLog as a separate function for reusability
   const fetchActivityLog = useCallback(async () => {
     if (!predictionId) return;
@@ -762,9 +986,9 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       );
 
       if (response.ok) {
-        const data: ActivityLogEntry[] = await response.json();
-        setActivityLog(data);
-        console.log("Activity log refreshed:", data.length, "entries");
+        const data: PredictionSession[] = await response.json();
+        setPredictionSessions(data);
+        console.log("Prediction sessions refreshed:", data.length, "sessions");
       }
     } catch (err) {
       console.error("Failed to fetch activity log:", err);
@@ -778,46 +1002,88 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     fetchActivityLog();
   }, [fetchActivityLog]);
 
-  // Filter activity log based on selected filter
-  const filteredActivityLog = activityLog.filter((entry) => {
-    // Filter by action type first (exclude deleted unless specifically requested)
-    if (activityLogFilter !== "deleted" && entry.actionType === "DELETED") {
-      return false;
+  // Filter prediction sessions based on selected filter
+  const filteredSessions = predictionSessions.filter((session) => {
+    if (activityLogFilter === "ai") {
+      return session.sessionType === "AI_ANALYSIS";
     }
-
-    // Then filter by source
-    if (activityLogFilter === "ai")
-      return entry.source === "AI_GENERATED" && entry.actionType !== "DELETED";
-    if (activityLogFilter === "manual")
-      return (
-        entry.source === "MANUALLY_ADDED" && entry.actionType !== "DELETED"
-      );
-    if (activityLogFilter === "deleted") return entry.actionType === "DELETED";
-
-    return entry.actionType !== "DELETED"; // "all" - show all except deleted
+    if (activityLogFilter === "manual") {
+      return session.sessionType === "MANUAL_EDITING";
+    }
+    return true; // "all" shows all sessions
   });
+
+  // Get total detection count for display
+  const totalDetections = filteredSessions.reduce((total, session) => {
+    return total + session.detections.length;
+  }, 0);
+
+  // Get count of active and deleted detections separately
+  const activeDetections = filteredSessions.reduce((total, session) => {
+    return (
+      total +
+      session.detections.filter((d) => d.actionType !== "DELETED").length
+    );
+  }, 0);
+
+  const deletedDetections = filteredSessions.reduce((total, session) => {
+    return (
+      total +
+      session.detections.filter((d) => d.actionType === "DELETED").length
+    );
+  }, 0);
 
   // Manual refresh handler for activity log
   const handleRefreshActivityLog = () => {
     fetchActivityLog();
   };
 
+  // Toggle session expansion
+  const toggleSessionExpansion = (sessionId: number) => {
+    setExpandedSessions((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(sessionId)) {
+        newSet.delete(sessionId);
+      } else {
+        newSet.add(sessionId);
+      }
+      return newSet;
+    });
+  };
+
   // Export functions
   const exportToJSON = () => {
-    const exportData = filteredActivityLog.map((entry) => ({
-      detectionId: entry.detectionId,
-      source: entry.source,
-      actionType: entry.actionType,
-      faultClass: FAULT_TYPE_LABELS_MAP[entry.classId] || "Unknown",
-      faultClassId: entry.classId,
-      confidence: entry.source === "AI_GENERATED" ? "N/A" : "Manual",
-      userName: entry.userName,
-      userId: entry.userId || "N/A",
-      comments: entry.comments || "",
-      timestamp: new Date(entry.createdAt).toISOString(),
-      inspectionId: inspectionId,
-      transformerNo: transformerNo,
-    }));
+    const exportData = filteredSessions.flatMap((session) =>
+      session.detections
+        .filter((d) => {
+          if (activityLogFilter === "deleted")
+            return d.actionType === "DELETED";
+          if (activityLogFilter === "all") return true;
+          if (activityLogFilter === "ai")
+            return session.sessionType === "AI_ANALYSIS";
+          if (activityLogFilter === "manual")
+            return session.sessionType === "MANUAL_EDITING";
+          return d.actionType !== "DELETED"; // default: show active only
+        })
+        .map((entry) => ({
+          sessionId: session.predictionId,
+          sessionType: session.sessionType,
+          sessionUserName: session.userName,
+          detectionId: entry.detectionId,
+          originalDetectionId: entry.originalDetectionId || "N/A",
+          source: entry.source,
+          actionType: entry.actionType,
+          faultClass: FAULT_TYPE_LABELS_MAP[entry.classId] || "Unknown",
+          faultClassId: entry.classId,
+          confidence: entry.source === "AI_GENERATED" ? "N/A" : "Manual",
+          userName: entry.userName,
+          userId: entry.userId || "N/A",
+          comments: entry.comments || "",
+          timestamp: new Date(entry.createdAt).toISOString(),
+          inspectionId: inspectionId,
+          transformerNo: transformerNo,
+        }))
+    );
 
     const dataStr = JSON.stringify(exportData, null, 2);
     const dataBlob = new Blob([dataStr], { type: "application/json" });
@@ -841,7 +1107,11 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
   const exportToCSV = () => {
     const headers = [
+      "Session ID",
+      "Session Type",
+      "Session User",
       "Detection ID",
+      "Original Detection ID",
       "Source",
       "Action Type",
       "Fault Class",
@@ -854,19 +1124,36 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       "Transformer No",
     ];
 
-    const rows = filteredActivityLog.map((entry) => [
-      entry.detectionId,
-      entry.source,
-      entry.actionType,
-      FAULT_TYPE_LABELS_MAP[entry.classId] || "Unknown",
-      entry.classId,
-      entry.userName,
-      entry.userId || "N/A",
-      entry.comments ? `"${entry.comments.replace(/"/g, '""')}"` : "",
-      new Date(entry.createdAt).toISOString(),
-      inspectionId || "N/A",
-      transformerNo || "N/A",
-    ]);
+    const rows = filteredSessions.flatMap((session) =>
+      session.detections
+        .filter((d) => {
+          if (activityLogFilter === "deleted")
+            return d.actionType === "DELETED";
+          if (activityLogFilter === "all") return true;
+          if (activityLogFilter === "ai")
+            return session.sessionType === "AI_ANALYSIS";
+          if (activityLogFilter === "manual")
+            return session.sessionType === "MANUAL_EDITING";
+          return d.actionType !== "DELETED"; // default: show active only
+        })
+        .map((entry) => [
+          session.predictionId,
+          session.sessionType,
+          session.userName,
+          entry.detectionId,
+          entry.originalDetectionId || "N/A",
+          entry.source,
+          entry.actionType,
+          FAULT_TYPE_LABELS_MAP[entry.classId] || "Unknown",
+          entry.classId,
+          entry.userName,
+          entry.userId || "N/A",
+          entry.comments ? `"${entry.comments.replace(/"/g, '""')}"` : "",
+          new Date(entry.createdAt).toISOString(),
+          inspectionId || "N/A",
+          transformerNo || "N/A",
+        ])
+    );
 
     const csvContent = [
       headers.join(","),
@@ -918,6 +1205,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
             onEditSave={fetchActivityLog}
             isActive={isDrawingMode}
             predictionId={predictionId}
+            existingDetections={getLatestDetections()}
           />
         </Paper>
       ) : (
@@ -1074,9 +1362,8 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                 mb={2}
               >
                 <Typography variant="subtitle1" fontWeight={700}>
-                  Activity Log ({filteredActivityLog.length}{" "}
-                  {activityLogFilter === "deleted" ? "deleted" : "active"}{" "}
-                  entries)
+                  Activity Log ({totalDetections} total: {activeDetections}{" "}
+                  active, {deletedDetections} deleted)
                 </Typography>
 
                 <Box display="flex" gap={1} alignItems="center">
@@ -1085,7 +1372,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                     <IconButton
                       size="small"
                       onClick={exportToJSON}
-                      disabled={filteredActivityLog.length === 0}
+                      disabled={totalDetections === 0}
                       sx={{ color: "primary.main" }}
                     >
                       <DownloadIcon fontSize="small" />
@@ -1096,7 +1383,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                     <IconButton
                       size="small"
                       onClick={exportToCSV}
-                      disabled={filteredActivityLog.length === 0}
+                      disabled={totalDetections === 0}
                       sx={{ color: "primary.main" }}
                     >
                       <svg
@@ -1161,7 +1448,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                 <Box display="flex" justifyContent="center" p={2}>
                   <CircularProgress size={24} />
                 </Box>
-              ) : filteredActivityLog.length === 0 ? (
+              ) : totalDetections === 0 ? (
                 <Box display="flex" justifyContent="center" p={3}>
                   <Typography variant="body2" color="text.secondary">
                     No{" "}
@@ -1175,20 +1462,20 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                 </Box>
               ) : (
                 <Box display="flex" flexDirection="column" gap={1}>
-                  {filteredActivityLog.map((entry) => (
+                  {filteredSessions.map((session) => (
                     <Card
-                      key={entry.detectionId}
+                      key={session.predictionId}
                       variant="outlined"
                       sx={{
                         bgcolor:
-                          entry.source === "AI_GENERATED"
+                          session.sessionType === "AI_ANALYSIS"
                             ? "#E3F2FD"
-                            : "#E8F5E9",
+                            : "#FFF3E0",
                         borderLeft: 4,
                         borderLeftColor:
-                          entry.source === "AI_GENERATED"
+                          session.sessionType === "AI_ANALYSIS"
                             ? "#2196f3"
-                            : "#4caf50",
+                            : "#ff9800",
                       }}
                     >
                       <CardContent
@@ -1198,61 +1485,151 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                           display="flex"
                           alignItems="center"
                           justifyContent="space-between"
+                          sx={{ cursor: "pointer" }}
+                          onClick={() =>
+                            toggleSessionExpansion(session.predictionId)
+                          }
                         >
                           <Box display="flex" alignItems="center" gap={1}>
                             <Chip
                               label={
-                                entry.source === "AI_GENERATED"
-                                  ? "AI"
-                                  : "Manual"
+                                session.sessionType === "AI_ANALYSIS"
+                                  ? "AI Analysis"
+                                  : "Manual Editing"
                               }
                               size="small"
                               color={
-                                entry.source === "AI_GENERATED"
+                                session.sessionType === "AI_ANALYSIS"
                                   ? "info"
-                                  : "success"
+                                  : "warning"
                               }
                               sx={{ fontWeight: 600 }}
                             />
-                            <Chip
-                              label={entry.actionType}
-                              size="small"
-                              variant="outlined"
-                              color={
-                                entry.actionType === "DELETED"
-                                  ? "error"
-                                  : entry.actionType === "EDITED"
-                                  ? "warning"
-                                  : "default"
-                              }
-                            />
                             <Typography variant="body2" fontWeight={600}>
-                              {FAULT_TYPE_LABELS_MAP[entry.classId] ||
-                                "Unknown"}
+                              {session.userName}
                             </Typography>
-                          </Box>
-                          <Typography variant="caption" color="text.secondary">
-                            {new Date(entry.createdAt).toLocaleString()}
-                          </Typography>
-                        </Box>
-
-                        <Box display="flex" alignItems="center" gap={1} mt={1}>
-                          <PersonIcon
-                            sx={{ fontSize: 14, color: "text.secondary" }}
-                          />
-                          <Typography variant="caption" color="text.secondary">
-                            {entry.userName}
-                          </Typography>
-                        </Box>
-
-                        {entry.comments && (
-                          <Box mt={1}>
                             <Typography
                               variant="caption"
                               color="text.secondary"
                             >
-                              <strong>Comments:</strong> {entry.comments}
+                              ({session.detections.length} detections)
                             </Typography>
+                          </Box>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              {new Date(session.createdAt).toLocaleString()}
+                            </Typography>
+                            {expandedSessions.has(session.predictionId) ? (
+                              <ExpandLess />
+                            ) : (
+                              <ExpandMore />
+                            )}
+                          </Box>
+                        </Box>
+
+                        {/* Expandable content */}
+                        {expandedSessions.has(session.predictionId) && (
+                          <Box mt={2}>
+                            {session.detections.map((detection) => (
+                              <Card
+                                key={detection.detectionId}
+                                variant="outlined"
+                                sx={{
+                                  mb: 1,
+                                  ml: 2,
+                                  bgcolor:
+                                    detection.actionType === "DELETED"
+                                      ? "rgba(244, 67, 54, 0.05)"
+                                      : "background.default",
+                                  borderColor:
+                                    detection.actionType === "DELETED"
+                                      ? "error.light"
+                                      : "divider",
+                                  opacity:
+                                    detection.actionType === "DELETED"
+                                      ? 0.7
+                                      : 1,
+                                }}
+                              >
+                                <CardContent
+                                  sx={{
+                                    py: 1,
+                                    px: 1.5,
+                                    "&:last-child": { pb: 1 },
+                                  }}
+                                >
+                                  <Box
+                                    display="flex"
+                                    alignItems="center"
+                                    justifyContent="space-between"
+                                  >
+                                    <Box
+                                      display="flex"
+                                      alignItems="center"
+                                      gap={1}
+                                    >
+                                      <Chip
+                                        label={detection.actionType}
+                                        size="small"
+                                        variant="outlined"
+                                        color={
+                                          detection.actionType === "DELETED"
+                                            ? "error"
+                                            : detection.actionType === "EDITED"
+                                            ? "warning"
+                                            : "default"
+                                        }
+                                      />
+                                      <Typography
+                                        variant="body2"
+                                        fontWeight={500}
+                                      >
+                                        {FAULT_TYPE_LABELS_MAP[
+                                          detection.classId
+                                        ] || "Unknown"}
+                                      </Typography>
+                                      <Typography
+                                        variant="caption"
+                                        color="primary.main"
+                                        sx={{ fontWeight: 600 }}
+                                      >
+                                        ID: {detection.detectionId}
+                                        {detection.originalDetectionId && (
+                                          <span style={{ color: "orange" }}>
+                                            {" "}
+                                            (orig:{" "}
+                                            {detection.originalDetectionId})
+                                          </span>
+                                        )}
+                                      </Typography>
+                                    </Box>
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                    >
+                                      {new Date(
+                                        detection.createdAt
+                                      ).toLocaleString()}
+                                    </Typography>
+                                  </Box>
+
+                                  {detection.comments && (
+                                    <Box mt={0.5}>
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                      >
+                                        <strong>Comments:</strong>{" "}
+                                        {detection.comments}
+                                      </Typography>
+                                    </Box>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            ))}
                           </Box>
                         )}
                       </CardContent>
