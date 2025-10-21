@@ -27,4 +27,10 @@ public interface PredictionDetectionRepository extends JpaRepository<PredictionD
      * Find detections by action type (ADDED, EDITED, DELETED)
      */
     List<PredictionDetection> findByActionType(String actionType);
+    
+    /**
+     * Get the maximum log entry ID for a given inspection
+     */
+    @Query("SELECT COALESCE(MAX(pd.logEntryId), 0) FROM PredictionDetection pd WHERE pd.inspectionId = :inspectionId")
+    Integer getMaxLogEntryIdForInspection(@Param("inspectionId") Integer inspectionId);
 }
