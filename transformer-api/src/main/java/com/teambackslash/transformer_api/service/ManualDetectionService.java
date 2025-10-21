@@ -36,8 +36,12 @@ public class ManualDetectionService {
     ) {
         // Get or create active editing session for this user
         Prediction editingSession = sessionService.getOrCreateEditingSession(originalPredictionId, userId);
+        Integer inspectionId = editingSession.getInspection().getInspectionId();
+        
         PredictionDetection detection = new PredictionDetection();
         detection.setPrediction(editingSession); // Use active editing session
+        detection.setInspectionId(inspectionId);
+        detection.setLogEntryId(getNextLogEntryId(inspectionId));
         detection.setOriginalDetection(null); // No original detection for manually added
         detection.setClassId(classId);
         detection.setConfidence(confidence);
@@ -82,10 +86,13 @@ public class ManualDetectionService {
         Prediction originalPrediction = originalDetection.getPrediction();
         Long inspectionPredictionId = findOriginalAIPredictionForInspection(originalPrediction);
         Prediction editingSession = sessionService.getOrCreateEditingSession(inspectionPredictionId, userId);
+        Integer inspectionId = editingSession.getInspection().getInspectionId();
 
         // Create NEW detection entry for the edit (don't modify original)
         PredictionDetection editedDetection = new PredictionDetection();
         editedDetection.setPrediction(editingSession);
+        editedDetection.setInspectionId(inspectionId);
+        editedDetection.setLogEntryId(getNextLogEntryId(inspectionId));
         editedDetection.setOriginalDetection(originalDetection); // Reference to original
         editedDetection.setClassId(classId);
         editedDetection.setConfidence(confidence);
@@ -119,10 +126,13 @@ public class ManualDetectionService {
         Prediction originalPrediction = originalDetection.getPrediction();
         Long inspectionPredictionId = findOriginalAIPredictionForInspection(originalPrediction);
         Prediction editingSession = sessionService.getOrCreateEditingSession(inspectionPredictionId, userId);
+        Integer inspectionId = editingSession.getInspection().getInspectionId();
 
         // Create NEW detection entry for the deletion (don't modify original)
         PredictionDetection deletedDetection = new PredictionDetection();
         deletedDetection.setPrediction(editingSession);
+        deletedDetection.setInspectionId(inspectionId);
+        deletedDetection.setLogEntryId(getNextLogEntryId(inspectionId));
         deletedDetection.setOriginalDetection(originalDetection); // Reference to original
         deletedDetection.setClassId(originalDetection.getClassId());
         deletedDetection.setConfidence(originalDetection.getConfidence());
@@ -184,5 +194,14 @@ public class ManualDetectionService {
         
         // If no AI prediction found, use the current prediction ID as fallback
         return prediction.getId();
+    }
+
+    /**
+     * Generate the next log entry ID for a given inspection
+     * Log entry IDs are unique per inspection but not globally unique
+     */
+    private Integer getNextLogEntryId(Integer inspectionId) {
+        Integer maxLogEntryId = detectionRepository.getMaxLogEntryIdForInspection(inspectionId);
+        return maxLogEntryId + 1;
     }
 }

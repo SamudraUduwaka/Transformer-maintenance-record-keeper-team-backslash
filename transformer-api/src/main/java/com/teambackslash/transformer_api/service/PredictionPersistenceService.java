@@ -24,6 +24,7 @@ public class PredictionPersistenceService {
     private final TransformerRepository transformerRepository;
     private final InspectionRepository inspectionRepository;
     private final UserRepository userRepository;
+    private final com.teambackslash.transformer_api.repository.PredictionDetectionRepository detectionRepository;
 
     @Transactional
     public Long persistPrediction(String transformerNo, PredictionDTO dto, Integer inspectionId) {
@@ -58,10 +59,25 @@ public class PredictionPersistenceService {
         p.setIssueCount(dto.getDetections() != null ? dto.getDetections().size() : 0);
 
         if (dto.getDetections() != null) {
+            Integer inspectionIdForDetection = (p.getInspection() != null) ? p.getInspection().getInspectionId() : null;
+            Integer nextLogEntryId = null;
+            
+            // Get the starting log entry ID for this batch of detections
+            if (inspectionIdForDetection != null) {
+                nextLogEntryId = getNextLogEntryId(inspectionIdForDetection);
+            }
+            
             for (DetectionDTO d : dto.getDetections()) {
                 PredictionDetection pd = new PredictionDetection();
                 pd.setClassId(d.getClassId());
                 pd.setConfidence(d.getConfidence());
+                
+                // Set inspection ID and log entry ID for new fields
+                if (inspectionIdForDetection != null && nextLogEntryId != null) {
+                    pd.setInspectionId(inspectionIdForDetection);
+                    pd.setLogEntryId(nextLogEntryId);
+                    nextLogEntryId++; // Increment for next detection in the same batch
+                }
                 
                 if (d.getBoundingBox() != null) {
                     BoundingBoxDTO b = d.getBoundingBox();
@@ -113,5 +129,14 @@ public class PredictionPersistenceService {
                     .build();
                 return userRepository.save(aiUser);
             });
+    }
+
+    /**
+     * Generate the next log entry ID for a given inspection
+     * Log entry IDs are unique per inspection but not globally unique
+     */
+    private Integer getNextLogEntryId(Integer inspectionId) {
+        Integer maxLogEntryId = detectionRepository.getMaxLogEntryIdForInspection(inspectionId);
+        return maxLogEntryId + 1;
     }
 }
