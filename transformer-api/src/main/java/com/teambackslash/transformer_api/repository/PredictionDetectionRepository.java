@@ -27,9 +27,4 @@ public interface PredictionDetectionRepository extends JpaRepository<PredictionD
      * Find detections by action type (ADDED, EDITED, DELETED)
      */
     List<PredictionDetection> findByActionType(String actionType);
-    
-    /**
-     * Find detections created by a specific user
-     */
-    List<PredictionDetection> findByUserId(Long userId);
 }
