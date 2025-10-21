@@ -65,14 +65,6 @@ public class PredictionDetection {
     private String actionType = "ADDED";
     
     /**
-     * User who created/modified this detection (null for AI-generated)
-     */
-    @JsonIgnore
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private User user;
-    
-    /**
      * Reference to original detection if this is an EDIT or DELETE action
      */
     @JsonIgnore

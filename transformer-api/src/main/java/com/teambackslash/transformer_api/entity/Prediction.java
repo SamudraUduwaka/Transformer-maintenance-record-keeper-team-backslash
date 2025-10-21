@@ -27,6 +27,14 @@ public class Prediction {
     @JoinColumn(name = "inspection_id")
     private Inspection inspection;
 
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
+
+    @Column(name = "session_type", length = 50, nullable = false)
+    private String sessionType = "AI_ANALYSIS"; // AI_ANALYSIS, MANUAL_EDITING
+
     @Column(name = "predicted_label", length = 100)
     private String predictedLabel;
 
