@@ -18,8 +18,8 @@ import {
   DialogContentText,
   DialogActions,
 } from "@mui/material";
-import { Slider, InputAdornment } from "@mui/material";
-import { Add, Edit } from "@mui/icons-material";
+import { Slider, InputAdornment, IconButton, Tooltip } from "@mui/material";
+import { Add, Edit, ZoomIn, ZoomOut, RestartAlt } from "@mui/icons-material";
 import { authService } from "../services/authService";
 
 interface BoundingBox {
@@ -116,6 +116,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const sceneRef = useRef<HTMLDivElement>(null);
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(
@@ -126,6 +127,15 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
   const [selectedFaultType, setSelectedFaultType] = useState(FAULT_TYPES[0]);
   const [comments, setComments] = useState("");
+  const [displaySize, setDisplaySize] = useState<{ w: number; h: number }>({
+    w: 0,
+    h: 0,
+  });
+  // Zoom & Pan
+  const [zoom, setZoom] = useState<number>(1);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef<{ x: number; y: number } | null>(null);
   // Advanced editable fields
   const [coordX1, setCoordX1] = useState<number | "">("");
   const [coordY1, setCoordY1] = useState<number | "">("");
@@ -268,6 +278,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       // Store original dimensions for reset
       canvas.dataset.originalWidth = String(displayWidth);
       canvas.dataset.originalHeight = String(displayHeight);
+      setDisplaySize({ w: displayWidth, h: displayHeight });
     }; // Prevent drag and drop on canvas only when not in edit mode
     const preventDrag = (e: DragEvent) => {
       if (!isEditMode) {
@@ -718,9 +729,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / zoom;
+  const y = (e.clientY - rect.top) / zoom;
 
     // If in edit mode, only allow hover on the selected annotation
     if (isEditMode && selectedAnnotation) {
@@ -779,8 +790,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+  const x = (e.clientX - rect.left) / zoom;
+  const y = (e.clientY - rect.top) / zoom;
 
     // Don't prevent default for edit mode to allow dragging
     if (!isEditMode) {
@@ -896,9 +907,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / zoom;
+  const y = (e.clientY - rect.top) / zoom;
 
     // Handle hover detection first
     handleMouseMoveHover(e);
@@ -1024,8 +1035,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     // Handle drawing new box (only when in draw mode)
     if (!isDrawing || !startPoint || activeToolbox !== "draw") return;
 
-    const width = adjustedX - startPoint.x;
-    const height = adjustedY - startPoint.y;
+  const width = adjustedX - startPoint.x;
+  const height = adjustedY - startPoint.y;
 
     setCurrentBox({
       x: width < 0 ? adjustedX : startPoint.x,
@@ -1036,6 +1047,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   };
 
   const handleMouseUp = () => {
+    if (isPanning) {
+      setIsPanning(false);
+      panStartRef.current = null;
+    }
     // Handle drag completion
     if (isDragging && selectedAnnotation) {
       setIsDragging(false);
@@ -1065,6 +1080,37 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     setIsDrawing(false);
     setStartPoint(null);
     setCurrentBox(null);
+  };
+
+  // Mouse handlers for panning (Alt + drag)
+  const handlePanMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isActive) return;
+    if (!e.altKey) return; // Use Alt+Drag to pan
+    e.preventDefault();
+    setIsPanning(true);
+    panStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+  };
+
+  const handlePanMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isPanning || !panStartRef.current) return;
+    e.preventDefault();
+    const nx = e.clientX - panStartRef.current.x;
+    const ny = e.clientY - panStartRef.current.y;
+    setPan({ x: nx, y: ny });
+  };
+
+  const handlePanMouseUp = () => {
+    setIsPanning(false);
+    panStartRef.current = null;
+  };
+
+  const handleWheelZoom = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (!isActive) return;
+    // Ctrl + wheel to zoom, else ignore to allow page scroll
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 0.9 : 1.1;
+    setZoom((z) => Math.max(0.5, Math.min(4, parseFloat((z * factor).toFixed(3)))));
   };
 
   // Handle edit
@@ -1568,53 +1614,69 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
             justifyContent: "center",
             cursor: activeToolbox === "draw" ? "crosshair" : "default",
           }}
+          onWheel={handleWheelZoom}
+          onMouseDown={handlePanMouseDown}
+          onMouseMove={handlePanMouseMove}
+          onMouseUp={handlePanMouseUp}
         >
-          <img
-            ref={imageRef}
-            src={imageUrl}
-            alt="Thermal"
-            style={{
-              maxWidth: "100%",
-              maxHeight: "100%",
-              objectFit: "contain",
-              userSelect: "none",
-              pointerEvents: "none",
+          {/* Scene wrapper to apply pan/zoom to image and canvas together */}
+          <Box
+            ref={sceneRef}
+            sx={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              width: displaySize.w,
+              height: displaySize.h,
+              transform: `translate(-50%, -50%) translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transformOrigin: "center center",
             }}
-            draggable={false}
-          />
+          >
+            <img
+              ref={imageRef}
+              src={imageUrl}
+              alt="Thermal"
+              style={{
+                width: displaySize.w,
+                height: displaySize.h,
+                objectFit: "contain",
+                userSelect: "none",
+                pointerEvents: "none",
+                display: "block",
+              }}
+              draggable={false}
+            />
 
-          <canvas
-            ref={canvasRef}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onDoubleClick={(e) => {
-              // Allow double-click in edit mode
-              if (!isEditMode) {
+            <canvas
+              ref={canvasRef}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onDoubleClick={(e) => {
+                // Allow double-click in edit mode
+                if (!isEditMode) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }
+              }}
+              onContextMenu={(e) => {
+                // Prevent right-click context menu
                 e.preventDefault();
-                e.stopPropagation();
-              }
-            }}
-            onContextMenu={(e) => {
-              // Prevent right-click context menu
-              e.preventDefault();
-              return false;
-            }}
-            onMouseLeave={() => {
-              if (isDrawing) handleMouseUp();
-              // Don't reset resize, drag, or pan state when mouse leaves canvas
-              // Only reset hover state
-              if (!isResizing && !isDragging) {
-                setHoveredAnnotation(null);
-              }
-            }}
-            draggable={false}
-            style={
-              {
+                return false;
+              }}
+              onMouseLeave={() => {
+                if (isDrawing) handleMouseUp();
+                // Don't reset resize, drag, or pan state when mouse leaves canvas
+                // Only reset hover state
+                if (!isResizing && !isDragging) {
+                  setHoveredAnnotation(null);
+                }
+              }}
+              draggable={false}
+              style={{
                 position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
+                top: 0,
+                left: 0,
                 userSelect: "none",
                 WebkitUserSelect: "none",
                 MozUserSelect: "none",
@@ -1622,9 +1684,59 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
                 WebkitTouchCallout: "none",
                 KhtmlUserSelect: "none",
                 pointerEvents: "auto",
-              } as React.CSSProperties
-            }
-          />
+              } as React.CSSProperties}
+            />
+          </Box>
+
+          {/* Floating zoom controls (right side) */}
+          <Box
+            sx={{
+              position: "absolute",
+              right: 12,
+              top: "50%",
+              transform: "translateY(-50%)",
+              bgcolor: "#ffffff",
+              border: "1px solid #e2e8f0",
+              boxShadow: 1,
+              borderRadius: 3,
+              p: 0.5,
+            }}
+          >
+            <Stack direction="column" spacing={0.5}>
+              <Tooltip title="Zoom In">
+                <IconButton size="small" onClick={() => setZoom((z) => Math.min(4, parseFloat((z * 1.1).toFixed(3))))}>
+                  <ZoomIn fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Zoom Out">
+                <IconButton size="small" onClick={() => setZoom((z) => Math.max(0.5, parseFloat((z * 0.9).toFixed(3))))}>
+                  <ZoomOut fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Reset View">
+                <IconButton size="small" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}>
+                  <RestartAlt fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Stack>
+          </Box>
+
+          {/* Zoom percentage badge (bottom-left) */}
+          <Box
+            sx={{
+              position: "absolute",
+              left: 8,
+              bottom: 8,
+              bgcolor: "rgba(0,0,0,0.7)",
+              color: "#fff",
+              fontSize: 12,
+              px: 1,
+              py: 0.5,
+              borderRadius: 2,
+            }}
+          >
+            {Math.round(zoom * 100)}%
+          </Box>
         </Box>
       </Box>
 
@@ -1687,6 +1799,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
             >
               <Edit fontSize="small" />
             </Button>
+
+            {/* Zoom controls moved to floating HUD for consistency */}
           </Stack>
         </Paper>
       </Box>
