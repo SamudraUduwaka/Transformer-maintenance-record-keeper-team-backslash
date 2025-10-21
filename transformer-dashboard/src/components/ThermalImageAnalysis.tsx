@@ -1070,9 +1070,11 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       d.bboxH === undefined
     )
       return "";
-    return `AI Model Coordinates: (${Math.round(d.bboxX)}, ${Math.round(
-      d.bboxY
-    )}) - ${Math.round(d.bboxW)}x${Math.round(d.bboxH)} (640x640 basis)`;
+    const x1 = Math.round(d.bboxX);
+    const y1 = Math.round(d.bboxY);
+    const x2 = Math.round(d.bboxX + d.bboxW);
+    const y2 = Math.round(d.bboxY + d.bboxH);
+    return `Boundary Coordinates: (${x1}, ${y1}) → (${x2}, ${y2}) `;
   };
 
   // Manual refresh handler for activity log
