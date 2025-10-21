@@ -16,11 +16,12 @@ import { Close as CloseIcon } from "@mui/icons-material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { TimePicker } from "@mui/x-date-pickers/TimePicker";
 import dayjs from "dayjs";
+import { authService } from "../services/authService";
 
 // Types matching the backend DTOs
 export type InspectionDTO = {
   inspectionId: number;
-  inspectionTime: string; 
+  inspectionTime: string;
   branch: string;
   inspector: string;
   createdAt: string;
@@ -55,7 +56,6 @@ export const AddInspectionDialog: React.FC<AddInspectionDialogProps> = ({
   const [transformerNo, setTransformerNo] = React.useState("");
   const [date, setDate] = React.useState("");
   const [time, setTime] = React.useState("");
-  const [inspector, setInspector] = React.useState("");
 
   // API base
   const API_BASE =
@@ -66,7 +66,13 @@ export const AddInspectionDialog: React.FC<AddInspectionDialogProps> = ({
   type Transformer = { transformerNo: string; region?: string };
   const [transformers, setTransformers] = React.useState<Transformer[]>([]);
   const [loadingTransformers, setLoadingTransformers] = React.useState(false);
-  const [transformersError, setTransformersError] = React.useState<string | null>(null);
+  const [transformersError, setTransformersError] = React.useState<
+    string | null
+  >(null);
+
+  // Get current logged-in user for inspector field
+  const currentUser = authService.getCurrentUser();
+  const inspector = currentUser?.name || "";
 
   // Validation
   const canConfirm =
@@ -79,7 +85,6 @@ export const AddInspectionDialog: React.FC<AddInspectionDialogProps> = ({
       setTransformerNo(defaultTransformerNo || "");
       setDate("");
       setTime("");
-      setInspector("");
     }
   }, [open, defaultTransformerNo, defaultBranch]);
 
@@ -105,9 +110,13 @@ export const AddInspectionDialog: React.FC<AddInspectionDialogProps> = ({
       setLoadingTransformers(true);
       setTransformersError(null);
       try {
-        const res = await fetch(`${API_BASE}/transformers`, { credentials: "include" });
+        const res = await fetch(`${API_BASE}/transformers`, {
+          credentials: "include",
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as Array<Transformer & { region?: string }>;
+        const data = (await res.json()) as Array<
+          Transformer & { region?: string }
+        >;
         if (!abort) setTransformers(data);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -204,9 +213,7 @@ export const AddInspectionDialog: React.FC<AddInspectionDialogProps> = ({
               }}
               loading={loadingTransformers}
               loadingText="Loading transformers…"
-              noOptionsText={
-                transformersError || "No transformers found"
-              }
+              noOptionsText={transformersError || "No transformers found"}
               disableClearable
               autoHighlight
               renderInput={(params) => (
@@ -232,14 +239,6 @@ export const AddInspectionDialog: React.FC<AddInspectionDialogProps> = ({
               }}
             />
           )}
-
-          <TextField
-            label="Inspector"
-            placeholder="Inspector Name"
-            fullWidth
-            value={inspector}
-            onChange={(e) => setInspector(e.target.value)}
-          />
 
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
             <DatePicker

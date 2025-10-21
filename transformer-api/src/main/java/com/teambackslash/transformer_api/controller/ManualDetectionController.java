@@ -2,8 +2,10 @@ package com.teambackslash.transformer_api.controller;
 
 import com.teambackslash.transformer_api.entity.PredictionDetection;
 import com.teambackslash.transformer_api.entity.User;
+import com.teambackslash.transformer_api.entity.Prediction;
 import com.teambackslash.transformer_api.service.ManualDetectionService;
 import com.teambackslash.transformer_api.repository.PredictionDetectionRepository;
+import com.teambackslash.transformer_api.repository.PredictionRepository;
 import com.teambackslash.transformer_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +26,7 @@ public class ManualDetectionController {
 
     private final ManualDetectionService manualDetectionService;
     private final PredictionDetectionRepository detectionRepository;
+    private final PredictionRepository predictionRepository;
     private final UserRepository userRepository;
 
     /**
@@ -53,11 +56,11 @@ public class ManualDetectionController {
         // Extract userId from Spring Security context
         Long userId = extractUserIdFromSecurityContext();
         
-        log.info("Creating manual detection for prediction {} by user {}", 
+        log.info("Creating manual detection for original prediction {} by user {}", 
                  request.getPredictionId(), userId);
         
         PredictionDetection detection = manualDetectionService.addManualDetection(
-            request.getPredictionId(),
+            request.getPredictionId(), // This is now the original prediction ID
             userId,
             request.getClassId(),
             request.getConfidence(),
@@ -100,18 +103,18 @@ public class ManualDetectionController {
 
     /**
      * DELETE /api/detections/{detectionId}
-     * Soft delete a detection
+     * Soft delete a detection (creates new prediction entry for the deletion)
      */
     @DeleteMapping("/detections/{detectionId}")
-    public ResponseEntity<Void> deleteDetection(
+    public ResponseEntity<PredictionDetection> deleteDetection(
             @PathVariable Long detectionId,
             @RequestParam(required = false, defaultValue = "User deleted") String reason) {
         Long userId = extractUserIdFromSecurityContext();
         log.info("Deleting detection {} by user {} with reason: {}", detectionId, userId, reason);
         
         try {
-            manualDetectionService.deleteDetection(detectionId, userId, reason);
-            return ResponseEntity.noContent().build();
+            PredictionDetection deletedDetection = manualDetectionService.deleteDetection(detectionId, userId, reason);
+            return ResponseEntity.ok(deletedDetection);
         } catch (RuntimeException e) {
             log.error("Failed to delete detection {}: {}", detectionId, e.getMessage());
             return ResponseEntity.notFound().build();
@@ -119,33 +122,82 @@ public class ManualDetectionController {
     }
 
     /**
+     * POST /api/predictions/{predictionId}/finish-editing
+     * Finish the current editing session for the logged-in user
+     */
+    @PostMapping("/predictions/{predictionId}/finish-editing")
+    public ResponseEntity<Void> finishEditingSession(@PathVariable Long predictionId) {
+        Long userId = extractUserIdFromSecurityContext();
+        log.info("Finishing editing session for prediction {} by user {}", predictionId, userId);
+        
+        try {
+            manualDetectionService.finishEditingSession(predictionId, userId);
+            return ResponseEntity.ok().build();
+        } catch (RuntimeException e) {
+            log.error("Failed to finish editing session for prediction {}: {}", predictionId, e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
      * GET /api/predictions/{predictionId}/activity-log
-     * Get activity log for a prediction showing AI and Manual annotations
+     * Get activity log for a prediction showing AI and Manual annotations grouped by prediction sessions
      */
     @GetMapping("/predictions/{predictionId}/activity-log")
-    public ResponseEntity<List<ActivityLogEntry>> getActivityLog(@PathVariable Long predictionId) {
-        log.info("Fetching activity log for prediction {}", predictionId);
+    public ResponseEntity<List<PredictionSessionResponse>> getActivityLog(@PathVariable Long predictionId) {
+        log.info("Fetching session-based activity log for prediction {}", predictionId);
         
-        List<PredictionDetection> detections = detectionRepository.findByPredictionId(predictionId);
+        // Find the original prediction to get the inspection
+        Prediction originalPrediction = predictionRepository.findById(predictionId)
+                .orElseThrow(() -> new RuntimeException("Prediction not found: " + predictionId));
         
-        List<ActivityLogEntry> logEntries = detections.stream()
-            .filter(d -> d.getActionType() != null)
-            .map(d -> {
-                ActivityLogEntry entry = new ActivityLogEntry();
-                entry.setDetectionId(d.getId());
-                entry.setSource(d.getSource());
-                entry.setActionType(d.getActionType());
-                entry.setClassId(d.getClassId());
-                entry.setComments(d.getComments());
-                entry.setCreatedAt(d.getCreatedAt());
-                entry.setUserId(d.getUser() != null ? d.getUser().getId() : null);
-                entry.setUserName(d.getUser() != null ? d.getUser().getName() : "AI System");
-                return entry;
-            })
-            .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt())) // Most recent first
-            .collect(java.util.stream.Collectors.toList());
+        // Get all predictions for this inspection (AI + all editing sessions)
+        List<Prediction> allPredictions = predictionRepository
+                .findAllByInspectionIdOrderByCreatedAt(originalPrediction.getInspection().getInspectionId());
         
-        return ResponseEntity.ok(logEntries);
+        List<PredictionSessionResponse> sessionResponses = allPredictions.stream()
+                .map(prediction -> {
+                    PredictionSessionResponse session = new PredictionSessionResponse();
+                    session.setPredictionId(prediction.getId());
+                    session.setSessionType(prediction.getSessionType());
+                    session.setUserName(prediction.getUser().getName());
+                    session.setUserId(prediction.getUser().getId());
+                    session.setCreatedAt(prediction.getCreatedAt());
+                    session.setIssueCount(prediction.getIssueCount());
+                    
+                    // Get all detections for this prediction session
+                    List<ActivityLogEntry> detections = prediction.getDetections().stream()
+                            .map(d -> {
+                                ActivityLogEntry entry = new ActivityLogEntry();
+                                entry.setDetectionId(d.getId());
+                                entry.setOriginalDetectionId(d.getOriginalDetection() != null ? d.getOriginalDetection().getId() : null);
+                                entry.setSource(d.getSource());
+                                entry.setActionType(d.getActionType());
+                                entry.setClassId(d.getClassId());
+                                entry.setComments(d.getComments());
+                                entry.setCreatedAt(d.getCreatedAt());
+                                entry.setUserId(prediction.getUser().getId());
+                                entry.setUserName(prediction.getUser().getName());
+                                // Include bounding box coordinates
+                                entry.setBboxX(d.getBboxX());
+                                entry.setBboxY(d.getBboxY());
+                                entry.setBboxW(d.getBboxW());
+                                entry.setBboxH(d.getBboxH());
+                                entry.setConfidence(d.getConfidence());
+                                // Include new fields
+                                entry.setInspectionId(d.getInspectionId());
+                                entry.setLogEntryId(d.getLogEntryId());
+                                return entry;
+                            })
+                            .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
+                            .collect(java.util.stream.Collectors.toList());
+                    
+                    session.setDetections(detections);
+                    return session;
+                })
+                .collect(java.util.stream.Collectors.toList());
+        
+        return ResponseEntity.ok(sessionResponses);
     }
 
     /**
@@ -190,6 +242,7 @@ public class ManualDetectionController {
     @lombok.Data
     public static class ActivityLogEntry {
         private Long detectionId;
+        private Long originalDetectionId; // Reference to original detection for EDITED/DELETED
         private String source;
         private String actionType;
         private Integer classId;
@@ -197,5 +250,26 @@ public class ManualDetectionController {
         private java.time.LocalDateTime createdAt;
         private Long userId;
         private String userName;
+        // Bounding box coordinates
+        private Integer bboxX;
+        private Integer bboxY;
+        private Integer bboxW;
+        private Integer bboxH;
+        private Double confidence;
+        // New fields
+        private Integer inspectionId;
+        private Integer logEntryId;
+    }
+    
+    // DTO for prediction session response
+    @lombok.Data
+    public static class PredictionSessionResponse {
+        private Long predictionId;
+        private String sessionType; // AI_ANALYSIS, MANUAL_EDITING
+        private String userName;
+        private Long userId;
+        private java.time.LocalDateTime createdAt;
+        private Integer issueCount;
+        private List<ActivityLogEntry> detections;
     }
 }

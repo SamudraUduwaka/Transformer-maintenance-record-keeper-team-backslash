@@ -5,9 +5,11 @@ import com.teambackslash.transformer_api.dto.DetectionDTO;
 import com.teambackslash.transformer_api.dto.PredictionDTO;
 import com.teambackslash.transformer_api.entity.Prediction;
 import com.teambackslash.transformer_api.entity.PredictionDetection;
+import com.teambackslash.transformer_api.entity.User;
 import com.teambackslash.transformer_api.repository.PredictionRepository;
 import com.teambackslash.transformer_api.repository.TransformerRepository;
 import com.teambackslash.transformer_api.repository.InspectionRepository;
+import com.teambackslash.transformer_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +23,8 @@ public class PredictionPersistenceService {
     private final PredictionRepository predictionRepository;
     private final TransformerRepository transformerRepository;
     private final InspectionRepository inspectionRepository;
+    private final UserRepository userRepository;
+    private final com.teambackslash.transformer_api.repository.PredictionDetectionRepository detectionRepository;
 
     @Transactional
     public Long persistPrediction(String transformerNo, PredictionDTO dto, Integer inspectionId) {
@@ -37,6 +41,12 @@ public class PredictionPersistenceService {
         }
 
         Prediction p = new Prediction();
+        
+        // Set AI user for AI-generated predictions
+        User aiUser = getOrCreateAiUser();
+        p.setUser(aiUser);
+        p.setSessionType("AI_ANALYSIS");
+        
         if (inspectionId != null) {
             inspectionRepository.findById(inspectionId).ifPresentOrElse(
                 p::setInspection,
@@ -49,10 +59,25 @@ public class PredictionPersistenceService {
         p.setIssueCount(dto.getDetections() != null ? dto.getDetections().size() : 0);
 
         if (dto.getDetections() != null) {
+            Integer inspectionIdForDetection = (p.getInspection() != null) ? p.getInspection().getInspectionId() : null;
+            Integer nextLogEntryId = null;
+            
+            // Get the starting log entry ID for this batch of detections
+            if (inspectionIdForDetection != null) {
+                nextLogEntryId = getNextLogEntryId(inspectionIdForDetection);
+            }
+            
             for (DetectionDTO d : dto.getDetections()) {
                 PredictionDetection pd = new PredictionDetection();
                 pd.setClassId(d.getClassId());
                 pd.setConfidence(d.getConfidence());
+                
+                // Set inspection ID and log entry ID for new fields
+                if (inspectionIdForDetection != null && nextLogEntryId != null) {
+                    pd.setInspectionId(inspectionIdForDetection);
+                    pd.setLogEntryId(nextLogEntryId);
+                    nextLogEntryId++; // Increment for next detection in the same batch
+                }
                 
                 if (d.getBoundingBox() != null) {
                     BoundingBoxDTO b = d.getBoundingBox();
@@ -65,7 +90,6 @@ public class PredictionPersistenceService {
                 // Set annotation tracking fields for AI-generated detections
                 pd.setSource("AI_GENERATED");
                 pd.setActionType("ADDED");
-                pd.setUser(null); // AI has no user
                 pd.setComments(null);
                 
                 p.addDetection(pd);
@@ -81,7 +105,7 @@ public class PredictionPersistenceService {
             .filter(d -> "MANUALLY_ADDED".equals(d.getSource()))
             .count();
         
-        log.info("Saved prediction id={} transformer={} totalDetections={} (AI={}, Manual={})", 
+        log.info("Saved AI prediction id={} transformer={} totalDetections={} (AI={}, Manual={})", 
             saved.getId(), 
             transformerNo, 
             p.getDetections().size(),
@@ -89,5 +113,30 @@ public class PredictionPersistenceService {
             manualDetections);
         
         return saved.getId();
+    }
+    
+    /**
+     * Get or create the special AI user for AI-generated predictions
+     */
+    private User getOrCreateAiUser() {
+        return userRepository.findByEmail("ai@system.local")
+            .orElseGet(() -> {
+                User aiUser = User.builder()
+                    .name("AI System")
+                    .email("ai@system.local")
+                    .password("$2a$10$dummy.hash.for.ai.user") // Dummy password hash
+                    .role("SYSTEM")
+                    .build();
+                return userRepository.save(aiUser);
+            });
+    }
+
+    /**
+     * Generate the next log entry ID for a given inspection
+     * Log entry IDs are unique per inspection but not globally unique
+     */
+    private Integer getNextLogEntryId(Integer inspectionId) {
+        Integer maxLogEntryId = detectionRepository.getMaxLogEntryIdForInspection(inspectionId);
+        return maxLogEntryId + 1;
     }
 }
