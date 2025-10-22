@@ -18,7 +18,8 @@ import {
   DialogContentText,
   DialogActions,
 } from "@mui/material";
-import { Add, Edit } from "@mui/icons-material";
+import { Slider, InputAdornment, IconButton, Tooltip } from "@mui/material";
+import { Add, Edit, ZoomIn, ZoomOut, RestartAlt } from "@mui/icons-material";
 import { authService } from "../services/authService";
 
 interface BoundingBox {
@@ -115,6 +116,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const sceneRef = useRef<HTMLDivElement>(null);
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(
@@ -125,6 +127,21 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
   const [selectedFaultType, setSelectedFaultType] = useState(FAULT_TYPES[0]);
   const [comments, setComments] = useState("");
+  const [displaySize, setDisplaySize] = useState<{ w: number; h: number }>({
+    w: 0,
+    h: 0,
+  });
+  // Zoom & Pan
+  const [zoom, setZoom] = useState<number>(1);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef<{ x: number; y: number } | null>(null);
+  // Advanced editable fields
+  const [coordX1, setCoordX1] = useState<number | "">("");
+  const [coordY1, setCoordY1] = useState<number | "">("");
+  const [coordX2, setCoordX2] = useState<number | "">("");
+  const [coordY2, setCoordY2] = useState<number | "">("");
+  const [confidencePct, setConfidencePct] = useState<number>(100);
 
   // Existing annotations state
   const [existingAnnotations, setExistingAnnotations] = useState<
@@ -178,6 +195,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       setIsEditMode(false);
       setSelectedAnnotation(null);
       setTempResizedAnnotation(null);
+      setCoordX1("");
+      setCoordY1("");
+      setCoordX2("");
+      setCoordY2("");
+      setConfidencePct(100);
     }
   }, [isActive]);
 
@@ -256,6 +278,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       // Store original dimensions for reset
       canvas.dataset.originalWidth = String(displayWidth);
       canvas.dataset.originalHeight = String(displayHeight);
+      setDisplaySize({ w: displayWidth, h: displayHeight });
     }; // Prevent drag and drop on canvas only when not in edit mode
     const preventDrag = (e: DragEvent) => {
       if (!isEditMode) {
@@ -298,6 +321,87 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     };
   }, [imageUrl, isEditMode]);
 
+  // Keep form coordinate fields in sync when selection/draw changes
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const scaleX = parseFloat(canvas.dataset.scaleX || "1");
+    const scaleY = parseFloat(canvas.dataset.scaleY || "1");
+
+    // Edit mode takes precedence
+    const ann = (tempResizedAnnotation || selectedAnnotation);
+    if (isEditMode && ann && hasValidBbox(ann)) {
+      const x1 = Math.round(ann.bboxX!);
+      const y1 = Math.round(ann.bboxY!);
+      const x2 = Math.round(ann.bboxX! + ann.bboxW!);
+      const y2 = Math.round(ann.bboxY! + ann.bboxH!);
+      setCoordX1(x1);
+      setCoordY1(y1);
+      setCoordX2(x2);
+      setCoordY2(y2);
+      setConfidencePct(Math.round((ann.confidence ?? 1) * 100));
+      return;
+    }
+
+    // New drawing
+    if (drawnBox) {
+      const x1 = Math.round(drawnBox.x * scaleX);
+      const y1 = Math.round(drawnBox.y * scaleY);
+      const x2 = Math.round((drawnBox.x + drawnBox.width) * scaleX);
+      const y2 = Math.round((drawnBox.y + drawnBox.height) * scaleY);
+      setCoordX1(x1);
+      setCoordY1(y1);
+      setCoordX2(x2);
+      setCoordY2(y2);
+    }
+  }, [selectedAnnotation, tempResizedAnnotation, drawnBox, isEditMode]);
+
+  // Helper to clamp values to [0, 640]
+  const clamp0640 = (v: number) => Math.max(0, Math.min(640, Math.round(v)));
+
+  // When user edits coordinate fields, update preview (drawnBox or tempResizedAnnotation)
+  const applyCoordinateFieldUpdate = (
+    nextX1?: number,
+    nextY1?: number,
+    nextX2?: number,
+    nextY2?: number
+  ) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const scaleX = parseFloat(canvas.dataset.scaleX || "1");
+    const scaleY = parseFloat(canvas.dataset.scaleY || "1");
+
+    const x1 = clamp0640(nextX1 ?? (typeof coordX1 === "number" ? coordX1 : 0));
+    const y1 = clamp0640(nextY1 ?? (typeof coordY1 === "number" ? coordY1 : 0));
+    const x2 = clamp0640(nextX2 ?? (typeof coordX2 === "number" ? coordX2 : 0));
+    const y2 = clamp0640(nextY2 ?? (typeof coordY2 === "number" ? coordY2 : 0));
+
+    // Ensure proper ordering
+    const left = Math.min(x1, x2);
+    const top = Math.min(y1, y2);
+    const right = Math.max(x1, x2);
+    const bottom = Math.max(y1, y2);
+
+    if (isEditMode && (selectedAnnotation || tempResizedAnnotation)) {
+      const base = tempResizedAnnotation || selectedAnnotation!;
+      const updated = {
+        ...base,
+        bboxX: left,
+        bboxY: top,
+        bboxW: right - left,
+        bboxH: bottom - top,
+      } as ActivityLogEntry;
+      setTempResizedAnnotation(updated);
+    } else if (drawnBox) {
+      // Update drawnBox overlay from model coords back to canvas
+      const x = left / scaleX;
+      const y = top / scaleY;
+      const width = (right - left) / scaleX;
+      const height = (bottom - top) / scaleY;
+      setDrawnBox({ x, y, width, height });
+    }
+  };
+
   // Redraw canvas with existing annotations
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -321,6 +425,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         annotation.bboxH !== undefined
     );
 
+    // Color is strictly derived from fault type (no manipulation for AI/manual, hover, or selected)
+
     // Draw existing annotations
     validAnnotations.forEach((annotation) => {
       // Use temp resized annotation if this is the one being resized
@@ -339,23 +445,17 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         selectedAnnotation?.detectionId === annotation.detectionId;
       const isHovered =
         hoveredAnnotation?.detectionId === annotation.detectionId;
-      const isAI = annotation.source === "AI_GENERATED";
+  const isAI = annotation.source === "AI_GENERATED";
 
       // Dim other annotations when one is selected for editing
       const isDimmed = isEditMode && selectedAnnotation && !isSelected;
 
-      // Get fault type and determine base color from thermal analysis color scheme
+      // Get fault type and determine base color from fault severity mapping (not source)
       const faultType = CLASS_ID_TO_FAULT_TYPE[annotation.classId] || "Unknown";
       const baseColor = FAULT_TYPE_COLORS[faultType] || SEVERITY_COLORS.warning;
 
-      // Create brighter colors for hover and selected states
-      const brighterColor = isSelected
-        ? "#ff1744" // Bright red for selected
-        : isHovered
-        ? "#ffa726" // Bright orange for hover
-        : baseColor;
-
-      const strokeColor = brighterColor;
+      // Use only the fault color. Thickness indicates selection/hover.
+      const strokeColor = baseColor;
       const lineWidth = isSelected ? 4 : isHovered ? 3 : 2;
 
       // Apply dimming effect
@@ -393,7 +493,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
       // Draw resize handles if selected
       if (isSelected) {
-        drawResizeHandles(ctx, x, y, width, height);
+        drawResizeHandles(ctx, x, y, width, height, baseColor);
       }
 
       ctx.setLineDash([]);
@@ -402,7 +502,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
     // Draw current box if drawing
     if (currentBox && activeToolbox === "draw") {
-      ctx.strokeStyle = SEVERITY_COLORS.warning;
+      const drawColor = FAULT_TYPE_COLORS[selectedFaultType] || SEVERITY_COLORS.warning;
+      ctx.strokeStyle = drawColor;
       ctx.lineWidth = 3;
       ctx.setLineDash([5, 3]);
       ctx.strokeRect(
@@ -412,7 +513,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         currentBox.height
       );
 
-      ctx.fillStyle = SEVERITY_COLORS.warning + BOUNDING_BOX_OPACITY;
+      ctx.fillStyle = drawColor + BOUNDING_BOX_OPACITY;
       ctx.fillRect(
         currentBox.x,
         currentBox.y,
@@ -424,11 +525,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
     // Draw finalized box
     if (drawnBox && !isDrawing && activeToolbox === "draw") {
-      ctx.strokeStyle = SEVERITY_COLORS.warning;
+      const drawColor = FAULT_TYPE_COLORS[selectedFaultType] || SEVERITY_COLORS.warning;
+      ctx.strokeStyle = drawColor;
       ctx.lineWidth = 3;
       ctx.strokeRect(drawnBox.x, drawnBox.y, drawnBox.width, drawnBox.height);
 
-      ctx.fillStyle = SEVERITY_COLORS.warning + BOUNDING_BOX_OPACITY;
+      ctx.fillStyle = drawColor + BOUNDING_BOX_OPACITY;
       ctx.fillRect(drawnBox.x, drawnBox.y, drawnBox.width, drawnBox.height);
     }
   }, [
@@ -450,12 +552,13 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     x: number,
     y: number,
     width: number,
-    height: number
+    height: number,
+    color: string
   ) => {
     const handleSize = 8;
     const halfHandle = handleSize / 2;
 
-    ctx.fillStyle = "#EF4444";
+    ctx.fillStyle = color;
     ctx.strokeStyle = "#FFFFFF";
     ctx.lineWidth = 2;
 
@@ -625,9 +728,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / zoom;
+  const y = (e.clientY - rect.top) / zoom;
 
     // If in edit mode, only allow hover on the selected annotation
     if (isEditMode && selectedAnnotation) {
@@ -659,7 +762,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         }
       } else {
         setHoveredAnnotation(null);
-        canvas.style.cursor = "not-allowed"; // Show disabled cursor when in edit mode
+        canvas.style.cursor = "default"; // Neutral cursor outside selected box while in edit mode
       }
       return;
     }
@@ -686,8 +789,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+  const x = (e.clientX - rect.left) / zoom;
+  const y = (e.clientY - rect.top) / zoom;
 
     // Don't prevent default for edit mode to allow dragging
     if (!isEditMode) {
@@ -776,6 +879,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           CLASS_ID_TO_FAULT_TYPE[clickedAnnotation.classId] || FAULT_TYPES[0]
         );
         setComments(clickedAnnotation.comments || "");
+        setConfidencePct(Math.round((clickedAnnotation.confidence ?? 1) * 100));
         setDrawnBox(null); // Clear any drawn box
         setTempResizedAnnotation(null); // Clear any temp resize state
         return;
@@ -802,9 +906,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / zoom;
+  const y = (e.clientY - rect.top) / zoom;
 
     // Handle hover detection first
     handleMouseMoveHover(e);
@@ -930,8 +1034,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     // Handle drawing new box (only when in draw mode)
     if (!isDrawing || !startPoint || activeToolbox !== "draw") return;
 
-    const width = adjustedX - startPoint.x;
-    const height = adjustedY - startPoint.y;
+  const width = adjustedX - startPoint.x;
+  const height = adjustedY - startPoint.y;
 
     setCurrentBox({
       x: width < 0 ? adjustedX : startPoint.x,
@@ -942,6 +1046,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   };
 
   const handleMouseUp = () => {
+    if (isPanning) {
+      setIsPanning(false);
+      panStartRef.current = null;
+    }
     // Handle drag completion
     if (isDragging && selectedAnnotation) {
       setIsDragging(false);
@@ -973,6 +1081,37 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     setCurrentBox(null);
   };
 
+  // Mouse handlers for panning (Alt + drag)
+  const handlePanMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isActive) return;
+    if (!e.altKey) return; // Use Alt+Drag to pan
+    e.preventDefault();
+    setIsPanning(true);
+    panStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+  };
+
+  const handlePanMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isPanning || !panStartRef.current) return;
+    e.preventDefault();
+    const nx = e.clientX - panStartRef.current.x;
+    const ny = e.clientY - panStartRef.current.y;
+    setPan({ x: nx, y: ny });
+  };
+
+  const handlePanMouseUp = () => {
+    setIsPanning(false);
+    panStartRef.current = null;
+  };
+
+  const handleWheelZoom = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (!isActive) return;
+    // Ctrl + wheel to zoom, else ignore to allow page scroll
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 0.9 : 1.1;
+    setZoom((z) => Math.max(0.5, Math.min(4, parseFloat((z * factor).toFixed(3)))));
+  };
+
   // Handle edit
   const handleEdit = async () => {
     if (!selectedAnnotation) return;
@@ -981,7 +1120,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     if (!canvas) return;
 
     // Use temp resized annotation if it exists, otherwise use selected annotation
-    const annotationToSave = tempResizedAnnotation || selectedAnnotation;
+  const annotationToSave = tempResizedAnnotation || selectedAnnotation;
 
     if (!hasValidBbox(annotationToSave)) return;
 
@@ -1011,11 +1150,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           body: JSON.stringify({
             predictionId: predictionId,
             classId: faultTypeToClassId[selectedFaultType],
-            confidence: 1.0,
-            x1: Math.round(x1!),
-            y1: Math.round(y1!),
-            x2: Math.round(x2),
-            y2: Math.round(y2),
+            confidence: Math.max(0, Math.min(1, confidencePct / 100)),
+            x1: clamp0640(x1!),
+            y1: clamp0640(y1!),
+            x2: clamp0640(x2),
+            y2: clamp0640(y2),
             comments: comments || null,
           }),
         }
@@ -1044,6 +1183,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       setIsEditMode(false);
       setComments("");
       setSelectedFaultType(FAULT_TYPES[0]);
+      setCoordX1("");
+      setCoordY1("");
+      setCoordX2("");
+      setCoordY2("");
+      setConfidencePct(100);
       setTempResizedAnnotation(null); // Clear temp state
       setActiveToolbox("draw"); // Return to drawing mode after editing
     } catch (err) {
@@ -1060,7 +1204,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     if (!canvas) return;
 
     // Use temp resized annotation if it exists, otherwise use selected annotation
-    const annotationToSave = tempResizedAnnotation || selectedAnnotation;
+  const annotationToSave = tempResizedAnnotation || selectedAnnotation;
 
     if (!hasValidBbox(annotationToSave)) return;
 
@@ -1090,11 +1234,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           body: JSON.stringify({
             predictionId: predictionId,
             classId: faultTypeToClassId[selectedFaultType],
-            confidence: 1.0,
-            x1: Math.round(x1!),
-            y1: Math.round(y1!),
-            x2: Math.round(x2),
-            y2: Math.round(y2),
+            confidence: Math.max(0, Math.min(1, confidencePct / 100)),
+            x1: clamp0640(x1!),
+            y1: clamp0640(y1!),
+            x2: clamp0640(x2),
+            y2: clamp0640(y2),
             comments: comments || null,
           }),
         }
@@ -1125,6 +1269,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       setIsEditMode(false);
       setComments("");
       setSelectedFaultType(FAULT_TYPES[0]);
+  setCoordX1("");
+  setCoordY1("");
+  setCoordX2("");
+  setCoordY2("");
+  setConfidencePct(100);
       setTempResizedAnnotation(null);
       setHoveredAnnotation(null); // Clear any hover highlights
       setError(null);
@@ -1227,12 +1376,26 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     const scaleX = parseFloat(canvas.dataset.scaleX || "1");
     const scaleY = parseFloat(canvas.dataset.scaleY || "1");
 
-    const modelBox: BoundingBox = {
-      x: drawnBox.x * scaleX,
-      y: drawnBox.y * scaleY,
-      width: drawnBox.width * scaleX,
-      height: drawnBox.height * scaleY,
-    };
+    // Prefer user-entered coordinates if available
+    const useFields =
+      typeof coordX1 === "number" &&
+      typeof coordY1 === "number" &&
+      typeof coordX2 === "number" &&
+      typeof coordY2 === "number";
+
+    const modelBox: BoundingBox = useFields
+      ? {
+          x: clamp0640(coordX1)!,
+          y: clamp0640(coordY1)!,
+          width: clamp0640(coordX2) - clamp0640(coordX1),
+          height: clamp0640(coordY2) - clamp0640(coordY1),
+        }
+      : {
+          x: drawnBox.x * scaleX,
+          y: drawnBox.y * scaleY,
+          width: drawnBox.width * scaleX,
+          height: drawnBox.height * scaleY,
+        };
 
     onSave(modelBox, selectedFaultType, comments);
 
@@ -1240,6 +1403,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     setDrawnBox(null);
     setComments("");
     setSelectedFaultType(FAULT_TYPES[0]);
+    setCoordX1("");
+    setCoordY1("");
+    setCoordX2("");
+    setCoordY2("");
+    setConfidencePct(100);
   };
 
   // Handle save and continue for new annotations - save without navigating away
@@ -1253,12 +1421,26 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     const scaleX = parseFloat(canvas.dataset.scaleX || "1");
     const scaleY = parseFloat(canvas.dataset.scaleY || "1");
 
-    const modelBox: BoundingBox = {
-      x: drawnBox.x * scaleX,
-      y: drawnBox.y * scaleY,
-      width: drawnBox.width * scaleX,
-      height: drawnBox.height * scaleY,
-    };
+    // Prefer user-entered coordinates if available
+    const useFields =
+      typeof coordX1 === "number" &&
+      typeof coordY1 === "number" &&
+      typeof coordX2 === "number" &&
+      typeof coordY2 === "number";
+
+    const modelBox: BoundingBox = useFields
+      ? {
+          x: clamp0640(coordX1)!,
+          y: clamp0640(coordY1)!,
+          width: clamp0640(coordX2) - clamp0640(coordX1),
+          height: clamp0640(coordY2) - clamp0640(coordY1),
+        }
+      : {
+          x: drawnBox.x * scaleX,
+          y: drawnBox.y * scaleY,
+          width: drawnBox.width * scaleX,
+          height: drawnBox.height * scaleY,
+        };
 
     const faultTypeToClassId: Record<string, number> = {
       "Point Overload (Faulty)": 0,
@@ -1279,11 +1461,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         body: JSON.stringify({
           predictionId: predictionId,
           classId: faultTypeToClassId[selectedFaultType],
-          confidence: 1.0,
-          x1: Math.round(modelBox.x),
-          y1: Math.round(modelBox.y),
-          x2: Math.round(modelBox.x + modelBox.width),
-          y2: Math.round(modelBox.y + modelBox.height),
+          confidence: Math.max(0, Math.min(1, confidencePct / 100)),
+          x1: clamp0640(modelBox.x),
+          y1: clamp0640(modelBox.y),
+          x2: clamp0640(modelBox.x + modelBox.width),
+          y2: clamp0640(modelBox.y + modelBox.height),
           comments: comments || null,
         }),
       });
@@ -1311,6 +1493,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       setDrawnBox(null);
       setComments("");
       setSelectedFaultType(FAULT_TYPES[0]);
+  setCoordX1("");
+  setCoordY1("");
+  setCoordX2("");
+  setCoordY2("");
+  setConfidencePct(100);
       setSelectedAnnotation(null); // Clear any selection
       setHoveredAnnotation(null); // Clear any hover highlights
       setIsEditMode(false); // Ensure we're not in edit mode
@@ -1426,53 +1613,69 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
             justifyContent: "center",
             cursor: activeToolbox === "draw" ? "crosshair" : "default",
           }}
+          onWheel={handleWheelZoom}
+          onMouseDown={handlePanMouseDown}
+          onMouseMove={handlePanMouseMove}
+          onMouseUp={handlePanMouseUp}
         >
-          <img
-            ref={imageRef}
-            src={imageUrl}
-            alt="Thermal"
-            style={{
-              maxWidth: "100%",
-              maxHeight: "100%",
-              objectFit: "contain",
-              userSelect: "none",
-              pointerEvents: "none",
+          {/* Scene wrapper to apply pan/zoom to image and canvas together */}
+          <Box
+            ref={sceneRef}
+            sx={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              width: displaySize.w,
+              height: displaySize.h,
+              transform: `translate(-50%, -50%) translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transformOrigin: "center center",
             }}
-            draggable={false}
-          />
+          >
+            <img
+              ref={imageRef}
+              src={imageUrl}
+              alt="Thermal"
+              style={{
+                width: displaySize.w,
+                height: displaySize.h,
+                objectFit: "contain",
+                userSelect: "none",
+                pointerEvents: "none",
+                display: "block",
+              }}
+              draggable={false}
+            />
 
-          <canvas
-            ref={canvasRef}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onDoubleClick={(e) => {
-              // Allow double-click in edit mode
-              if (!isEditMode) {
+            <canvas
+              ref={canvasRef}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onDoubleClick={(e) => {
+                // Allow double-click in edit mode
+                if (!isEditMode) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }
+              }}
+              onContextMenu={(e) => {
+                // Prevent right-click context menu
                 e.preventDefault();
-                e.stopPropagation();
-              }
-            }}
-            onContextMenu={(e) => {
-              // Prevent right-click context menu
-              e.preventDefault();
-              return false;
-            }}
-            onMouseLeave={() => {
-              if (isDrawing) handleMouseUp();
-              // Don't reset resize, drag, or pan state when mouse leaves canvas
-              // Only reset hover state
-              if (!isResizing && !isDragging) {
-                setHoveredAnnotation(null);
-              }
-            }}
-            draggable={false}
-            style={
-              {
+                return false;
+              }}
+              onMouseLeave={() => {
+                if (isDrawing) handleMouseUp();
+                // Don't reset resize, drag, or pan state when mouse leaves canvas
+                // Only reset hover state
+                if (!isResizing && !isDragging) {
+                  setHoveredAnnotation(null);
+                }
+              }}
+              draggable={false}
+              style={{
                 position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
+                top: 0,
+                left: 0,
                 userSelect: "none",
                 WebkitUserSelect: "none",
                 MozUserSelect: "none",
@@ -1480,9 +1683,59 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
                 WebkitTouchCallout: "none",
                 KhtmlUserSelect: "none",
                 pointerEvents: "auto",
-              } as React.CSSProperties
-            }
-          />
+              } as React.CSSProperties}
+            />
+          </Box>
+
+          {/* Floating zoom controls (right side) */}
+          <Box
+            sx={{
+              position: "absolute",
+              right: 12,
+              top: "50%",
+              transform: "translateY(-50%)",
+              bgcolor: "#ffffff",
+              border: "1px solid #e2e8f0",
+              boxShadow: 1,
+              borderRadius: 3,
+              p: 0.5,
+            }}
+          >
+            <Stack direction="column" spacing={0.5}>
+              <Tooltip title="Zoom In">
+                <IconButton size="small" onClick={() => setZoom((z) => Math.min(4, parseFloat((z * 1.1).toFixed(3))))}>
+                  <ZoomIn fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Zoom Out">
+                <IconButton size="small" onClick={() => setZoom((z) => Math.max(0.5, parseFloat((z * 0.9).toFixed(3))))}>
+                  <ZoomOut fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Reset View">
+                <IconButton size="small" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}>
+                  <RestartAlt fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Stack>
+          </Box>
+
+          {/* Zoom percentage badge (bottom-left) */}
+          <Box
+            sx={{
+              position: "absolute",
+              left: 8,
+              bottom: 8,
+              bgcolor: "rgba(0,0,0,0.7)",
+              color: "#fff",
+              fontSize: 12,
+              px: 1,
+              py: 0.5,
+              borderRadius: 2,
+            }}
+          >
+            {Math.round(zoom * 100)}%
+          </Box>
         </Box>
       </Box>
 
@@ -1512,7 +1765,6 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
                 setSelectedAnnotation(null);
                 setTempResizedAnnotation(null);
               }}
-              disabled={isEditMode}
               sx={{
                 minWidth: 32,
                 width: 32,
@@ -1545,6 +1797,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
             >
               <Edit fontSize="small" />
             </Button>
+
+            {/* Zoom controls moved to floating HUD for consistency */}
           </Stack>
         </Paper>
       </Box>
@@ -1584,6 +1838,93 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
               </Select>
             </FormControl>
 
+            {/* Boundary coordinates editing */}
+            <Box>
+              <Typography variant="caption" sx={{ mb: 0.5, fontWeight: 600, display: "block" }}>
+                Boundary Coordinates (model 640×640)
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                <TextField
+                  label="x1"
+                  type="number"
+                  size="small"
+                  value={coordX1}
+                  onChange={(e) => {
+                    const v = e.target.value === "" ? "" : Number(e.target.value);
+                    setCoordX1(v as number | "");
+                    if (v !== "") applyCoordinateFieldUpdate(Number(v), undefined, undefined, undefined);
+                  }}
+                  inputProps={{ min: 0, max: 640 }}
+                />
+                <TextField
+                  label="y1"
+                  type="number"
+                  size="small"
+                  value={coordY1}
+                  onChange={(e) => {
+                    const v = e.target.value === "" ? "" : Number(e.target.value);
+                    setCoordY1(v as number | "");
+                    if (v !== "") applyCoordinateFieldUpdate(undefined, Number(v), undefined, undefined);
+                  }}
+                  inputProps={{ min: 0, max: 640 }}
+                />
+                <TextField
+                  label="x2"
+                  type="number"
+                  size="small"
+                  value={coordX2}
+                  onChange={(e) => {
+                    const v = e.target.value === "" ? "" : Number(e.target.value);
+                    setCoordX2(v as number | "");
+                    if (v !== "") applyCoordinateFieldUpdate(undefined, undefined, Number(v), undefined);
+                  }}
+                  inputProps={{ min: 0, max: 640 }}
+                />
+                <TextField
+                  label="y2"
+                  type="number"
+                  size="small"
+                  value={coordY2}
+                  onChange={(e) => {
+                    const v = e.target.value === "" ? "" : Number(e.target.value);
+                    setCoordY2(v as number | "");
+                    if (v !== "") applyCoordinateFieldUpdate(undefined, undefined, undefined, Number(v));
+                  }}
+                  inputProps={{ min: 0, max: 640 }}
+                />
+              </Stack>
+            </Box>
+
+            {/* Confidence */}
+            <Box>
+              <Typography variant="caption" sx={{ mb: 0.5, fontWeight: 600, display: "block" }}>
+                Confidence
+              </Typography>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Slider
+                  value={confidencePct}
+                  onChange={(_, v) => setConfidencePct(Array.isArray(v) ? v[0] : v)}
+                  min={0}
+                  max={100}
+                  step={1}
+                  sx={{ width: 200 }}
+                />
+                <TextField
+                  value={confidencePct}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (!Number.isNaN(v)) setConfidencePct(Math.max(0, Math.min(100, v)));
+                  }}
+                  size="small"
+                  type="number"
+                  inputProps={{ min: 0, max: 100 }}
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                  }}
+                />
+              </Stack>
+            </Box>
+
             <TextField
               label="Comments (optional)"
               multiline
@@ -1612,6 +1953,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
                     setComments("");
                     setSelectedFaultType(FAULT_TYPES[0]);
                     setTempResizedAnnotation(null); // Clear temp state when canceling
+                    setCoordX1("");
+                    setCoordY1("");
+                    setCoordX2("");
+                    setCoordY2("");
+                    setConfidencePct(100);
                     setIsDragging(false);
                     setDragStartPoint(null);
                     setDragStartBox(null);
