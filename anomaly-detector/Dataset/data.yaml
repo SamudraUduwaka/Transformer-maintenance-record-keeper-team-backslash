@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 5
+names: ['full_wire_yellow', 'loose_joint_red', 'loose_joint_yellow', 'point_overload_red', 'point_overload_yellow']
+
+roboflow:
+  workspace: my-workspace-q1lkj
+  project: transformer-fault-detection-llssu
+  version: 3
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/my-workspace-q1lkj/transformer-fault-detection-llssu/dataset/3
