@@ -59,6 +59,10 @@ spring.datasource.password=YOUR_DB_PASSWORD
 inference.script.path=C:/your/path/to/anomaly-detector/Fault Detection v11-2/seg_infer_and_label_5c.py
 inference.weights.path=C:/your/path/to/anomaly-detector/Fault Detection v11/runs_yolo/tx_seg_5c_v11_cpu2/weights/best.pt
 inference.temp.dir=C:/your/path/to/anomaly-detector/inference-uploads
+
+inference.training.script.path=C:/your/path/to/anomaly-detector/Fault Detection v11-2/finetune.py
+inference.training.dataset.path=C:/your/path/to/anomaly-detector/Dataset
+inference.training.output.path=C:/your/path/to/anomaly-detector/Fault Detection v11-2/combined_dataset
 ```
 
 **Optional Changes:**
