@@ -11,11 +11,7 @@ import jakarta.annotation.PostConstruct;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.LocalDateTime;
 import java.time.LocalDate;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 import java.util.List;
 import java.util.Map;
@@ -24,7 +20,6 @@ import java.util.Map;
 public class ModelTrainingService {
     private static final Logger logger = Logger.getLogger(ModelTrainingService.class.getName());
 
-    private final JdbcTemplate jdbcTemplate;
     private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
 
     @Value("${spring.datasource.url}")
@@ -55,16 +50,12 @@ public class ModelTrainingService {
     private String trainingScriptPath;
 
     public ModelTrainingService(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
         this.namedParameterJdbcTemplate = new NamedParameterJdbcTemplate(jdbcTemplate);
     }
 
-    @Value("${inference.training.check-interval}")
-    private String checkInterval;
-
     @PostConstruct
     public void init() {
-        logger.info("Model training service initialized with check interval: " + checkInterval);
+        logger.info("Model training service initialized");
     }
 
     @Scheduled(cron = "${inference.training.cron}")  // Runs at midnight
@@ -74,9 +65,6 @@ public class ModelTrainingService {
             return;
         }
 
-        // Get today's date
-        LocalDate today = LocalDate.now();
-        
         // Get images edited today
         List<Map<String, Object>> todaysEdits = getTodaysEditedImages();
         int editCount = todaysEdits.size();
