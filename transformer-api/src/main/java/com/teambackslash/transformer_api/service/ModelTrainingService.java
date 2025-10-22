@@ -12,13 +12,14 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.time.LocalDate;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Map;
 
 @Service
 public class ModelTrainingService {
-    private static final Logger logger = Logger.getLogger(ModelTrainingService.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(ModelTrainingService.class);
 
     private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
 
@@ -58,8 +59,13 @@ public class ModelTrainingService {
         logger.info("Model training service initialized");
     }
 
-    @Scheduled(cron = "${inference.training.cron}")  // Runs at midnight
+    @Scheduled(cron = "${inference.training.cron}")  // Runs at configured time
     public void checkAndTriggerTraining() {
+        // Test print to verify scheduler is working
+        logger.info("\n\n==================================================");
+        logger.info("SCHEDULER TEST: Triggered at {} {}", LocalDate.now(), java.time.LocalTime.now());
+        logger.info("==================================================\n");
+
         if (!trainingEnabled) {
             logger.info("Model training is disabled");
             return;
@@ -132,11 +138,11 @@ public class ModelTrainingService {
             if (exitCode == 0) {
                 logger.info("Model training completed successfully");
             } else {
-                logger.warning("Model training failed with exit code: " + exitCode);
+                logger.warn("Model training failed with exit code: {}", exitCode);
             }
 
         } catch (IOException | InterruptedException e) {
-            logger.severe("Error during model training: " + e.getMessage());
+            logger.error("Error during model training: {}", e.getMessage());
         }
     }
 }
