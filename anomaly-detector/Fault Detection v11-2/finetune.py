@@ -7,6 +7,7 @@ from pathlib import Path
 import mysql.connector
 import cv2
 import numpy as np
+import torch
 
 def fetch_manually_edited_data(db_config):
     """
@@ -15,14 +16,19 @@ def fetch_manually_edited_data(db_config):
     connection = mysql.connector.connect(**db_config)
     cursor = connection.cursor(dictionary=True)
     
-    # Query to get the most recent 64 manually edited predictions
+    # Query to get manually edited predictions from today
     query = """
-    SELECT p.image_path, pd.class_id, pd.polygon_xy, p.id as pred_id
+    SELECT 
+        CONCAT('inference-uploads/pred-', p.prediction_id, '/image.jpg') as image_path,
+        pd.class_id,
+        pd.bbox_x, pd.bbox_y, pd.bbox_w, pd.bbox_h,
+        p.prediction_id as pred_id
     FROM prediction p
-    JOIN prediction_detection pd ON p.id = pd.prediction_id
-    WHERE pd.manually_edited = true
-    ORDER BY p.created_at DESC
-    LIMIT 64
+    JOIN prediction_detection pd ON p.prediction_id = pd.prediction_id
+    JOIN inspection i ON p.inspection_id = i.inspection_id
+    WHERE (pd.source = 'MANUALLY_ADDED' OR pd.action_type IN ('EDITED', 'DELETED'))
+    AND DATE(pd.created_at) = CURDATE()
+    ORDER BY pd.created_at
     """
     
     cursor.execute(query)
@@ -32,49 +38,62 @@ def fetch_manually_edited_data(db_config):
     
     return results
 
-def convert_to_yolo_format(polygon_xy, width, height):
+def convert_to_yolo_format(bbox_x, bbox_y, bbox_w, bbox_h, width, height):
     """
-    Convert polygon coordinates to YOLO format
-    Returns normalized coordinates and ensures correct format
+    Convert bounding box coordinates to YOLO format
+    Returns normalized coordinates: center_x, center_y, width, height
+    All values normalized between 0 and 1
     """
-    # Convert string representation to numpy array
-    polygons = np.array(eval(polygon_xy))
+    # Calculate center points and normalize
+    center_x = (bbox_x + bbox_w/2) / width
+    center_y = (bbox_y + bbox_h/2) / height
     
-    # Ensure polygon is in the correct shape
-    if len(polygons.shape) == 2 and polygons.shape[1] == 2:
-        # Normalize coordinates
-        normalized = polygons / np.array([width, height])
-        
-        # Ensure all coordinates are within [0, 1]
-        normalized = np.clip(normalized, 0, 1)
-        
-        return normalized
-    else:
-        raise ValueError("Invalid polygon format")
+    # Normalize width and height
+    norm_width = bbox_w / width
+    norm_height = bbox_h / height
+    
+    # Ensure all coordinates are within [0, 1]
+    center_x = np.clip(center_x, 0, 1)
+    center_y = np.clip(center_y, 0, 1)
+    norm_width = np.clip(norm_width, 0, 1)
+    norm_height = np.clip(norm_height, 0, 1)
+    
+    return center_x, center_y, norm_width, norm_height
 
 def setup_training_data(manual_data, dataset_path, output_path):
     """
-    Combine manually edited data with existing dataset, ensuring YOLOv11 format compatibility
+    Combine manually edited data with existing dataset, ensuring YOLOv11 format compatibility.
+    Split data into train (70%), valid (20%), and test (10%) sets.
     """
-    # Create output directories
-    train_images = Path(output_path) / 'train' / 'images'
-    train_labels = Path(output_path) / 'train' / 'labels'
-    train_images.mkdir(parents=True, exist_ok=True)
-    train_labels.mkdir(parents=True, exist_ok=True)
+    # Create output directories for all splits
+    splits = ['train', 'valid', 'test']
+    split_dirs = {}
+    for split in splits:
+        split_dirs[split] = {
+            'images': Path(output_path) / split / 'images',
+            'labels': Path(output_path) / split / 'labels'
+        }
+        split_dirs[split]['images'].mkdir(parents=True, exist_ok=True)
+        split_dirs[split]['labels'].mkdir(parents=True, exist_ok=True)
     
-    # First, copy the existing dataset which is already in YOLO format
-    dataset_images = Path(dataset_path) / 'train' / 'images'
-    dataset_labels = Path(dataset_path) / 'train' / 'labels'
+    # First, gather all existing dataset files
+    dataset_images = []
+    dataset_labels = []
+    print(f"Collecting existing dataset from {dataset_path}")
+    for split in splits:
+        split_img_dir = Path(dataset_path) / split / 'images'
+        split_lbl_dir = Path(dataset_path) / split / 'labels'
+        
+        for img_file in split_img_dir.glob('*.jpg'):
+            label_file = split_lbl_dir / f"{img_file.stem}.txt"
+            if label_file.exists():
+                dataset_images.append(img_file)
+                dataset_labels.append(label_file)
     
-    print(f"Copying existing dataset from {dataset_images}")
-    for img_file in dataset_images.glob('*.jpg'):
-        shutil.copy2(img_file, train_images / img_file.name)
-        label_file = dataset_labels / f"{img_file.stem}.txt"
-        if label_file.exists():
-            shutil.copy2(label_file, train_labels / label_file.name)
-    
-    # Process manually edited data
+    # Now collect all manual edit files
+    manual_files = []
     print(f"Processing {len(manual_data)} manually edited images")
+    
     for item in manual_data:
         img_path = item['image_path']
         if os.path.exists(img_path):
@@ -89,31 +108,84 @@ def setup_training_data(manual_data, dataset_path, output_path):
                 
                 # Generate unique filename using prediction ID to avoid conflicts
                 unique_name = f"manual_{item['pred_id']}"
-                new_img_path = train_images / f"{unique_name}.jpg"
                 
-                # Copy and convert image
-                shutil.copy2(img_path, new_img_path)
-                
-                # Convert polygon to YOLO format
+                # Convert bounding box to YOLO format
                 try:
-                    normalized_polygons = convert_to_yolo_format(item['polygon_xy'], width, height)
+                    yolo_coords = convert_to_yolo_format(
+                        item['bbox_x'], item['bbox_y'],
+                        item['bbox_w'], item['bbox_h'],
+                        width, height
+                    )
                     
-                    # Write YOLO format label
-                    label_path = train_labels / f"{unique_name}.txt"
-                    with open(label_path, 'w') as f:
-                        # Format: <class_id> <x1> <y1> <x2> <y2> ... <xn> <yn>
-                        coords = ' '.join([f"{x:.6f}" for x in normalized_polygons.flatten()])
-                        f.write(f"{item['class_id']} {coords}\n")
+                    # Store the file info for later distribution
+                    manual_files.append({
+                        'src_img': img_path,
+                        'name': unique_name,
+                        'class_id': item['class_id'],
+                        'coords': yolo_coords,
+                        'img': img
+                    })
                         
-                except (ValueError, SyntaxError) as e:
-                    print(f"Warning: Invalid polygon data for {img_path}: {e}")
+                except (ValueError, KeyError) as e:
+                    print(f"Warning: Invalid bounding box data for {img_path}: {e}")
                     continue
                     
             except Exception as e:
                 print(f"Error processing {img_path}: {e}")
                 continue
-            
-    print(f"Training data setup complete in {output_path}")
+    
+    # Calculate split sizes
+    total_files = len(dataset_images) + len(manual_files)
+    train_size = int(total_files * 0.7)
+    valid_size = int(total_files * 0.2)
+    # test_size will be the remainder
+    
+    # Combine and shuffle all files
+    import random
+    all_files = []
+    
+    # Add existing dataset files
+    for img_file, label_file in zip(dataset_images, dataset_labels):
+        all_files.append(('dataset', img_file, label_file))
+    
+    # Add manual files
+    for manual in manual_files:
+        all_files.append(('manual', manual))
+    
+    random.shuffle(all_files)
+    
+    # Distribute files according to splits
+    split_points = [0, train_size, train_size + valid_size]
+    current_splits = ['train', 'valid', 'test']
+    
+    for i, (start, end) in enumerate(zip(split_points, split_points[1:] + [None])):
+        split = current_splits[i]
+        split_files = all_files[start:end]
+        
+        for file_info in split_files:
+            if file_info[0] == 'dataset':
+                _, img_file, label_file = file_info
+                # Copy dataset files
+                shutil.copy2(img_file, split_dirs[split]['images'] / img_file.name)
+                shutil.copy2(label_file, split_dirs[split]['labels'] / label_file.name)
+            else:
+                _, manual = file_info
+                # Save manual files
+                new_img_path = split_dirs[split]['images'] / f"{manual['name']}.jpg"
+                label_path = split_dirs[split]['labels'] / f"{manual['name']}.txt"
+                
+                # Save image
+                cv2.imwrite(str(new_img_path), manual['img'])
+                
+                # Save label
+                with open(label_path, 'w') as f:
+                    coords = ' '.join([f"{x:.6f}" for x in manual['coords']])
+                    f.write(f"{manual['class_id']} {coords}\n")
+    
+    print(f"Training data setup complete in {output_path} with splits:")
+    for split in splits:
+        img_count = len(list(split_dirs[split]['images'].glob('*.jpg')))
+        print(f"- {split}: {img_count} images ({img_count/total_files*100:.1f}%)")
 
 def create_data_yaml(output_path, dataset_path, nc=5):
     """
@@ -137,8 +209,8 @@ def create_data_yaml(output_path, dataset_path, nc=5):
     # Create new yaml content
     yaml_content = {
         'train': str(Path(output_path) / 'train' / 'images'),
-        'val': str(Path(dataset_path) / 'valid' / 'images'),  # Use original validation set
-        'test': str(Path(dataset_path) / 'test' / 'images'),  # Use original test set
+        'val': str(Path(output_path) / 'valid' / 'images'),  # Use new validation set
+        'test': str(Path(output_path) / 'test' / 'images'),  # Use new test set
         'nc': nc,
         'names': names
     }
@@ -173,20 +245,70 @@ def main():
     # Fetch manually edited data
     manual_data = fetch_manually_edited_data(db_config)
     
-    if len(manual_data) < 64:
-        print(f"Not enough manually edited images (found {len(manual_data)}, need 64)")
+    if len(manual_data) < 1:
+        print(f"No manually edited images found for training")
         return
+    
+    print(f"Found {len(manual_data)} manually edited images for training")
     
     # Setup training data
     setup_training_data(manual_data, args.dataset, args.output)
     
-    # Create data.yaml
-    data_yaml = create_data_yaml(args.output)
+    # Create data.yaml using both output path and original dataset path
+    data_yaml = create_data_yaml(args.output, args.dataset)
     
     # Load and train model
     model = YOLO(args.best_pt)
     
-    # Create project path for saving results
+    # Train with fine-tuning parameters optimized for small datasets
+    results = model.train(
+        data=data_yaml,
+        epochs=60,  # Reduced epochs for fine-tuning
+        imgsz=640,  # Same image size as initial training
+        batch=4,    # Very small batch size for small datasets
+        device='0' if torch.cuda.is_available() else 'cpu',
+        project=args.output,
+        name='finetune',
+        exist_ok=True,
+        resume=False,  # Start a new training session
+        pretrained=True,  # Use the loaded weights as initialization
+        # Fine-tuning specific parameters
+        patience=50,  # More patience for small datasets
+        optimizer='AdamW',
+        lr0=0.00001,  # Very low learning rate for fine-tuning
+        lrf=0.01,    # Final learning rate factor
+        momentum=0.937,
+        weight_decay=0.0005,  # Reduced weight decay for small datasets
+        warmup_epochs=5.0,    # More warmup epochs
+        warmup_momentum=0.8,
+        warmup_bias_lr=0.01,
+        box=7.5,     # Box loss gain
+        cls=0.3,     # Reduced class loss for fine-tuning
+        dfl=1.5,     # DFL loss gain
+        close_mosaic=0,  # Disable mosaic augmentation for small datasets
+        label_smoothing=0.0,  # Disable label smoothing
+        augment=True,  # Enable default augmentations
+        mixup=0.1,    # Light mixup
+        copy_paste=0.1,  # Light copy-paste
+        degrees=10.0,   # Rotation augmentation
+        translate=0.1,  # Translation augmentation
+        scale=0.1,     # Scale augmentation
+        shear=5.0,     # Shear augmentation
+        perspective=0.0001,  # Slight perspective augmentation
+        flipud=0.1,    # Vertical flip
+        fliplr=0.5,    # Horizontal flip
+        mosaic=0.1,    # Light mosaic
+        hsv_h=0.015,   # Hue augmentation
+        hsv_s=0.2,     # Saturation augmentation
+        hsv_v=0.1,     # Value augmentation
+    )
+    
+    print("Fine-tuning completed. Results saved in:", args.output)
+    
+    # Save the best model from this fine-tuning session
+    best_model_path = Path(args.output) / 'finetune' / 'weights' / 'best.pt'
+    if best_model_path.exists():
+        print("Best fine-tuned model saved at:", best_model_path)
     project_dir = Path(args.best_pt).parent.parent.parent  # Go up to runs_yolo directory
     
     results = model.train(
