@@ -82,12 +82,14 @@ public class ModelTrainingService {
     private List<Map<String, Object>> getTodaysEditedImages() {
         LocalDate today = LocalDate.now();
         String sql = """
-            SELECT DISTINCT p.id, p.image_path, pd.edited_at
+            SELECT DISTINCT 
+                p.prediction_id as id,
+                pd.created_at as edited_at
             FROM prediction p
-            JOIN prediction_detection pd ON p.id = pd.prediction_id
-            WHERE DATE(pd.edited_at) = :today
-            AND pd.manually_edited = true
-            ORDER BY pd.edited_at
+            JOIN prediction_detection pd ON p.prediction_id = pd.prediction_id
+            WHERE DATE(pd.created_at) = :today
+            AND (pd.source = 'MANUALLY_ADDED' OR pd.action_type IN ('EDITED', 'DELETED'))
+            ORDER BY pd.created_at
         """;
         
         MapSqlParameterSource params = new MapSqlParameterSource();
