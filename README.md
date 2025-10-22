@@ -309,6 +309,37 @@ curl -X POST -F "file=@thermal_image.jpg" http://localhost:8080/api/inference/pr
 - **Artifact Management**: Configurable retention of processing artifacts
 - **Flexible Configuration**: Adjustable confidence and IoU thresholds
 
+
+### Interactive Annotation & Feedback
+
+#### Interactive Annotation Tools
+Users can now:
+- **Edit existing detections** – resize or reposition bounding boxes or polygons.  
+- **Add new annotations** – manually draw regions where AI missed anomalies.  
+- **Delete incorrect detections** – remove false positives directly from the interface.  
+
+Each annotation includes:
+- Type of action (`added`, `edited`, `deleted`)  
+- Optional user comment or note  
+- Timestamp and user ID for traceability  
+
+<img width="787" height="831" alt="image" src="https://github.com/user-attachments/assets/345dcfd3-8a4e-4693-9c2d-be402e9187e2" />
+
+### Model Retraining from User Feedback
+A new **automated fine-tuning pipeline** has been introduced to continuously improve model accuracy using the latest human feedback.
+
+- At the end of each day, the system automatically **collects all manually edited images**, including:
+  - Added annotations  
+  - Edited detections  
+  - Deleted detections  
+- These images are **combined with the original dataset** (treated as ground truth) to form an updated training dataset.  
+- The AI model (YOLOv11) is then **fine-tuned overnight** using this aggregated data.  
+- The updated model is stored as the **new inference model**, ensuring continuous learning from user corrections.
+
+This approach establishes a **self-improving loop** — every validated user correction contributes directly to a smarter, more reliable detection model.
+
+---
+
 ## Getting Started
 
 ### Quick Start Guide
