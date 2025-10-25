@@ -15,6 +15,8 @@ import {
   Tooltip,
   Snackbar,
 } from "@mui/material";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
 import {
   FilterList as FilterListIcon,
   ZoomIn as ZoomInIcon,
@@ -23,6 +25,7 @@ import {
   Edit as EditIcon,
   Upload as UploadIcon,
   Download as DownloadIcon,
+  Refresh as RefreshIcon,
   ExpandMore,
   ExpandLess,
 } from "@mui/icons-material";
@@ -395,7 +398,17 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     PredictionSession[]
   >([]);
   const [loadingActivityLog, setLoadingActivityLog] = useState(false);
-  const [activityLogFilter, setActivityLogFilter] = useState<string>("all");
+  // Tabs: 'activities' or 'sessions'
+  const [activityLogTab, setActivityLogTab] = useState<
+    "activities" | "sessions"
+  >("sessions");
+  // Session filter: 'all' or predictionId as string
+  const [activityLogSessionFilter, setActivityLogSessionFilter] =
+    useState<string>("all");
+  // Activities filter: 'all', 'added', 'edited', 'deleted'
+  const [activityTypeFilter, setActivityTypeFilter] = useState<
+    "all" | "added" | "edited" | "deleted"
+  >("all");
   const [expandedSessions, setExpandedSessions] = useState<Set<number>>(
     new Set()
   );
@@ -1007,14 +1020,32 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   }, [fetchActivityLog]);
 
   // Filter prediction sessions based on selected filter
-  const filteredSessions = predictionSessions.filter((session) => {
-    if (activityLogFilter === "ai") {
-      return session.sessionType === "AI_ANALYSIS";
-    }
-    if (activityLogFilter === "manual") {
-      return session.sessionType === "MANUAL_EDITING";
-    }
-    return true; // "all" shows all sessions
+  // Filter prediction sessions based on selected session
+  const filteredSessions = predictionSessions
+    .slice()
+    .sort((a, b) => b.predictionId - a.predictionId) // Sort by predictionId descending (recent to old)
+    .filter((session) => {
+      if (activityLogSessionFilter === "all") return true;
+      return String(session.predictionId) === activityLogSessionFilter;
+    });
+
+  // Activities tab: flatten all detections and filter by type
+  const allDetections = predictionSessions
+    .flatMap((session) => session.detections.map((d) => ({ ...d, session })))
+    .sort((a, b) => {
+      // Sort by logEntryId descending (recent to old)
+      if (a.logEntryId !== undefined && b.logEntryId !== undefined) {
+        return b.logEntryId - a.logEntryId;
+      }
+      // Fallback to createdAt if logEntryId is missing
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  const filteredActivities = allDetections.filter((d) => {
+    if (activityTypeFilter === "all") return true;
+    if (activityTypeFilter === "added") return d.actionType === "ADDED";
+    if (activityTypeFilter === "edited") return d.actionType === "EDITED";
+    if (activityTypeFilter === "deleted") return d.actionType === "DELETED";
+    return true;
   });
 
   // Get total detection count for display
@@ -1043,9 +1074,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   ): { severity: "CRITICAL" | "WARNING"; color: string; bg: string } => {
     const isCritical = [0, 1, 4].includes(classId); // Faulty + Full Wire -> Critical
     const color = isCritical ? "#e53935" : "#fb8c00"; // red / orange
-    const bg = isCritical
-      ? "rgba(229,57,53,0.08)"
-      : "rgba(251,140,0,0.10)";
+    const bg = isCritical ? "rgba(229,57,53,0.08)" : "rgba(251,140,0,0.10)";
     return { severity: isCritical ? "CRITICAL" : "WARNING", color, bg };
   };
 
@@ -1086,35 +1115,28 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   // Export functions
   const exportToJSON = () => {
     const exportData = filteredSessions.flatMap((session) =>
-      session.detections
-        .filter((d) => {
-          if (activityLogFilter === "deleted")
-            return d.actionType === "DELETED";
-          if (activityLogFilter === "all") return true;
-          if (activityLogFilter === "ai")
-            return session.sessionType === "AI_ANALYSIS";
-          if (activityLogFilter === "manual")
-            return session.sessionType === "MANUAL_EDITING";
-          return d.actionType !== "DELETED"; // default: show active only
-        })
-        .map((entry) => ({
-          sessionId: session.predictionId,
-          sessionType: session.sessionType,
-          sessionUserName: session.userName,
-          detectionId: entry.detectionId,
-          originalDetectionId: entry.originalDetectionId || "N/A",
-          source: entry.source,
-          actionType: entry.actionType,
-          faultClass: FAULT_TYPE_LABELS_MAP[entry.classId] || "Unknown",
-          faultClassId: entry.classId,
-          confidence: entry.source === "AI_GENERATED" ? "N/A" : "Manual",
-          userName: entry.userName,
-          userId: entry.userId || "N/A",
-          comments: entry.comments || "",
-          timestamp: new Date(entry.createdAt).toISOString(),
-          inspectionId: inspectionId,
-          transformerNo: transformerNo,
-        }))
+      session.detections.map((entry) => ({
+        sessionId: session.predictionId,
+        sessionType: session.sessionType,
+        sessionUserName: session.userName,
+        detectionId: entry.detectionId,
+        originalDetectionId: entry.originalDetectionId || "N/A",
+        source: entry.source,
+        actionType: entry.actionType,
+        faultClass: FAULT_TYPE_LABELS_MAP[entry.classId] || "Unknown",
+        faultClassId: entry.classId,
+        confidence: entry.source === "AI_GENERATED" ? "N/A" : "Manual",
+        userName: entry.userName,
+        userId: entry.userId || "N/A",
+        comments: entry.comments || "",
+        bboxX: entry.bboxX ?? null,
+        bboxY: entry.bboxY ?? null,
+        bboxW: entry.bboxW ?? null,
+        bboxH: entry.bboxH ?? null,
+        timestamp: new Date(entry.createdAt).toISOString(),
+        inspectionId: inspectionId,
+        transformerNo: transformerNo,
+      }))
     );
 
     const dataStr = JSON.stringify(exportData, null, 2);
@@ -1151,40 +1173,37 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
       "User Name",
       "User ID",
       "Comments",
+      "Bounding Box X",
+      "Bounding Box Y",
+      "Bounding Box W",
+      "Bounding Box H",
       "Timestamp",
       "Inspection ID",
       "Transformer No",
     ];
 
     const rows = filteredSessions.flatMap((session) =>
-      session.detections
-        .filter((d) => {
-          if (activityLogFilter === "deleted")
-            return d.actionType === "DELETED";
-          if (activityLogFilter === "all") return true;
-          if (activityLogFilter === "ai")
-            return session.sessionType === "AI_ANALYSIS";
-          if (activityLogFilter === "manual")
-            return session.sessionType === "MANUAL_EDITING";
-          return d.actionType !== "DELETED"; // default: show active only
-        })
-        .map((entry) => [
-          session.predictionId,
-          session.sessionType,
-          session.userName,
-          entry.detectionId,
-          entry.originalDetectionId || "N/A",
-          entry.source,
-          entry.actionType,
-          FAULT_TYPE_LABELS_MAP[entry.classId] || "Unknown",
-          entry.classId,
-          entry.userName,
-          entry.userId || "N/A",
-          entry.comments ? `"${entry.comments.replace(/"/g, '""')}"` : "",
-          new Date(entry.createdAt).toISOString(),
-          inspectionId || "N/A",
-          transformerNo || "N/A",
-        ])
+      session.detections.map((entry) => [
+        session.predictionId,
+        session.sessionType,
+        session.userName,
+        entry.detectionId,
+        entry.originalDetectionId || "N/A",
+        entry.source,
+        entry.actionType,
+        FAULT_TYPE_LABELS_MAP[entry.classId] || "Unknown",
+        entry.classId,
+        entry.userName,
+        entry.userId || "N/A",
+        entry.comments ? `"${entry.comments.replace(/"/g, '""')}"` : "",
+        entry.bboxX ?? "",
+        entry.bboxY ?? "",
+        entry.bboxW ?? "",
+        entry.bboxH ?? "",
+        new Date(entry.createdAt).toISOString(),
+        inspectionId || "N/A",
+        transformerNo || "N/A",
+      ])
     );
 
     const csvContent = [
@@ -1231,9 +1250,15 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
 
           <DrawingCanvas
             imageUrl={thermalImageUrl}
-            onSave={handleSaveDrawing}
+            onSave={async (...args) => {
+              await handleSaveDrawing(...args);
+              await fetchActivityLog();
+            }}
             onCancel={handleCancelDrawing}
-            onEditFinish={handleEditFinish}
+            onEditFinish={async (...args) => {
+              await handleEditFinish(...args);
+              await fetchActivityLog();
+            }}
             onEditSave={fetchActivityLog}
             isActive={isDrawingMode}
             predictionId={predictionId}
@@ -1387,36 +1412,47 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
           {/* Analysis Log */}
           {analysisData && (
             <Paper sx={{ p: 2.5, mt: 3 }}>
+              {/* Export buttons and Tabs for Activities and Sessions */}
               <Box
                 display="flex"
-                justifyContent="space-between"
                 alignItems="center"
+                justifyContent="space-between"
                 mb={2}
               >
-                <Typography variant="subtitle1" fontWeight={700}>
-                  Activity Log ({totalDetections} total: {activeDetections}{" "}
-                  active, {deletedDetections} deleted)
-                </Typography>
-
-                <Box display="flex" gap={1} alignItems="center">
-                  {/* ADD: Export buttons */}
+                <Tabs
+                  value={activityLogTab}
+                  onChange={(
+                    _event: React.SyntheticEvent,
+                    value: "activities" | "sessions"
+                  ) => setActivityLogTab(value)}
+                >
+                  <Tab label="Activities" value="activities" />
+                  <Tab label="Sessions" value="sessions" />
+                </Tabs>
+                <Box display="flex" gap={1}>
+                  <Tooltip title="Refresh" arrow>
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      onClick={handleRefreshActivityLog}
+                    >
+                      <RefreshIcon />
+                    </IconButton>
+                  </Tooltip>
                   <Tooltip title="Export as JSON" arrow>
                     <IconButton
                       size="small"
+                      color="primary"
                       onClick={exportToJSON}
-                      disabled={totalDetections === 0}
-                      sx={{ color: "primary.main" }}
                     >
-                      <DownloadIcon fontSize="small" />
+                      <DownloadIcon />
                     </IconButton>
                   </Tooltip>
-
                   <Tooltip title="Export as CSV" arrow>
                     <IconButton
                       size="small"
+                      color="primary"
                       onClick={exportToCSV}
-                      disabled={totalDetections === 0}
-                      sx={{ color: "primary.main" }}
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -1437,59 +1473,242 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                       </svg>
                     </IconButton>
                   </Tooltip>
-
-                  <Tooltip title="Refresh activity log" arrow>
-                    <IconButton
-                      size="small"
-                      onClick={handleRefreshActivityLog}
-                      disabled={loadingActivityLog}
-                      sx={{ color: "primary.main" }}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
-                      </svg>
-                    </IconButton>
-                  </Tooltip>
-
-                  <FormControl size="small" sx={{ minWidth: 150 }}>
-                    <Select
-                      value={activityLogFilter}
-                      onChange={(e) => setActivityLogFilter(e.target.value)}
-                      displayEmpty
-                    >
-                      <MenuItem value="all">All Active</MenuItem>
-                      <MenuItem value="ai">AI Only</MenuItem>
-                      <MenuItem value="manual">Manual Only</MenuItem>
-                      <MenuItem value="deleted">Deleted Only</MenuItem>
-                    </Select>
-                  </FormControl>
                 </Box>
               </Box>
 
-              {loadingActivityLog ? (
-                <Box display="flex" justifyContent="center" p={2}>
-                  <CircularProgress size={24} />
+              {/* Filter controls for each tab */}
+              {activityLogTab === "activities" ? (
+                <Box display="flex" gap={1} alignItems="center" mb={2}>
+                  <FormControl size="small" sx={{ minWidth: 140 }}>
+                    <Select
+                      value={activityTypeFilter}
+                      onChange={(e) =>
+                        setActivityTypeFilter(e.target.value as any)
+                      }
+                      startAdornment={
+                        <FilterListIcon sx={{ mr: 1, fontSize: 16 }} />
+                      }
+                    >
+                      <MenuItem value="all">All</MenuItem>
+                      <MenuItem value="added">Added</MenuItem>
+                      <MenuItem value="edited">Edited</MenuItem>
+                      <MenuItem value="deleted">Deleted</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <Typography variant="caption" color="text.secondary">
+                    {filteredActivities.length} activities shown
+                  </Typography>
                 </Box>
-              ) : totalDetections === 0 ? (
+              ) : (
+                <Box display="flex" gap={1} alignItems="center" mb={2}>
+                  <FormControl size="small" sx={{ minWidth: 180 }}>
+                    <Select
+                      value={activityLogSessionFilter}
+                      onChange={(e) =>
+                        setActivityLogSessionFilter(e.target.value)
+                      }
+                      displayEmpty
+                      startAdornment={
+                        <FilterListIcon sx={{ mr: 1, fontSize: 16 }} />
+                      }
+                    >
+                      <MenuItem value="all">All Sessions</MenuItem>
+                      {predictionSessions.map((session) => (
+                        <MenuItem
+                          key={session.predictionId}
+                          value={String(session.predictionId)}
+                        >
+                          {session.userName} (
+                          {new Date(session.createdAt).toLocaleString()})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <Typography variant="caption" color="text.secondary">
+                    {filteredSessions.length} sessions shown
+                  </Typography>
+                </Box>
+              )}
+
+              {/* Activities Tab Content */}
+              {activityLogTab === "activities" ? (
+                filteredActivities.length === 0 ? (
+                  <Box display="flex" justifyContent="center" p={3}>
+                    <Typography variant="body2" color="text.secondary">
+                      No activities found
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Box display="flex" flexDirection="column" gap={1}>
+                    {filteredActivities.map((detection, idx) => {
+                      const { severity, color, bg } = getSeverityStyle(
+                        detection.classId
+                      );
+                      const confidencePct =
+                        detection.confidence !== undefined
+                          ? Math.round(
+                              (detection.confidence <= 1
+                                ? detection.confidence * 100
+                                : detection.confidence) || 0
+                            )
+                          : undefined;
+                      return (
+                        <Card
+                          key={detection.detectionId + "-" + idx}
+                          variant="outlined"
+                          sx={{
+                            mb: 1,
+                            bgcolor:
+                              detection.actionType === "DELETED"
+                                ? "rgba(244, 67, 54, 0.05)"
+                                : bg,
+                            borderLeft: 4,
+                            borderLeftColor: color,
+                            opacity:
+                              detection.actionType === "DELETED" ? 0.7 : 1,
+                          }}
+                        >
+                          <CardContent
+                            sx={{ py: 1, px: 1.5, "&:last-child": { pb: 1 } }}
+                          >
+                            <Box
+                              display="flex"
+                              alignItems="center"
+                              justifyContent="space-between"
+                              gap={1}
+                            >
+                              <Box
+                                display="flex"
+                                alignItems="center"
+                                gap={1.25}
+                              >
+                                <Box
+                                  sx={{
+                                    width: 22,
+                                    height: 22,
+                                    borderRadius: "50%",
+                                    bgcolor: color,
+                                    color: "#fff",
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                  }}
+                                >
+                                  {detection.logEntryId ?? idx + 1}
+                                </Box>
+                                <Box>
+                                  <Typography
+                                    variant="body2"
+                                    fontWeight={700}
+                                    sx={{ color }}
+                                  >
+                                    {FAULT_TYPE_LABELS_MAP[detection.classId] ||
+                                      "Unknown"}
+                                  </Typography>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    {formatCoords(detection)}
+                                  </Typography>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    display="block"
+                                  >
+                                    <strong>Done by:</strong>{" "}
+                                    {detection.userName}
+                                  </Typography>
+                                  {detection.comments && (
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                      display="block"
+                                    >
+                                      <strong>Comments:</strong>{" "}
+                                      {detection.comments}
+                                    </Typography>
+                                  )}
+                                  <Typography
+                                    variant="caption"
+                                    color="primary.main"
+                                    sx={{ fontWeight: 600 }}
+                                  >
+                                    ID:{" "}
+                                    {detection.logEntryId ||
+                                      detection.detectionId}
+                                    {detection.originalDetectionId && (
+                                      <span style={{ color: "orange" }}>
+                                        {" "}
+                                        (orig:{" "}
+                                        {getOriginalLogEntryId(
+                                          detection.originalDetectionId
+                                        ) || detection.originalDetectionId}
+                                        )
+                                      </span>
+                                    )}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                              <Box
+                                display="flex"
+                                alignItems="center"
+                                gap={1.25}
+                              >
+                                {confidencePct !== undefined && (
+                                  <Chip
+                                    label={`${confidencePct}%`}
+                                    size="small"
+                                    sx={{
+                                      bgcolor: "#e8f5e9",
+                                      color: "#2e7d32",
+                                      fontWeight: 700,
+                                    }}
+                                  />
+                                )}
+                                <Chip
+                                  label={severity}
+                                  size="small"
+                                  sx={{
+                                    bgcolor: color,
+                                    color: "#fff",
+                                    fontWeight: 700,
+                                  }}
+                                />
+                                <Chip
+                                  label={detection.actionType}
+                                  size="small"
+                                  variant="outlined"
+                                  color={
+                                    detection.actionType === "DELETED"
+                                      ? "error"
+                                      : detection.actionType === "EDITED"
+                                      ? "warning"
+                                      : "default"
+                                  }
+                                />
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
+                                  {new Date(
+                                    detection.createdAt
+                                  ).toLocaleString()}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </Box>
+                )
+              ) : filteredSessions.length === 0 ? (
                 <Box display="flex" justifyContent="center" p={3}>
                   <Typography variant="body2" color="text.secondary">
-                    No{" "}
-                    {activityLogFilter === "all"
-                      ? ""
-                      : activityLogFilter === "ai"
-                      ? "AI"
-                      : "manual"}{" "}
-                    activities found
+                    No sessions found
                   </Typography>
                 </Box>
               ) : (
@@ -1499,7 +1718,6 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                       key={session.predictionId}
                       variant="outlined"
                       sx={{
-                        // Make session card background white to reduce distraction
                         bgcolor: "background.paper",
                         borderLeft: 4,
                         borderLeftColor:
@@ -1559,7 +1777,6 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                             )}
                           </Box>
                         </Box>
-
                         {/* Expandable content */}
                         {expandedSessions.has(session.predictionId) && (
                           <Box mt={2}>
@@ -1575,7 +1792,6 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                                         : detection.confidence) || 0
                                     )
                                   : undefined;
-
                               return (
                                 <Card
                                   key={detection.detectionId}
@@ -1608,7 +1824,11 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                                       justifyContent="space-between"
                                       gap={1}
                                     >
-                                      <Box display="flex" alignItems="center" gap={1.25}>
+                                      <Box
+                                        display="flex"
+                                        alignItems="center"
+                                        gap={1.25}
+                                      >
                                         <Box
                                           sx={{
                                             width: 22,
@@ -1623,35 +1843,61 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                                             justifyContent: "center",
                                           }}
                                         >
-                                          {idx + 1}
+                                          {detection.logEntryId ?? idx + 1}
                                         </Box>
-
                                         <Box>
-                                          <Typography variant="body2" fontWeight={700} sx={{ color }}>
-                                            {FAULT_TYPE_LABELS_MAP[detection.classId] || "Unknown"}
+                                          <Typography
+                                            variant="body2"
+                                            fontWeight={700}
+                                            sx={{ color }}
+                                          >
+                                            {FAULT_TYPE_LABELS_MAP[
+                                              detection.classId
+                                            ] || "Unknown"}
                                           </Typography>
-                                          <Typography variant="caption" color="text.secondary">
+                                          <Typography
+                                            variant="caption"
+                                            color="text.secondary"
+                                          >
                                             {formatCoords(detection)}
                                           </Typography>
                                           {detection.comments && (
-                                            <Typography variant="caption" color="text.secondary" display="block">
-                                              <strong>Comments:</strong> {detection.comments}
+                                            <Typography
+                                              variant="caption"
+                                              color="text.secondary"
+                                              display="block"
+                                            >
+                                              <strong>Comments:</strong>{" "}
+                                              {detection.comments}
                                             </Typography>
                                           )}
-                                          <Typography variant="caption" color="primary.main" sx={{ fontWeight: 600 }}>
-                                            ID: {detection.logEntryId || detection.detectionId}
+                                          <Typography
+                                            variant="caption"
+                                            color="primary.main"
+                                            sx={{ fontWeight: 600 }}
+                                          >
+                                            ID:{" "}
+                                            {detection.logEntryId ||
+                                              detection.detectionId}
                                             {detection.originalDetectionId && (
                                               <span style={{ color: "orange" }}>
-                                                {" "}(orig: {getOriginalLogEntryId(
+                                                {" "}
+                                                (orig:{" "}
+                                                {getOriginalLogEntryId(
                                                   detection.originalDetectionId
-                                                ) || detection.originalDetectionId})
+                                                ) ||
+                                                  detection.originalDetectionId}
+                                                )
                                               </span>
                                             )}
                                           </Typography>
                                         </Box>
                                       </Box>
-
-                                      <Box display="flex" alignItems="center" gap={1.25}>
+                                      <Box
+                                        display="flex"
+                                        alignItems="center"
+                                        gap={1.25}
+                                      >
                                         {confidencePct !== undefined && (
                                           <Chip
                                             label={`${confidencePct}%`}
@@ -1666,7 +1912,11 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                                         <Chip
                                           label={severity}
                                           size="small"
-                                          sx={{ bgcolor: color, color: "#fff", fontWeight: 700 }}
+                                          sx={{
+                                            bgcolor: color,
+                                            color: "#fff",
+                                            fontWeight: 700,
+                                          }}
                                         />
                                         <Chip
                                           label={detection.actionType}
@@ -1675,13 +1925,19 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                                           color={
                                             detection.actionType === "DELETED"
                                               ? "error"
-                                              : detection.actionType === "EDITED"
+                                              : detection.actionType ===
+                                                "EDITED"
                                               ? "warning"
                                               : "default"
                                           }
                                         />
-                                        <Typography variant="caption" color="text.secondary">
-                                          {new Date(detection.createdAt).toLocaleString()}
+                                        <Typography
+                                          variant="caption"
+                                          color="text.secondary"
+                                        >
+                                          {new Date(
+                                            detection.createdAt
+                                          ).toLocaleString()}
                                         </Typography>
                                       </Box>
                                     </Box>
