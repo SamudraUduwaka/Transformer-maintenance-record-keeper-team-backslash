@@ -6,7 +6,6 @@ import {
   Card,
   CardContent,
   Checkbox,
-  Divider,
   FormControl,
   FormControlLabel,
   IconButton,
@@ -28,11 +27,13 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  CircularProgress,
+  Alert,
+  Snackbar,
 } from "@mui/material";
 import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
-  Edit as EditIcon,
   NavigateNext as NavigateNextIcon,
   Cancel as CancelIcon,
   CheckCircle as CheckCircleIcon,
@@ -44,6 +45,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { TimePicker } from "@mui/x-date-pickers/TimePicker";
 import dayjs, { Dayjs } from "dayjs";
 import { format } from "date-fns";
+import { inspectionService, type MaintenanceFormData } from "../services/inspectionService";
 
 /* Helpers */
 function StatPill({ top, bottom }: { top: string | number; bottom: string }) {
@@ -138,6 +140,13 @@ export default function DigitalMaintenanceForm() {
   const [formMode, setFormMode] = React.useState<"digital" | "scanned">(
     "digital"
   );
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+  const [snackbar, setSnackbar] = React.useState<{
+    open: boolean;
+    message: string;
+    severity: "success" | "error" | "info";
+  }>({ open: false, message: "", severity: "info" });
 
   // Inspection details state (for header)
   const [inspectionDetails, setInspectionDetails] = React.useState({
@@ -278,7 +287,7 @@ export default function DigitalMaintenanceForm() {
   const handleWorkContentChange = (
     index: number,
     field: keyof WorkContentItem,
-    value: any
+    value: boolean | string
   ) => {
     setWorkContent((prev) =>
       prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
@@ -293,10 +302,106 @@ export default function DigitalMaintenanceForm() {
     );
   };
 
-  const handleSave = () => {
-    // TODO: Implement save logic to backend
-    console.log("Saving form data...");
-    alert("Form saved successfully!");
+  const handleSave = async () => {
+    if (!inspectionNo) {
+      setSnackbar({ open: true, message: "Inspection ID is missing", severity: "error" });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const formData: MaintenanceFormData = {
+        inspectionId: parseInt(inspectionNo),
+        transformerNo: transformerNo || "",
+        thermalInspection: {
+          branch,
+          transformerNo: transformerNo || "",
+          poleNumber,
+          locationDetails,
+          inspectionDate: inspectionDate ? inspectionDate.toISOString() : null,
+          inspectionTime: inspectionTime ? inspectionTime.toISOString() : null,
+          inspectedBy,
+          baselineImagingRightNo,
+          baselineImagingLeftNo,
+          lastMonthKva,
+          lastMonthDate: lastMonthDate ? lastMonthDate.toISOString() : null,
+          lastMonthTime: lastMonthTime ? lastMonthTime.toISOString() : null,
+          currentMonthKva,
+          baselineCondition,
+          transformerType,
+          meterSerial,
+          meterCtRatio,
+          meterMake,
+          afterThermalDate: afterThermalDate ? afterThermalDate.toISOString() : null,
+          afterThermalTime: afterThermalTime ? afterThermalTime.toISOString() : null,
+          workContent,
+          firstInspectionVoltageR,
+          firstInspectionVoltageY,
+          firstInspectionVoltageB,
+          firstInspectionCurrentR,
+          firstInspectionCurrentY,
+          firstInspectionCurrentB,
+          secondInspectionVoltageR,
+          secondInspectionVoltageY,
+          secondInspectionVoltageB,
+          secondInspectionCurrentR,
+          secondInspectionCurrentY,
+          secondInspectionCurrentB,
+        },
+        maintenanceRecord: {
+          startTime: startTime ? startTime.toISOString() : null,
+          completionTime: completionTime ? completionTime.toISOString() : null,
+          supervisedBy,
+          tech1,
+          tech2,
+          tech3,
+          helpers,
+          maintenanceInspectedBy,
+          maintenanceInspectedDate: maintenanceInspectedDate ? maintenanceInspectedDate.toISOString() : null,
+          maintenanceRectifiedBy,
+          maintenanceRectifiedDate: maintenanceRectifiedDate ? maintenanceRectifiedDate.toISOString() : null,
+          maintenanceReinspectedBy,
+          maintenanceReinspectedDate: maintenanceReinspectedDate ? maintenanceReinspectedDate.toISOString() : null,
+          cssOfficer,
+          cssDate: cssDate ? cssDate.toISOString() : null,
+          allSpotsCorrectedBy,
+          allSpotsCorrectedDate: allSpotsCorrectedDate ? allSpotsCorrectedDate.toISOString() : null,
+        },
+        workDataSheet: {
+          gangLeader,
+          jobDate: jobDate ? jobDate.toISOString() : null,
+          jobStartTime: jobStartTime ? jobStartTime.toISOString() : null,
+          serialNo,
+          kvaRating,
+          tapPosition,
+          ctRatio,
+          earthResistance,
+          neutral,
+          surgeChecked,
+          bodyChecked,
+          fdsFuseF1,
+          fdsFuseF2,
+          fdsFuseF3,
+          fdsFuseF4,
+          fdsFuseF5,
+          jobCompletedTime: jobCompletedTime ? jobCompletedTime.toISOString() : null,
+          notes,
+          materials,
+        },
+      };
+
+      await inspectionService.saveMaintenanceFormData(formData);
+      setSnackbar({ open: true, message: "Form saved successfully!", severity: "success" });
+    } catch (error) {
+      console.error("Error saving form:", error);
+      setSnackbar({ 
+        open: true, 
+        message: error instanceof Error ? error.message : "Failed to save form", 
+        severity: "error" 
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleNext = () => {
@@ -311,45 +416,133 @@ export default function DigitalMaintenanceForm() {
     }
   };
 
-  const handleConfirm = () => {
-    // TODO: Final confirmation and save
-    alert("Form confirmed and submitted!");
-    navigate(-1);
+  const handleConfirm = async () => {
+    if (!inspectionNo) {
+      setSnackbar({ open: true, message: "Inspection ID is missing", severity: "error" });
+      return;
+    }
+
+    if (!window.confirm("Are you sure you want to submit this form? This action will finalize the maintenance record.")) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const formData: MaintenanceFormData = {
+        inspectionId: parseInt(inspectionNo),
+        transformerNo: transformerNo || "",
+        thermalInspection: {
+          branch,
+          transformerNo: transformerNo || "",
+          poleNumber,
+          locationDetails,
+          inspectionDate: inspectionDate ? inspectionDate.toISOString() : null,
+          inspectionTime: inspectionTime ? inspectionTime.toISOString() : null,
+          inspectedBy,
+          baselineImagingRightNo,
+          baselineImagingLeftNo,
+          lastMonthKva,
+          lastMonthDate: lastMonthDate ? lastMonthDate.toISOString() : null,
+          lastMonthTime: lastMonthTime ? lastMonthTime.toISOString() : null,
+          currentMonthKva,
+          baselineCondition,
+          transformerType,
+          meterSerial,
+          meterCtRatio,
+          meterMake,
+          afterThermalDate: afterThermalDate ? afterThermalDate.toISOString() : null,
+          afterThermalTime: afterThermalTime ? afterThermalTime.toISOString() : null,
+          workContent,
+          firstInspectionVoltageR,
+          firstInspectionVoltageY,
+          firstInspectionVoltageB,
+          firstInspectionCurrentR,
+          firstInspectionCurrentY,
+          firstInspectionCurrentB,
+          secondInspectionVoltageR,
+          secondInspectionVoltageY,
+          secondInspectionVoltageB,
+          secondInspectionCurrentR,
+          secondInspectionCurrentY,
+          secondInspectionCurrentB,
+        },
+        maintenanceRecord: {
+          startTime: startTime ? startTime.toISOString() : null,
+          completionTime: completionTime ? completionTime.toISOString() : null,
+          supervisedBy,
+          tech1,
+          tech2,
+          tech3,
+          helpers,
+          maintenanceInspectedBy,
+          maintenanceInspectedDate: maintenanceInspectedDate ? maintenanceInspectedDate.toISOString() : null,
+          maintenanceRectifiedBy,
+          maintenanceRectifiedDate: maintenanceRectifiedDate ? maintenanceRectifiedDate.toISOString() : null,
+          maintenanceReinspectedBy,
+          maintenanceReinspectedDate: maintenanceReinspectedDate ? maintenanceReinspectedDate.toISOString() : null,
+          cssOfficer,
+          cssDate: cssDate ? cssDate.toISOString() : null,
+          allSpotsCorrectedBy,
+          allSpotsCorrectedDate: allSpotsCorrectedDate ? allSpotsCorrectedDate.toISOString() : null,
+        },
+        workDataSheet: {
+          gangLeader,
+          jobDate: jobDate ? jobDate.toISOString() : null,
+          jobStartTime: jobStartTime ? jobStartTime.toISOString() : null,
+          serialNo,
+          kvaRating,
+          tapPosition,
+          ctRatio,
+          earthResistance,
+          neutral,
+          surgeChecked,
+          bodyChecked,
+          fdsFuseF1,
+          fdsFuseF2,
+          fdsFuseF3,
+          fdsFuseF4,
+          fdsFuseF5,
+          jobCompletedTime: jobCompletedTime ? jobCompletedTime.toISOString() : null,
+          notes,
+          materials,
+        },
+      };
+
+      await inspectionService.submitMaintenanceForm(parseInt(inspectionNo), formData);
+      setSnackbar({ open: true, message: "Form submitted successfully!", severity: "success" });
+      setTimeout(() => navigate(-1), 1500);
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      setSnackbar({ 
+        open: true, 
+        message: error instanceof Error ? error.message : "Failed to submit form", 
+        severity: "error" 
+      });
+      setSaving(false);
+    }
   };
 
-  // Fetch inspection details on component mount
+  // Fetch inspection details and maintenance form data on component mount
   React.useEffect(() => {
-    const API_BASE_URL = "http://localhost:8080/api";
-    
-    async function fetchInspectionDetails() {
-      if (!transformerNo || !inspectionNo) return;
+    async function fetchData() {
+      if (!transformerNo || !inspectionNo) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const res1 = await fetch(
-          `${API_BASE_URL}/transformers/${encodeURIComponent(transformerNo)}`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        if (!res1.ok) throw new Error("Failed to fetch transformer details");
-        const transformerData = await res1.json();
+        setLoading(true);
         
-        const res2 = await fetch(
-          `${API_BASE_URL}/inspections/${encodeURIComponent(inspectionNo)}`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        if (!res2.ok) throw new Error("Failed to fetch inspection details");
-        const inspectionData = await res2.json();
+        // Fetch transformer and inspection details
+        const [transformerData, inspectionData] = await Promise.all([
+          inspectionService.getTransformerByNo(transformerNo),
+          inspectionService.getInspectionById(parseInt(inspectionNo)),
+        ]);
         
         setInspectionDetails({
-          poleNo: transformerData.poleNo,
-          branch: inspectionData.branch,
-          inspectedBy: inspectionData.inspector,
+          poleNo: transformerData.poleNo || "",
+          branch: inspectionData.branch || "",
+          inspectedBy: inspectionData.inspector || "",
           inspectedAt: inspectionData.inspectionTime
             ? format(new Date(inspectionData.inspectionTime), "yyyy-MM-dd HH:mm")
             : "",
@@ -361,20 +554,151 @@ export default function DigitalMaintenanceForm() {
             : "",
         });
 
-        // Update local state with fetched data
+        // Update basic form fields
         setPoleNumber(transformerData.poleNo || "");
         setBranch(inspectionData.branch || "");
         setInspectedBy(inspectionData.inspector || "");
-      } catch (e) {
-        console.error("Error fetching inspection details:", e);
+
+        // Try to load existing maintenance form data
+        try {
+          const maintenanceData = await inspectionService.getMaintenanceFormData(parseInt(inspectionNo));
+          
+          if (maintenanceData) {
+            // Populate thermal inspection data
+            const thermal = maintenanceData.thermalInspection;
+            setLocationDetails(thermal.locationDetails || "");
+            setInspectionDate(thermal.inspectionDate ? dayjs(thermal.inspectionDate) : dayjs());
+            setInspectionTime(thermal.inspectionTime ? dayjs(thermal.inspectionTime) : dayjs());
+            setBaselineImagingRightNo(thermal.baselineImagingRightNo || "");
+            setBaselineImagingLeftNo(thermal.baselineImagingLeftNo || "");
+            setLastMonthKva(thermal.lastMonthKva || "");
+            setLastMonthDate(thermal.lastMonthDate ? dayjs(thermal.lastMonthDate) : null);
+            setLastMonthTime(thermal.lastMonthTime ? dayjs(thermal.lastMonthTime) : null);
+            setCurrentMonthKva(thermal.currentMonthKva || "");
+            setBaselineCondition(thermal.baselineCondition || "Sunny");
+            setTransformerType(thermal.transformerType || "Bulk");
+            setMeterSerial(thermal.meterSerial || "");
+            setMeterCtRatio(thermal.meterCtRatio || "");
+            setMeterMake(thermal.meterMake || "");
+            setAfterThermalDate(thermal.afterThermalDate ? dayjs(thermal.afterThermalDate) : null);
+            setAfterThermalTime(thermal.afterThermalTime ? dayjs(thermal.afterThermalTime) : null);
+            if (thermal.workContent && thermal.workContent.length > 0) {
+              setWorkContent(thermal.workContent);
+            }
+            setFirstInspectionVoltageR(thermal.firstInspectionVoltageR || "");
+            setFirstInspectionVoltageY(thermal.firstInspectionVoltageY || "");
+            setFirstInspectionVoltageB(thermal.firstInspectionVoltageB || "");
+            setFirstInspectionCurrentR(thermal.firstInspectionCurrentR || "");
+            setFirstInspectionCurrentY(thermal.firstInspectionCurrentY || "");
+            setFirstInspectionCurrentB(thermal.firstInspectionCurrentB || "");
+            setSecondInspectionVoltageR(thermal.secondInspectionVoltageR || "");
+            setSecondInspectionVoltageY(thermal.secondInspectionVoltageY || "");
+            setSecondInspectionVoltageB(thermal.secondInspectionVoltageB || "");
+            setSecondInspectionCurrentR(thermal.secondInspectionCurrentR || "");
+            setSecondInspectionCurrentY(thermal.secondInspectionCurrentY || "");
+            setSecondInspectionCurrentB(thermal.secondInspectionCurrentB || "");
+
+            // Populate maintenance record data
+            const maintenance = maintenanceData.maintenanceRecord;
+            setStartTime(maintenance.startTime ? dayjs(maintenance.startTime) : null);
+            setCompletionTime(maintenance.completionTime ? dayjs(maintenance.completionTime) : null);
+            setSupervisedBy(maintenance.supervisedBy || "");
+            setTech1(maintenance.tech1 || "");
+            setTech2(maintenance.tech2 || "");
+            setTech3(maintenance.tech3 || "");
+            setHelpers(maintenance.helpers || "");
+            setMaintenanceInspectedBy(maintenance.maintenanceInspectedBy || "");
+            setMaintenanceInspectedDate(maintenance.maintenanceInspectedDate ? dayjs(maintenance.maintenanceInspectedDate) : null);
+            setMaintenanceRectifiedBy(maintenance.maintenanceRectifiedBy || "");
+            setMaintenanceRectifiedDate(maintenance.maintenanceRectifiedDate ? dayjs(maintenance.maintenanceRectifiedDate) : null);
+            setMaintenanceReinspectedBy(maintenance.maintenanceReinspectedBy || "");
+            setMaintenanceReinspectedDate(maintenance.maintenanceReinspectedDate ? dayjs(maintenance.maintenanceReinspectedDate) : null);
+            setCssOfficer(maintenance.cssOfficer || "");
+            setCssDate(maintenance.cssDate ? dayjs(maintenance.cssDate) : null);
+            setAllSpotsCorrectedBy(maintenance.allSpotsCorrectedBy || "");
+            setAllSpotsCorrectedDate(maintenance.allSpotsCorrectedDate ? dayjs(maintenance.allSpotsCorrectedDate) : null);
+
+            // Populate work data sheet
+            const workData = maintenanceData.workDataSheet;
+            setGangLeader(workData.gangLeader || "");
+            setJobDate(workData.jobDate ? dayjs(workData.jobDate) : null);
+            setJobStartTime(workData.jobStartTime ? dayjs(workData.jobStartTime) : null);
+            setSerialNo(workData.serialNo || "");
+            setKvaRating(workData.kvaRating || "");
+            setTapPosition(workData.tapPosition || "");
+            setCtRatio(workData.ctRatio || "");
+            setEarthResistance(workData.earthResistance || "");
+            setNeutral(workData.neutral || "");
+            setSurgeChecked(workData.surgeChecked || false);
+            setBodyChecked(workData.bodyChecked || false);
+            setFdsFuseF1(workData.fdsFuseF1 || "");
+            setFdsFuseF2(workData.fdsFuseF2 || "");
+            setFdsFuseF3(workData.fdsFuseF3 || "");
+            setFdsFuseF4(workData.fdsFuseF4 || "");
+            setFdsFuseF5(workData.fdsFuseF5 || "");
+            setJobCompletedTime(workData.jobCompletedTime ? dayjs(workData.jobCompletedTime) : null);
+            setNotes(workData.notes || "");
+            setMaterials(workData.materials || MATERIALS_LIST);
+
+            setSnackbar({ open: true, message: "Loaded existing maintenance data", severity: "info" });
+          }
+        } catch {
+          // If no maintenance data exists, that's okay - user is creating new record
+          console.log("No existing maintenance data found, starting fresh");
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setSnackbar({ 
+          open: true, 
+          message: "Failed to load inspection details", 
+          severity: "error" 
+        });
+      } finally {
+        setLoading(false);
       }
     }
     
-    fetchInspectionDetails();
+    fetchData();
   }, [transformerNo, inspectionNo]);
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+      {/* Loading Overlay */}
+      {loading && (
+        <Box
+          sx={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            bgcolor: "rgba(255, 255, 255, 0.8)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
+        >
+          <CircularProgress />
+        </Box>
+      )}
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
       {/* AppBar */}
       <AppBar position="fixed" sx={{ bgcolor: "#1F1C4F" }}>
         <Toolbar>
@@ -391,11 +715,12 @@ export default function DigitalMaintenanceForm() {
           </Typography>
           <Button
             color="inherit"
-            startIcon={<SaveIcon />}
+            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
             onClick={handleSave}
+            disabled={saving || loading}
             sx={{ mr: 1 }}
           >
-            Save
+            {saving ? "Saving..." : "Save"}
           </Button>
         </Toolbar>
       </AppBar>
@@ -1499,16 +1824,18 @@ export default function DigitalMaintenanceForm() {
                 variant="outlined"
                 startIcon={<CancelIcon />}
                 onClick={handleCancel}
+                disabled={saving}
               >
                 Cancel
               </Button>
               <Button
                 variant="contained"
-                startIcon={<CheckCircleIcon />}
+                startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <CheckCircleIcon />}
                 onClick={handleConfirm}
+                disabled={saving || loading}
                 color="success"
               >
-                Confirm
+                {saving ? "Submitting..." : "Confirm"}
               </Button>
             </Stack>
           </Stack>
