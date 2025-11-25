@@ -62,6 +62,7 @@ import {
   type MaintenanceFormData,
 } from "../services/inspectionService";
 import PowerLensBranding from "../components/PowerLensBranding";
+import ThermalImageAnalysis from "../components/ThermalImageAnalysis";
 import { useAuth } from "../context/AuthContext";
 
 /* Helpers */
@@ -155,6 +156,7 @@ export default function DigitalMaintenanceForm() {
     inspectionNo: string;
   }>();
   const { user, isAuthenticated, logout } = useAuth();
+  const inspectionId = Number(inspectionNo);
 
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
@@ -179,6 +181,23 @@ export default function DigitalMaintenanceForm() {
     createdAt: "",
     lastUpdated: "",
   });
+
+  // Inspection state for thermal analysis
+  type InspectionImage = {
+    imageUrl: string;
+    type: string;
+    weatherCondition: string;
+  };
+
+  type Inspection = {
+    image?: InspectionImage;
+    branch?: string;
+    inspector?: string;
+    transformerNo?: string;
+    transformer?: { transformerNo?: string };
+  };
+
+  const [inspection, setInspection] = React.useState<Inspection | null>(null);
 
   // Global header data
   const [poleNumber, setPoleNumber] = React.useState("EN-122-A");
@@ -551,6 +570,9 @@ export default function DigitalMaintenanceForm() {
             ? format(new Date(inspectionData.updatedAt), "yyyy-MM-dd HH:mm")
             : "",
         });
+
+        // Set inspection data for thermal analysis
+        setInspection(inspectionData);
 
         // Update basic form fields
         setPoleNumber(transformerData.poleNo || "");
@@ -1225,6 +1247,18 @@ export default function DigitalMaintenanceForm() {
                     </Stack>
                   </CardContent>
                 </Card>
+
+                {/* Thermal Image Analysis Section */}
+                {inspection?.image && inspection.image.type === "thermal" && (
+                  <Box>
+                    <ThermalImageAnalysis
+                      thermalImageUrl={inspection.image.imageUrl}
+                      baselineImageUrl=""
+                      transformerNo={inspection.transformerNo || inspection.transformer?.transformerNo || transformerNo}
+                      inspectionId={inspectionId}
+                    />
+                  </Box>
+                )}
 
                 {/* Load / kVA Details */}
                 <Card>
