@@ -37,11 +37,41 @@ import {
   Cancel as CancelIcon,
   CheckCircle as CheckCircleIcon,
   Image as ImageIcon,
+  MoreVert as MoreVertIcon,
 } from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { TimePicker } from "@mui/x-date-pickers/TimePicker";
 import dayjs, { Dayjs } from "dayjs";
+import { format } from "date-fns";
+
+/* Helpers */
+function StatPill({ top, bottom }: { top: string | number; bottom: string }) {
+  return (
+    <Box
+      sx={{
+        px: 1.5,
+        py: 1,
+        borderRadius: 3,
+        bgcolor: "#EEF0F6",
+        minWidth: 108,
+        display: "inline-flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Typography sx={{ fontWeight: 800, fontSize: 13, lineHeight: 1 }}>
+        {top}
+      </Typography>
+      <Typography
+        sx={{ fontSize: 11, color: "text.secondary", lineHeight: 1.2 }}
+      >
+        {bottom}
+      </Typography>
+    </Box>
+  );
+}
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -109,12 +139,20 @@ export default function DigitalMaintenanceForm() {
     "digital"
   );
 
+  // Inspection details state (for header)
+  const [inspectionDetails, setInspectionDetails] = React.useState({
+    poleNo: "",
+    branch: "",
+    inspectedBy: "",
+    inspectedAt: "",
+    createdAt: "",
+    lastUpdated: "",
+  });
+
   // Global header data
-  const [transformerId] = React.useState("000123589");
   const [poleNumber, setPoleNumber] = React.useState("EN-122-A");
   const [branch, setBranch] = React.useState("Nugegoda");
   const [inspectedBy, setInspectedBy] = React.useState("A-110");
-  const [inspectionStatus] = React.useState("Inspection in progress");
 
   // Screen 1: Thermal Image Inspection Form
   const [locationDetails, setLocationDetails] = React.useState("");
@@ -261,11 +299,6 @@ export default function DigitalMaintenanceForm() {
     alert("Form saved successfully!");
   };
 
-  const handleEdit = () => {
-    // TODO: Implement edit mode
-    alert("Edit mode activated");
-  };
-
   const handleNext = () => {
     if (tabValue < 2) {
       setTabValue(tabValue + 1);
@@ -283,6 +316,62 @@ export default function DigitalMaintenanceForm() {
     alert("Form confirmed and submitted!");
     navigate(-1);
   };
+
+  // Fetch inspection details on component mount
+  React.useEffect(() => {
+    const API_BASE_URL = "http://localhost:8080/api";
+    
+    async function fetchInspectionDetails() {
+      if (!transformerNo || !inspectionNo) return;
+      try {
+        const res1 = await fetch(
+          `${API_BASE_URL}/transformers/${encodeURIComponent(transformerNo)}`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        if (!res1.ok) throw new Error("Failed to fetch transformer details");
+        const transformerData = await res1.json();
+        
+        const res2 = await fetch(
+          `${API_BASE_URL}/inspections/${encodeURIComponent(inspectionNo)}`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        if (!res2.ok) throw new Error("Failed to fetch inspection details");
+        const inspectionData = await res2.json();
+        
+        setInspectionDetails({
+          poleNo: transformerData.poleNo,
+          branch: inspectionData.branch,
+          inspectedBy: inspectionData.inspector,
+          inspectedAt: inspectionData.inspectionTime
+            ? format(new Date(inspectionData.inspectionTime), "yyyy-MM-dd HH:mm")
+            : "",
+          createdAt: inspectionData.createdAt
+            ? format(new Date(inspectionData.createdAt), "yyyy-MM-dd HH:mm")
+            : "",
+          lastUpdated: inspectionData.updatedAt
+            ? format(new Date(inspectionData.updatedAt), "yyyy-MM-dd HH:mm")
+            : "",
+        });
+
+        // Update local state with fetched data
+        setPoleNumber(transformerData.poleNo || "");
+        setBranch(inspectionData.branch || "");
+        setInspectedBy(inspectionData.inspector || "");
+      } catch (e) {
+        console.error("Error fetching inspection details:", e);
+      }
+    }
+    
+    fetchInspectionDetails();
+  }, [transformerNo, inspectionNo]);
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
@@ -314,58 +403,143 @@ export default function DigitalMaintenanceForm() {
       {/* Main Content */}
       <Box sx={{ flexGrow: 1, mt: 8, p: 3, bgcolor: "#f5f5f5" }}>
         {/* Global Header Card */}
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Stack
-              direction={{ xs: "column", md: "row" }}
-              spacing={2}
-              justifyContent="space-between"
-              alignItems={{ xs: "flex-start", md: "center" }}
-            >
-              <Box>
-                <Typography variant="h6" fontWeight={700}>
-                  Transformer: {transformerNo || transformerId}
+        <Card sx={{ mb: 3, p: 2.25, borderRadius: 1, position: "relative" }} elevation={3}>
+          <Stack
+            direction="row"
+            alignItems="stretch"
+            sx={{ width: "100%" }}
+          >
+            {/* Left */}
+            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+              <Stack direction="row" alignItems="center" spacing={1.25}>
+                <Box
+                  sx={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: "50%",
+                    bgcolor: "#1F1C4F",
+                    display: "grid",
+                    placeItems: "center",
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 10,
+                      height: 10,
+                      bgcolor: "#FFFFFF",
+                      borderRadius: "50%",
+                    }}
+                  />
+                </Box>
+                <Typography variant="h6" fontWeight={800}>
+                  {inspectionNo}
                 </Typography>
-                <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    <strong>Pole No:</strong> {poleNumber}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    <strong>Branch:</strong> {branch}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    <strong>Inspected By:</strong> {inspectedBy}
-                  </Typography>
-                </Stack>
-              </Box>
-              <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  <strong>Status:</strong> {inspectionStatus}
-                </Typography>
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<ImageIcon />}
+                <IconButton size="small">
+                  <MoreVertIcon fontSize="small" />
+                </IconButton>
+              </Stack>
+
+              {/* Updated section with both inspection date and last updated */}
+              <Stack direction="row" spacing={3} sx={{ mt: 0.5 }}>
+                <Box>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{
+                      display: "block",
+                      textAlign: "left",
+                      fontWeight: 600,
+                    }}
                   >
-                    View Baseline
-                  </Button>
-                  <FormControl size="small">
-                    <Select
-                      value={formMode}
-                      onChange={(e) =>
-                        setFormMode(e.target.value as "digital" | "scanned")
-                      }
-                      sx={{ minWidth: 150 }}
-                    >
-                      <MenuItem value="digital">Digital Form</MenuItem>
-                      <MenuItem value="scanned">Scanned Form</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Stack>
+                    Inspected At
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color="text.primary"
+                    sx={{ display: "block", textAlign: "left" }}
+                  >
+                    {inspectionDetails.inspectedAt || "N/A"}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{
+                      display: "block",
+                      textAlign: "left",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Last Updated
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color="text.primary"
+                    sx={{ display: "block", textAlign: "left" }}
+                  >
+                    {inspectionDetails.lastUpdated
+                      ? inspectionDetails.lastUpdated
+                      : inspectionDetails.createdAt || "N/A"}
+                  </Typography>
+                </Box>
+              </Stack>
+
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{ mt: 1.25 }}
+                flexWrap="wrap"
+                useFlexGap
+              >
+                <StatPill top={transformerNo || "N/A"} bottom="Transformer No" />
+                <StatPill top={inspectionDetails.poleNo || poleNumber} bottom="Pole No" />
+                <StatPill top={inspectionDetails.branch || branch} bottom="Branch" />
+                <StatPill
+                  top={inspectionDetails.inspectedBy || inspectedBy}
+                  bottom="Inspected By"
+                />
+              </Stack>
+            </Box>
+
+            <Stack
+              direction="column"
+              alignItems="flex-end"
+              justifyContent="space-between"
+              sx={{ alignSelf: "stretch", minWidth: 200, py: 0.5 }}
+            >
+              <Box
+                sx={{
+                  width: "100%",
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 1,
+                  flexWrap: "wrap",
+                }}
+              >
+                <FormControl size="small">
+                  <Select
+                    value={formMode}
+                    onChange={(e) =>
+                      setFormMode(e.target.value as "digital" | "scanned")
+                    }
+                    sx={{ minWidth: 150 }}
+                  >
+                    <MenuItem value="digital">Digital Form</MenuItem>
+                    <MenuItem value="scanned">Scanned Form</MenuItem>
+                  </Select>
+                </FormControl>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<ImageIcon />}
+                  sx={{ textTransform: "none" }}
+                >
+                  View Baseline
+                </Button>
               </Box>
             </Stack>
-          </CardContent>
+          </Stack>
         </Card>
 
         {/* Tabs */}
