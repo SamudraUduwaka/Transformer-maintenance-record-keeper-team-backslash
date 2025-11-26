@@ -104,7 +104,7 @@ type MaintenanceRecordRow = {
   dateAdded: string;
   addedBy: string;
   inspectionId: number;
-  inspectionNo: string;
+  updatedAt: string;
   transformerNo: string;
 };
 
@@ -418,6 +418,7 @@ export default function TransformerInspection() {
             inspectionId: number;
             transformerNo: string;
             createdAt?: string;
+            updatedAt?: string;
             thermalInspection?: {
               inspectedBy?: string;
               inspectionDate?: string;
@@ -432,7 +433,7 @@ export default function TransformerInspection() {
               dateAdded: maintenanceForm.createdAt ? toLocal(maintenanceForm.createdAt) : inspection.createdAt ? toLocal(inspection.createdAt) : '-',
               addedBy: maintenanceForm.thermalInspection?.inspectedBy || inspection.inspector || 'N/A',
               inspectionId: inspection.inspectionId,
-              inspectionNo: pad8(inspection.inspectionId),
+              updatedAt: maintenanceForm.updatedAt && maintenanceForm.createdAt && maintenanceForm.updatedAt !== maintenanceForm.createdAt ? toLocal(maintenanceForm.updatedAt) : '-',
               transformerNo: inspection.transformerNo,
             });
           }
@@ -571,7 +572,7 @@ export default function TransformerInspection() {
         metaStartY
       );
       doc.text(
-        `Inspection #: ${record?.inspectionNo || pad8(maintenanceForm.inspectionId)}`,
+        `Inspection #: ${record ? pad8(record.inspectionId) : pad8(maintenanceForm.inspectionId)}`,
         40,
         metaStartY + 15
       );
@@ -1168,10 +1169,10 @@ export default function TransformerInspection() {
                       <Table>
                         <TableHead>
                           <TableRow>
-                            <TableCell>No</TableCell>
+                            <TableCell>Inspection ID</TableCell>
                             <TableCell>Date Added</TableCell>
                             <TableCell>Added By</TableCell>
-                            <TableCell>Inspection ID</TableCell>
+                            <TableCell>Date Updated</TableCell>
                             <TableCell align="right">Actions</TableCell>
                           </TableRow>
                         </TableHead>
@@ -1180,12 +1181,12 @@ export default function TransformerInspection() {
                             <TableRow key={record.id} hover>
                               <TableCell>
                                 <Typography fontWeight={600}>
-                                  {record.formNo}
+                                  {pad8(record.inspectionId)}
                                 </Typography>
                               </TableCell>
                               <TableCell>{record.dateAdded}</TableCell>
                               <TableCell>{record.addedBy}</TableCell>
-                              <TableCell>{record.inspectionNo}</TableCell>
+                              <TableCell>{record.updatedAt}</TableCell>
                               <TableCell align="right">
                                 <Stack
                                   direction="row"
