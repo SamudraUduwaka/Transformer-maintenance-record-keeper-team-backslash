@@ -47,7 +47,6 @@ import {
   Close as CloseIcon,
   Logout as LogoutIcon,
   Description as DescriptionIcon,
-  Refresh as RefreshIcon,
 } from "@mui/icons-material";
 import { format } from "date-fns";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
