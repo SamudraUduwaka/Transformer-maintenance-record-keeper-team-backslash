@@ -1059,8 +1059,25 @@ export default function InspectionDetails() {
                       width: "100%",
                       display: "flex",
                       justifyContent: "flex-end",
+                      gap: 1.5,
+                      alignItems: "center",
                     }}
                   >
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<DescriptionIcon />}
+                      onClick={() => navigate(`/digital-form/${transformerNo}/${inspectionId}`)}
+                      sx={{
+                        textTransform: "none",
+                        fontWeight: 600,
+                        px: 2,
+                        py: 0.5,
+                        borderRadius: 2,
+                      }}
+                    >
+                      Digital Form
+                    </Button>
                     {renderStatusChip(determineImageStatus(inspection))}
                   </Box>
                 </Stack>
@@ -1156,42 +1173,6 @@ export default function InspectionDetails() {
                   </Button>
                 )}
               </Box>
-            </Paper>
-
-            {/* Action Buttons */}
-            <Paper elevation={1} sx={{ p: 1.5, borderRadius: 1 }}>
-              <Stack direction="row" spacing={1.5} alignItems="center">
-                <Button
-                  variant="outlined"
-                  size="medium"
-                  startIcon={<DescriptionIcon />}
-                  onClick={() => navigate(`/digital-form/${transformerNo}/${inspectionId}`)}
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 600,
-                    px: 2,
-                    py: 0.75,
-                    borderRadius: 2,
-                  }}
-                >
-                  Digital Form
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="medium"
-                  startIcon={<RefreshIcon />}
-                  onClick={() => window.location.reload()}
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 600,
-                    px: 2,
-                    py: 0.75,
-                    borderRadius: 2,
-                  }}
-                >
-                  Refresh
-                </Button>
-              </Stack>
             </Paper>
 
             {inspection?.image ? (
