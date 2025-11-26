@@ -230,9 +230,7 @@ export default function DigitalMaintenanceForm() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   const [tabValue, setTabValue] = React.useState(0);
-  const [formMode, setFormMode] = React.useState<"digital" | "scanned">(
-    "digital"
-  );
+
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [snackbar, setSnackbar] = React.useState<{
