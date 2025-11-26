@@ -46,6 +46,8 @@ import {
   CenterFocusStrong as CenterFocusStrongIcon,
   Close as CloseIcon,
   Logout as LogoutIcon,
+  Description as DescriptionIcon,
+  Refresh as RefreshIcon,
 } from "@mui/icons-material";
 import { format } from "date-fns";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
@@ -1057,8 +1059,25 @@ export default function InspectionDetails() {
                       width: "100%",
                       display: "flex",
                       justifyContent: "flex-end",
+                      gap: 1.5,
+                      alignItems: "center",
                     }}
                   >
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<DescriptionIcon />}
+                      onClick={() => navigate(`/digital-form/${transformerNo}/${inspectionId}`)}
+                      sx={{
+                        textTransform: "none",
+                        fontWeight: 600,
+                        px: 2,
+                        py: 0.5,
+                        borderRadius: 2,
+                      }}
+                    >
+                      Digital Form
+                    </Button>
                     {renderStatusChip(determineImageStatus(inspection))}
                   </Box>
                 </Stack>

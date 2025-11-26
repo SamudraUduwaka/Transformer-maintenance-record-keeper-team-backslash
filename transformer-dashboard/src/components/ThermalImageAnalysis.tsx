@@ -66,6 +66,8 @@ interface ThermalImageAnalysisProps {
   loading?: boolean;
   transformerNo?: string;
   inspectionId?: number;
+  defaultExpandedSessions?: boolean;
+  hideActivities?: boolean;
 }
 
 const ISSUE_TYPE_LABELS: Record<string, string> = {
@@ -367,6 +369,8 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   loading = false,
   transformerNo,
   inspectionId,
+  defaultExpandedSessions = false,
+  hideActivities = false,
 }) => {
   const [analysisData, setAnalysisData] = useState<ThermalAnalysisData | null>(
     null
@@ -1019,6 +1023,16 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     fetchActivityLog();
   }, [fetchActivityLog]);
 
+  // Expand all sessions by default if prop is set
+  useEffect(() => {
+    if (defaultExpandedSessions && predictionSessions.length > 0) {
+      const allSessionIds = new Set(
+        predictionSessions.map((session) => session.predictionId)
+      );
+      setExpandedSessions(allSessionIds);
+    }
+  }, [defaultExpandedSessions, predictionSessions]);
+
   // Filter prediction sessions based on selected filter
   // Filter prediction sessions based on selected session
   const filteredSessions = predictionSessions
@@ -1273,36 +1287,32 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
             flexDirection={{ xs: "column", md: "row" }}
             gap={3}
           >
-            {/* Baseline Image */}
-            <Box flex={1}>
-              <Paper sx={{ p: 2.5 }}>
-                <Typography variant="subtitle1" fontWeight={700}>
-                  Baseline Image
-                </Typography>
-                <Box mt={2} sx={{ position: "relative" }}>
-                  {baselineImageUrl ? (
+            {/* Baseline Image - Only show if baseline URL exists */}
+            {baselineImageUrl && (
+              <Box flex={1}>
+                <Paper sx={{ p: 2.5 }}>
+                  <Typography variant="subtitle1" fontWeight={700}>
+                    Baseline Image
+                  </Typography>
+                  <Box mt={2} sx={{ position: "relative" }}>
                     <ZoomableImage
                       src={baselineImageUrl}
                       alt="Baseline"
                       maxHeight={300}
                     />
-                  ) : (
-                    <Typography color="text.secondary">
-                      No baseline image available
-                    </Typography>
-                  )}
-                </Box>
+                  </Box>
 
-                {/* Baseline Image Controls */}
-                <Box mt={2} display="flex" justifyContent="flex-end">
-                  <Tooltip title="Reupload" arrow>
-                    <IconButton size="small" sx={{ color: "primary.main" }}>
-                      <UploadIcon />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-              </Paper>
-            </Box>
+                  {/* Baseline Image Controls */}
+                  <Box mt={2} display="flex" justifyContent="flex-end">
+                    <Tooltip title="Reupload" arrow>
+                      <IconButton size="small" sx={{ color: "primary.main" }}>
+                        <UploadIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </Paper>
+              </Box>
+            )}
 
             {/* Thermal Image with Analysis */}
             <Box flex={1}>
@@ -1419,16 +1429,23 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                 justifyContent="space-between"
                 mb={2}
               >
-                <Tabs
-                  value={activityLogTab}
-                  onChange={(
-                    _event: React.SyntheticEvent,
-                    value: "activities" | "sessions"
-                  ) => setActivityLogTab(value)}
-                >
-                  <Tab label="Activities" value="activities" />
-                  <Tab label="Sessions" value="sessions" />
-                </Tabs>
+                {!hideActivities && (
+                  <Tabs
+                    value={activityLogTab}
+                    onChange={(
+                      _event: React.SyntheticEvent,
+                      value: "activities" | "sessions"
+                    ) => setActivityLogTab(value)}
+                  >
+                    <Tab label="Activities" value="activities" />
+                    <Tab label="Sessions" value="sessions" />
+                  </Tabs>
+                )}
+                {hideActivities && (
+                  <Typography variant="h6" fontWeight={700}>
+                    Sessions
+                  </Typography>
+                )}
                 <Box display="flex" gap={1}>
                   <Tooltip title="Refresh" arrow>
                     <IconButton
@@ -1477,7 +1494,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
               </Box>
 
               {/* Filter controls for each tab */}
-              {activityLogTab === "activities" ? (
+              {!hideActivities && activityLogTab === "activities" ? (
                 <Box display="flex" gap={1} alignItems="center" mb={2}>
                   <FormControl size="small" sx={{ minWidth: 140 }}>
                     <Select
@@ -1500,38 +1517,46 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                   </Typography>
                 </Box>
               ) : (
-                <Box display="flex" gap={1} alignItems="center" mb={2}>
-                  <FormControl size="small" sx={{ minWidth: 180 }}>
-                    <Select
-                      value={activityLogSessionFilter}
-                      onChange={(e) =>
-                        setActivityLogSessionFilter(e.target.value)
-                      }
-                      displayEmpty
-                      startAdornment={
-                        <FilterListIcon sx={{ mr: 1, fontSize: 16 }} />
-                      }
-                    >
-                      <MenuItem value="all">All Sessions</MenuItem>
-                      {predictionSessions.map((session) => (
-                        <MenuItem
-                          key={session.predictionId}
-                          value={String(session.predictionId)}
-                        >
-                          {session.userName} (
-                          {new Date(session.createdAt).toLocaleString()})
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  <Typography variant="caption" color="text.secondary">
-                    {filteredSessions.length} sessions shown
-                  </Typography>
-                </Box>
+                hideActivities ? (
+                  <Box display="flex" gap={1} alignItems="center" mb={2}>
+                    <Typography variant="caption" color="text.secondary">
+                      {filteredSessions.length} sessions shown
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Box display="flex" gap={1} alignItems="center" mb={2}>
+                    <FormControl size="small" sx={{ minWidth: 180 }}>
+                      <Select
+                        value={activityLogSessionFilter}
+                        onChange={(e) =>
+                          setActivityLogSessionFilter(e.target.value)
+                        }
+                        displayEmpty
+                        startAdornment={
+                          <FilterListIcon sx={{ mr: 1, fontSize: 16 }} />
+                        }
+                      >
+                        <MenuItem value="all">All Sessions</MenuItem>
+                        {predictionSessions.map((session) => (
+                          <MenuItem
+                            key={session.predictionId}
+                            value={String(session.predictionId)}
+                          >
+                            {session.userName} (
+                            {new Date(session.createdAt).toLocaleString()})
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <Typography variant="caption" color="text.secondary">
+                      {filteredSessions.length} sessions shown
+                    </Typography>
+                  </Box>
+                )
               )}
 
               {/* Activities Tab Content */}
-              {activityLogTab === "activities" ? (
+              {!hideActivities && activityLogTab === "activities" ? (
                 filteredActivities.length === 0 ? (
                   <Box display="flex" justifyContent="center" p={3}>
                     <Typography variant="body2" color="text.secondary">
@@ -1733,9 +1758,9 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                           display="flex"
                           alignItems="center"
                           justifyContent="space-between"
-                          sx={{ cursor: "pointer" }}
+                          sx={{ cursor: hideActivities ? "default" : "pointer" }}
                           onClick={() =>
-                            toggleSessionExpansion(session.predictionId)
+                            !hideActivities && toggleSessionExpansion(session.predictionId)
                           }
                         >
                           <Box display="flex" alignItems="center" gap={1}>
@@ -1770,10 +1795,12 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                             >
                               {new Date(session.createdAt).toLocaleString()}
                             </Typography>
-                            {expandedSessions.has(session.predictionId) ? (
-                              <ExpandLess />
-                            ) : (
-                              <ExpandMore />
+                            {!hideActivities && (
+                              expandedSessions.has(session.predictionId) ? (
+                                <ExpandLess />
+                              ) : (
+                                <ExpandMore />
+                              )
                             )}
                           </Box>
                         </Box>

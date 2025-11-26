@@ -6,6 +6,7 @@ import theme from "./theme";
 import Dashboard from "./pages/Dashboard";
 import TransformerInspection from "./pages/TransformerInspection";
 import InspectionDetails from "./pages/InspectionDetails";
+import DigitalMaintenanceForm from "./pages/DigitalMaintenanceForm";
 import "./App.css";
 import { AuthProvider } from "./context/AuthContext";
 import Login from "./pages/Login";
@@ -27,6 +28,10 @@ function App() {
               <Route
                 path="/:transformerNo/:inspectionNo"
                 element={<InspectionDetails />}
+              />
+              <Route
+                path="/digital-form/:transformerNo/:inspectionNo"
+                element={<DigitalMaintenanceForm />}
               />
             </Routes>
           </Router>
