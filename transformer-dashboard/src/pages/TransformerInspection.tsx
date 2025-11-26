@@ -69,7 +69,7 @@ type TransformerDTO = {
 
 type InspectionDTO = {
   inspectionId: number;
-  inspectionTime: string; // "yyyy-MM-ddTHH:mm:ss"
+  inspectionTime: string; 
   branch: string;
   inspector: string;
   createdAt?: string;
@@ -90,7 +90,6 @@ type InspectionRow = {
   maintenanceDate?: string;
   status: ImageStatus;
   favorite?: boolean;
-  // for editing:
   inspectionTimeIso: string;
   branch: string;
   inspector: string;
@@ -117,7 +116,7 @@ type MaintenanceFormResponse = {
   workDataSheet?: Record<string, unknown>;
 };
 
-/* ================= Tiny inline HTTP helper ================= */
+/* ================= Inline HTTP helper ================= */
 const API_BASE =
   (import.meta.env as { VITE_API_BASE_URL?: string }).VITE_API_BASE_URL ??
   "http://localhost:8080/api";
@@ -146,7 +145,6 @@ async function http<T>(
     throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
   }
 
-  // Handle 204 or empty response bodies gracefully
   if (res.status === 204) return undefined as unknown as T;
   const text = await res.text();
   if (!text) return undefined as unknown as T;
@@ -184,7 +182,7 @@ function determineImageStatus(dto: InspectionDTO): ImageStatus {
     return "maintenance";
   }
 
-  // Default fallback - treat any other image as maintenance
+  // Default - treat any other image as maintenance
   return "maintenance";
 }
 function dtoToRow(dto: InspectionDTO): InspectionRow {
@@ -289,7 +287,6 @@ const mapObjectToRows = (obj?: Record<string, unknown>) => {
   return rows;
 };
 
-/* ---------------- Small UI helpers ---------------- */
 const statusChip = (s: ImageStatus) => {
   const map: Record<ImageStatus, { color: string; label: string }> = {
     baseline: { color: "#059669", label: "Baseline" },
@@ -513,7 +510,7 @@ export default function TransformerInspection() {
       );
     } catch {
       setError("Failed to create inspection");
-      throw new Error("Failed to create inspection"); // Re-throw so dialog can handle error state
+      throw new Error("Failed to create inspection"); 
     } finally {
       setCreating(false);
     }
@@ -664,7 +661,7 @@ export default function TransformerInspection() {
       status: row.status,
       branch: row.branch,
       inspector: row.inspector,
-      inspectionTime: row.inspectionTimeIso, // Map inspectionTimeIso to inspectionTime
+      inspectionTime: row.inspectionTimeIso, 
     };
     setEditingInspection(editData);
     setEditOpen(true);
@@ -692,7 +689,7 @@ export default function TransformerInspection() {
       setEditingInspection(null);
     } catch {
       setError("Failed to update inspection");
-      throw new Error("Failed to update inspection"); // Re-throw so dialog can handle error state
+      throw new Error("Failed to update inspection"); 
     } finally {
       setSaving(false);
     }
