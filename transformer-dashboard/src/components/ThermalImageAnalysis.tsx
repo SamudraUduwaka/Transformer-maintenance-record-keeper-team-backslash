@@ -1517,34 +1517,42 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                   </Typography>
                 </Box>
               ) : (
-                <Box display="flex" gap={1} alignItems="center" mb={2}>
-                  <FormControl size="small" sx={{ minWidth: 180 }}>
-                    <Select
-                      value={activityLogSessionFilter}
-                      onChange={(e) =>
-                        setActivityLogSessionFilter(e.target.value)
-                      }
-                      displayEmpty
-                      startAdornment={
-                        <FilterListIcon sx={{ mr: 1, fontSize: 16 }} />
-                      }
-                    >
-                      <MenuItem value="all">All Sessions</MenuItem>
-                      {predictionSessions.map((session) => (
-                        <MenuItem
-                          key={session.predictionId}
-                          value={String(session.predictionId)}
-                        >
-                          {session.userName} (
-                          {new Date(session.createdAt).toLocaleString()})
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  <Typography variant="caption" color="text.secondary">
-                    {filteredSessions.length} sessions shown
-                  </Typography>
-                </Box>
+                hideActivities ? (
+                  <Box display="flex" gap={1} alignItems="center" mb={2}>
+                    <Typography variant="caption" color="text.secondary">
+                      {filteredSessions.length} sessions shown
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Box display="flex" gap={1} alignItems="center" mb={2}>
+                    <FormControl size="small" sx={{ minWidth: 180 }}>
+                      <Select
+                        value={activityLogSessionFilter}
+                        onChange={(e) =>
+                          setActivityLogSessionFilter(e.target.value)
+                        }
+                        displayEmpty
+                        startAdornment={
+                          <FilterListIcon sx={{ mr: 1, fontSize: 16 }} />
+                        }
+                      >
+                        <MenuItem value="all">All Sessions</MenuItem>
+                        {predictionSessions.map((session) => (
+                          <MenuItem
+                            key={session.predictionId}
+                            value={String(session.predictionId)}
+                          >
+                            {session.userName} (
+                            {new Date(session.createdAt).toLocaleString()})
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <Typography variant="caption" color="text.secondary">
+                      {filteredSessions.length} sessions shown
+                    </Typography>
+                  </Box>
+                )
               )}
 
               {/* Activities Tab Content */}
@@ -1750,9 +1758,9 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                           display="flex"
                           alignItems="center"
                           justifyContent="space-between"
-                          sx={{ cursor: "pointer" }}
+                          sx={{ cursor: hideActivities ? "default" : "pointer" }}
                           onClick={() =>
-                            toggleSessionExpansion(session.predictionId)
+                            !hideActivities && toggleSessionExpansion(session.predictionId)
                           }
                         >
                           <Box display="flex" alignItems="center" gap={1}>
@@ -1787,10 +1795,12 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                             >
                               {new Date(session.createdAt).toLocaleString()}
                             </Typography>
-                            {expandedSessions.has(session.predictionId) ? (
-                              <ExpandLess />
-                            ) : (
-                              <ExpandMore />
+                            {!hideActivities && (
+                              expandedSessions.has(session.predictionId) ? (
+                                <ExpandLess />
+                              ) : (
+                                <ExpandMore />
+                              )
                             )}
                           </Box>
                         </Box>
