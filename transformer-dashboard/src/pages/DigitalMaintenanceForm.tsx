@@ -1772,11 +1772,11 @@ export default function DigitalMaintenanceForm() {
                   </CardContent>
                 </Card>
 
-                {/* Gang Composition */}
+                {/* Team Composition */}
                 <Card>
                   <CardContent>
                     <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
-                      Gang Composition
+                      Team Composition
                     </Typography>
                     <Stack spacing={2}>
                       <Stack
@@ -1968,7 +1968,7 @@ export default function DigitalMaintenanceForm() {
                       >
                         <TextField
                           fullWidth
-                          label="Gang Leader"
+                          label="Team Leader"
                           value={gangLeader}
                           onChange={(e) => setGangLeader(e.target.value)}
                         />
