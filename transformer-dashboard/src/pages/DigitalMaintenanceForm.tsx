@@ -38,6 +38,7 @@ import {
   TableRow,
   Alert,
   Snackbar,
+  Chip,
 } from "@mui/material";
 import {
   ArrowBack as ArrowBackIcon,
@@ -45,7 +46,6 @@ import {
   NavigateNext as NavigateNextIcon,
   Cancel as CancelIcon,
   CheckCircle as CheckCircleIcon,
-  Image as ImageIcon,
   MoreVert as MoreVertIcon,
   Settings as SettingsIcon,
   Search as SearchIcon,
@@ -92,6 +92,75 @@ function StatPill({ top, bottom }: { top: string | number; bottom: string }) {
     </Box>
   );
 }
+
+type ImageStatus = "baseline" | "maintenance" | "no image";
+
+/* Helper function to determine image status */
+const determineImageStatus = (inspection: {
+  image?: { type?: string };
+} | null): ImageStatus => {
+  if (!inspection || !inspection.image) {
+    return "no image";
+  }
+
+  if (inspection.image.type === "baseline") {
+    return "baseline";
+  }
+
+  return "maintenance";
+};
+
+/* Helper function to render status chip */
+const renderStatusChip = (
+  status: ImageStatus,
+  size: "small" | "medium" = "medium"
+) => {
+  const statusConfig = {
+    baseline: {
+      label: "Baseline",
+      color: "success" as const,
+      borderColor: "#059669",
+    },
+    maintenance: {
+      label: "Maintenance",
+      color: "error" as const,
+      borderColor: "#DC2626",
+    },
+    "no image": {
+      label: "Pending",
+      color: "default" as const,
+      borderColor: "#e8a60dff",
+    },
+  };
+
+  const config = statusConfig[status];
+  const chipHeight = size === "small" ? 22 : 28;
+  const fontSize = size === "small" ? 12 : 14;
+
+  return (
+    <Chip
+      size={size}
+      label={config.label}
+      color={config.color}
+      variant="outlined"
+      sx={{
+        height: chipHeight,
+        fontSize: fontSize,
+        fontWeight: 600,
+        borderColor: config.borderColor,
+        color: config.borderColor,
+        bgcolor:
+          size === "small"
+            ? status === "baseline"
+              ? "#F0FDF4"
+              : status === "maintenance"
+              ? "#FEF2F2"
+              : "#F9FAFB"
+            : "transparent",
+      }}
+    />
+  );
+};
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -1091,30 +1160,9 @@ export default function DigitalMaintenanceForm() {
                       width: "100%",
                       display: "flex",
                       justifyContent: "flex-end",
-                      gap: 1,
-                      flexWrap: "wrap",
                     }}
                   >
-                    <FormControl size="small">
-                      <Select
-                        value={formMode}
-                        onChange={(e) =>
-                          setFormMode(e.target.value as "digital" | "scanned")
-                        }
-                        sx={{ minWidth: 150 }}
-                      >
-                        <MenuItem value="digital">Digital Form</MenuItem>
-                        <MenuItem value="scanned">Scanned Form</MenuItem>
-                      </Select>
-                    </FormControl>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      startIcon={<ImageIcon />}
-                      sx={{ textTransform: "none" }}
-                    >
-                      View Baseline
-                    </Button>
+                    {renderStatusChip(determineImageStatus(inspection))}
                   </Box>
                 </Stack>
               </Stack>
