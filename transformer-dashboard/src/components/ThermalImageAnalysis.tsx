@@ -1273,36 +1273,32 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
             flexDirection={{ xs: "column", md: "row" }}
             gap={3}
           >
-            {/* Baseline Image */}
-            <Box flex={1}>
-              <Paper sx={{ p: 2.5 }}>
-                <Typography variant="subtitle1" fontWeight={700}>
-                  Baseline Image
-                </Typography>
-                <Box mt={2} sx={{ position: "relative" }}>
-                  {baselineImageUrl ? (
+            {/* Baseline Image - Only show if baseline URL exists */}
+            {baselineImageUrl && (
+              <Box flex={1}>
+                <Paper sx={{ p: 2.5 }}>
+                  <Typography variant="subtitle1" fontWeight={700}>
+                    Baseline Image
+                  </Typography>
+                  <Box mt={2} sx={{ position: "relative" }}>
                     <ZoomableImage
                       src={baselineImageUrl}
                       alt="Baseline"
                       maxHeight={300}
                     />
-                  ) : (
-                    <Typography color="text.secondary">
-                      No baseline image available
-                    </Typography>
-                  )}
-                </Box>
+                  </Box>
 
-                {/* Baseline Image Controls */}
-                <Box mt={2} display="flex" justifyContent="flex-end">
-                  <Tooltip title="Reupload" arrow>
-                    <IconButton size="small" sx={{ color: "primary.main" }}>
-                      <UploadIcon />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-              </Paper>
-            </Box>
+                  {/* Baseline Image Controls */}
+                  <Box mt={2} display="flex" justifyContent="flex-end">
+                    <Tooltip title="Reupload" arrow>
+                      <IconButton size="small" sx={{ color: "primary.main" }}>
+                        <UploadIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </Paper>
+              </Box>
+            )}
 
             {/* Thermal Image with Analysis */}
             <Box flex={1}>
