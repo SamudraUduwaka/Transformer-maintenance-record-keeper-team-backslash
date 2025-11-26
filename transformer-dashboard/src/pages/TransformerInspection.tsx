@@ -215,9 +215,33 @@ const formatFieldLabel = (key: string) =>
     .trim()
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
-const formatFieldValue = (value: unknown): string => {
+const formatFieldValue = (value: unknown, fieldName?: string): string => {
   if (value === null || value === undefined || value === "") return "-";
   if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "string") {
+    // Check if it's an ISO date string and format it
+    const isoDateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+    if (isoDateRegex.test(value)) {
+      try {
+        const date = new Date(value);
+        const lowerFieldName = (fieldName || "").toLowerCase();
+        
+        // If field name contains "date" but not "time", show only date
+        if (lowerFieldName.includes("date") && !lowerFieldName.includes("time")) {
+          return date.toLocaleDateString();
+        }
+        // If field name contains "time" but not "date", show only time
+        if (lowerFieldName.includes("time") && !lowerFieldName.includes("date")) {
+          return date.toLocaleTimeString();
+        }
+        // Default: show both
+        return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+      } catch {
+        return value;
+      }
+    }
+    return value;
+  }
   if (Array.isArray(value)) {
     if (value.length === 0) return "-";
     return value
@@ -251,7 +275,7 @@ const mapObjectToRows = (obj?: Record<string, unknown>) => {
               `${formatFieldLabel(key)} #${index + 1} - ${formatFieldLabel(
                 nestedKey
               )}`,
-              formatFieldValue(nestedValue),
+              formatFieldValue(nestedValue, nestedKey),
             ]);
           }
         );
@@ -259,7 +283,7 @@ const mapObjectToRows = (obj?: Record<string, unknown>) => {
       return;
     }
 
-    rows.push([formatFieldLabel(key), formatFieldValue(value)]);
+    rows.push([formatFieldLabel(key), formatFieldValue(value, key)]);
   });
 
   return rows;
