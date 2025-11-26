@@ -25,6 +25,8 @@ import {
   TableRow,
   Menu,
   MenuItem,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
   ArrowBack as ArrowBackIcon,
@@ -39,7 +41,10 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Logout as LogoutIcon,
+  Download as DownloadIcon,
 } from "@mui/icons-material";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import { useParams, useNavigate } from "react-router-dom";
 import PowerLensBranding from "../components/PowerLensBranding";
 import { authService } from "../services/authService";
@@ -90,6 +95,26 @@ type InspectionRow = {
   branch: string;
   inspector: string;
   transformerNo: string;
+};
+
+type MaintenanceRecordRow = {
+  id: number;
+  maintenanceFormId: number;
+  formNo: string;
+  dateAdded: string;
+  addedBy: string;
+  inspectionId: number;
+  inspectionNo: string;
+  transformerNo: string;
+};
+
+type MaintenanceFormResponse = {
+  maintenanceFormId?: number;
+  inspectionId: number;
+  transformerNo: string;
+  thermalInspection?: Record<string, unknown>;
+  maintenanceRecord?: Record<string, unknown>;
+  workDataSheet?: Record<string, unknown>;
 };
 
 /* ================= Tiny inline HTTP helper ================= */
@@ -182,6 +207,64 @@ function dtoToRow(dto: InspectionDTO): InspectionRow {
 
 const drawerWidth = 200;
 
+const formatFieldLabel = (key: string) =>
+  key
+    .replace(/_/g, " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const formatFieldValue = (value: unknown): string => {
+  if (value === null || value === undefined || value === "") return "-";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (Array.isArray(value)) {
+    if (value.length === 0) return "-";
+    return value
+      .map((item) =>
+        typeof item === "object" && item !== null
+          ? JSON.stringify(item)
+          : String(item)
+      )
+      .join("; ");
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value, null, 2);
+  }
+  return String(value);
+};
+
+const mapObjectToRows = (obj?: Record<string, unknown>) => {
+  if (!obj) return [] as string[][];
+  const rows: string[][] = [];
+
+  Object.entries(obj).forEach(([key, value]) => {
+    if (
+      Array.isArray(value) &&
+      value.length > 0 &&
+      value.every((item) => typeof item === "object" && item !== null)
+    ) {
+      value.forEach((item, index) => {
+        Object.entries(item as Record<string, unknown>).forEach(
+          ([nestedKey, nestedValue]) => {
+            rows.push([
+              `${formatFieldLabel(key)} #${index + 1} - ${formatFieldLabel(
+                nestedKey
+              )}`,
+              formatFieldValue(nestedValue),
+            ]);
+          }
+        );
+      });
+      return;
+    }
+
+    rows.push([formatFieldLabel(key), formatFieldValue(value)]);
+  });
+
+  return rows;
+};
+
 /* ---------------- Small UI helpers ---------------- */
 const statusChip = (s: ImageStatus) => {
   const map: Record<ImageStatus, { color: string; label: string }> = {
@@ -243,12 +326,14 @@ export default function TransformerInspection() {
   const { user, isAuthenticated, logout } = useAuth();
 
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState(0);
 
   // backend data
   const [transformer, setTransformer] = React.useState<TransformerDTO | null>(
     null
   );
   const [rows, setRows] = React.useState<InspectionRow[]>([]);
+  const [maintenanceRecords, setMaintenanceRecords] = React.useState<MaintenanceRecordRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -258,6 +343,14 @@ export default function TransformerInspection() {
   const shown = React.useMemo(
     () => rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
     [rows, page, rowsPerPage]
+  );
+
+  // maintenance records paging
+  const [maintenancePage, setMaintenancePage] = React.useState(0);
+  const [maintenanceRowsPerPage, setMaintenanceRowsPerPage] = React.useState(10);
+  const shownMaintenance = React.useMemo(
+    () => maintenanceRecords.slice(maintenancePage * maintenanceRowsPerPage, maintenancePage * maintenanceRowsPerPage + maintenanceRowsPerPage),
+    [maintenanceRecords, maintenancePage, maintenanceRowsPerPage]
   );
 
   // menu state
@@ -277,6 +370,62 @@ export default function TransformerInspection() {
   // delete dialog
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleteId, setDeleteId] = React.useState<number | null>(null);
+  const [maintenanceMenuAnchor, setMaintenanceMenuAnchor] =
+    React.useState<null | HTMLElement>(null);
+  const [maintenanceMenuRecordId, setMaintenanceMenuRecordId] =
+    React.useState<number | null>(null);
+  const [isDownloading, setIsDownloading] = React.useState(false);
+
+  // load maintenance records
+  const loadMaintenanceRecords = React.useCallback(async () => {
+    try {
+      // First get all inspections for this transformer
+      const allInspections = await http<InspectionDTO[]>(`/inspections`);
+      const transformerInspections = allInspections.filter(
+        (i) => i.transformerNo === transformerNo
+      );
+
+      // Fetch maintenance forms for each inspection
+      const records: MaintenanceRecordRow[] = [];
+      for (const inspection of transformerInspections) {
+        try {
+          const maintenanceForm = await http<{
+            maintenanceFormId?: number;
+            inspectionId: number;
+            transformerNo: string;
+            createdAt?: string;
+            thermalInspection?: {
+              inspectedBy?: string;
+              inspectionDate?: string;
+            };
+          }>(`/inspections/${inspection.inspectionId}/maintenance-form`);
+
+          if (maintenanceForm) {
+            records.push({
+              id: inspection.inspectionId,
+              maintenanceFormId: maintenanceForm.maintenanceFormId || inspection.inspectionId,
+              formNo: maintenanceForm.maintenanceFormId ? pad8(maintenanceForm.maintenanceFormId) : pad8(inspection.inspectionId),
+              dateAdded: maintenanceForm.createdAt ? toLocal(maintenanceForm.createdAt) : inspection.createdAt ? toLocal(inspection.createdAt) : '-',
+              addedBy: maintenanceForm.thermalInspection?.inspectedBy || inspection.inspector || 'N/A',
+              inspectionId: inspection.inspectionId,
+              inspectionNo: pad8(inspection.inspectionId),
+              transformerNo: inspection.transformerNo,
+            });
+          }
+        } catch {
+          // If no maintenance form exists for this inspection, skip it
+          console.log(`No maintenance form for inspection ${inspection.inspectionId}`);
+        }
+      }
+
+      // Sort by inspection ID descending
+      records.sort((a, b) => b.id - a.id);
+      setMaintenanceRecords(records);
+    } catch (err) {
+      console.error('Failed to load maintenance records:', err);
+      setMaintenanceRecords([]);
+    }
+  }, [transformerNo]);
 
   // load data
   React.useEffect(() => {
@@ -302,8 +451,11 @@ export default function TransformerInspection() {
       } finally {
         setLoading(false);
       }
+      
+      // Load maintenance records
+      await loadMaintenanceRecords();
     })();
-  }, [transformerNo]);
+  }, [transformerNo, loadMaintenanceRecords]);
 
   /* ---------- Add inspection ---------- */
   const handleOpenAdd = () => setAddOpen(true);
@@ -350,6 +502,128 @@ export default function TransformerInspection() {
   const closeRowMenu = () => {
     setMenuAnchor(null);
     setMenuRowId(null);
+  };
+
+  const openMaintenanceMenu = (
+    e: React.MouseEvent<HTMLButtonElement>,
+    recordId: number
+  ) => {
+    setMaintenanceMenuAnchor(e.currentTarget);
+    setMaintenanceMenuRecordId(recordId);
+  };
+
+  const closeMaintenanceMenu = () => {
+    setMaintenanceMenuAnchor(null);
+    setMaintenanceMenuRecordId(null);
+  };
+
+  const handleDownloadMaintenancePdf = async () => {
+    if (maintenanceMenuRecordId == null) return;
+    const record = maintenanceRecords.find(
+      (r) => r.id === maintenanceMenuRecordId
+    );
+    setIsDownloading(true);
+    try {
+      const maintenanceForm = await http<MaintenanceFormResponse>(
+        `/inspections/${maintenanceMenuRecordId}/maintenance-form`
+      );
+
+      if (!maintenanceForm) {
+        setError("No maintenance form found for this inspection");
+        return;
+      }
+
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      const titleY = 40;
+      doc.setFontSize(16);
+      doc.text("Digital Maintenance Record", 40, titleY);
+      doc.setFontSize(11);
+      const metaStartY = titleY + 20;
+      doc.text(
+        `Transformer: ${
+          maintenanceForm.transformerNo || record?.transformerNo || "-"
+        }`,
+        40,
+        metaStartY
+      );
+      doc.text(
+        `Inspection #: ${record?.inspectionNo || pad8(maintenanceForm.inspectionId)}`,
+        40,
+        metaStartY + 15
+      );
+      doc.text(
+        `Form #: ${
+          record?.formNo ||
+          pad8(maintenanceForm.maintenanceFormId ?? maintenanceForm.inspectionId)
+        }`,
+        40,
+        metaStartY + 30
+      );
+
+      const sections = [
+        {
+          title: "Thermal Image Inspection",
+          rows: mapObjectToRows(maintenanceForm.thermalInspection),
+        },
+        {
+          title: "Maintenance Record",
+          rows: mapObjectToRows(maintenanceForm.maintenanceRecord),
+        },
+        {
+          title: "Work + Data Sheet",
+          rows: mapObjectToRows(maintenanceForm.workDataSheet),
+        },
+      ].filter((section) => section.rows.length > 0);
+
+      let nextSectionY = metaStartY + 50;
+
+      if (sections.length === 0) {
+        doc.setFontSize(12);
+        doc.text("No data available", 40, nextSectionY);
+      } else {
+        sections.forEach((section) => {
+          doc.setFontSize(13);
+          doc.text(section.title, 40, nextSectionY);
+          autoTable(doc, {
+            startY: nextSectionY + 10,
+            head: [["Field", "Value"]],
+            body: section.rows,
+            styles: {
+              fontSize: 10,
+              cellPadding: 4,
+              halign: "left",
+              valign: "top",
+            },
+            headStyles: {
+              fillColor: [38, 70, 83],
+              halign: "left",
+            },
+            columnStyles: {
+              0: { cellWidth: 180 },
+              1: { cellWidth: 320 },
+            },
+            margin: { left: 40, right: 40 },
+          });
+
+          const finalY =
+            (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable
+              ?.finalY ?? nextSectionY + 20;
+          nextSectionY = finalY + 24;
+        });
+      }
+
+      const fileName = `Digital-Maintenance-${
+        record?.formNo ||
+        pad8(maintenanceForm.maintenanceFormId ?? maintenanceForm.inspectionId)
+      }.pdf`;
+      doc.save(fileName);
+      closeMaintenanceMenu();
+    } catch (downloadError) {
+      console.error(downloadError);
+      setError("Failed to download maintenance record PDF");
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const handleStartEdit = (id: number) => {
@@ -708,130 +982,245 @@ export default function TransformerInspection() {
                 </Stack>
               </Paper>
 
-              {/* ===== Table ===== */}
-              <Paper elevation={3} sx={{ p: 2.5, borderRadius: 2 }}>
-                <Stack direction="row" alignItems="center" sx={{ mb: 1.5 }}>
-                  <Typography variant="h6" fontWeight={800} sx={{ pl: 2 }}>
-                    Transformer Inspections
-                  </Typography>
-                  <Box sx={{ flexGrow: 1 }} />
-                  <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={handleOpenAdd}
+              {/* ===== Split View with Tabs ===== */}
+              <Paper elevation={3} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                {/* Tabs Header */}
+                <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
+                  <Tabs 
+                    value={activeTab} 
+                    onChange={(_, newValue) => setActiveTab(newValue)}
                     sx={{
-                      borderRadius: 999,
-                      px: 2.5,
-                      py: 0.9,
-                      fontWeight: 700,
-                      textTransform: "none",
-                      background:
-                        "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
-                      boxShadow: "0 8px 18px rgba(79,70,229,0.35)",
-                      "&:hover": {
-                        background:
-                          "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)",
-                        boxShadow: "0 10px 22px rgba(79,70,229,0.45)",
+                      '& .MuiTab-root': {
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        fontSize: '0.95rem',
+                        minHeight: 56,
+                        px: 3,
                       },
                     }}
                   >
-                    Add Inspection
-                  </Button>
-                </Stack>
+                    <Tab label="Transformer Inspections" />
+                    <Tab label="Digital Maintenance Records" />
+                  </Tabs>
+                </Box>
 
-                <TableContainer>
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell width={48} />
-                        <TableCell>Inspection No</TableCell>
-                        <TableCell>Inspected Date</TableCell>
+                {/* Tab Panel 1: Transformer Inspections */}
+                {activeTab === 0 && (
+                  <Box sx={{ p: 2.5 }}>
+                    <Stack direction="row" alignItems="center" sx={{ mb: 1.5 }}>
+                      <Typography variant="h6" fontWeight={800} sx={{ pl: 2 }}>
+                        Transformer Inspections
+                      </Typography>
+                      <Box sx={{ flexGrow: 1 }} />
+                      <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={handleOpenAdd}
+                        sx={{
+                          borderRadius: 999,
+                          px: 2.5,
+                          py: 0.9,
+                          fontWeight: 700,
+                          textTransform: "none",
+                          background:
+                            "linear-gradient(180deg, #4F46E5 0%, #2E26C3 100%)",
+                          boxShadow: "0 8px 18px rgba(79,70,229,0.35)",
+                          "&:hover": {
+                            background:
+                              "linear-gradient(180deg, #4338CA 0%, #2A21B8 100%)",
+                            boxShadow: "0 10px 22px rgba(79,70,229,0.45)",
+                          },
+                        }}
+                      >
+                        Add Inspection
+                      </Button>
+                    </Stack>
 
-                        <TableCell>Image Status</TableCell>
-                        <TableCell align="right">Actions</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {shown.map((row) => (
-                        <TableRow key={row.id} hover>
-                          <TableCell width={48}>
-                            <IconButton size="small">
-                              {row.favorite ? (
-                                <StarIcon color="secondary" />
-                              ) : (
-                                <StarBorderIcon color="disabled" />
-                              )}
-                            </IconButton>
-                          </TableCell>
-                          <TableCell>
-                            <Typography fontWeight={600}>
-                              {row.inspectionNo}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>{row.inspectedDate}</TableCell>
-
-                          <TableCell>{statusChip(row.status)}</TableCell>
-                          <TableCell align="right">
-                            <Stack
-                              direction="row"
-                              spacing={1}
-                              justifyContent="flex-end"
-                            >
-                              <Button
-                                variant="contained"
-                                size="small"
-                                onClick={() =>
-                                  navigate(
-                                    `/${encodeURIComponent(
-                                      row.transformerNo
-                                    )}/${encodeURIComponent(row.inspectionNo)}`,
-                                    {
-                                      state: {
-                                        from: "transformer-inspection",
-                                        transformerNo: row.transformerNo,
-                                      },
+                    <TableContainer>
+                      <Table>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell width={48} />
+                            <TableCell>Inspection No</TableCell>
+                            <TableCell>Inspected Date</TableCell>
+                            <TableCell>Image Status</TableCell>
+                            <TableCell align="right">Actions</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {shown.map((row) => (
+                            <TableRow key={row.id} hover>
+                              <TableCell width={48}>
+                                <IconButton size="small">
+                                  {row.favorite ? (
+                                    <StarIcon color="secondary" />
+                                  ) : (
+                                    <StarBorderIcon color="disabled" />
+                                  )}
+                                </IconButton>
+                              </TableCell>
+                              <TableCell>
+                                <Typography fontWeight={600}>
+                                  {row.inspectionNo}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>{row.inspectedDate}</TableCell>
+                              <TableCell>{statusChip(row.status)}</TableCell>
+                              <TableCell align="right">
+                                <Stack
+                                  direction="row"
+                                  spacing={1}
+                                  justifyContent="flex-end"
+                                >
+                                  <Button
+                                    variant="contained"
+                                    size="small"
+                                    onClick={() =>
+                                      navigate(
+                                        `/${encodeURIComponent(
+                                          row.transformerNo
+                                        )}/${encodeURIComponent(row.inspectionNo)}`,
+                                        {
+                                          state: {
+                                            from: "transformer-inspection",
+                                            transformerNo: row.transformerNo,
+                                          },
+                                        }
+                                      )
                                     }
-                                  )
-                                }
-                              >
-                                View
-                              </Button>
-                              <IconButton
-                                size="small"
-                                onClick={(e) => openRowMenu(e, row.id)}
-                              >
-                                <MoreVertIcon />
-                              </IconButton>
-                            </Stack>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                                  >
+                                    View
+                                  </Button>
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => openRowMenu(e, row.id)}
+                                  >
+                                    <MoreVertIcon />
+                                  </IconButton>
+                                </Stack>
+                              </TableCell>
+                            </TableRow>
+                          ))}
 
-                      {shown.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={6}>
-                            <Box sx={{ p: 4, textAlign: "center" }}>
-                              <Typography>No inspections yet</Typography>
-                            </Box>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                          {shown.length === 0 && (
+                            <TableRow>
+                              <TableCell colSpan={6}>
+                                <Box sx={{ p: 4, textAlign: "center" }}>
+                                  <Typography>No inspections yet</Typography>
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
 
-                <TablePagination
-                  component="div"
-                  count={rows.length}
-                  page={page}
-                  onPageChange={(_e, p) => setPage(p)}
-                  rowsPerPage={rowsPerPage}
-                  onRowsPerPageChange={(e) => {
-                    setRowsPerPage(parseInt(e.target.value, 10));
-                    setPage(0);
-                  }}
-                  rowsPerPageOptions={[5, 10, 20, 50]}
-                />
+                    <TablePagination
+                      component="div"
+                      count={rows.length}
+                      page={page}
+                      onPageChange={(_e, p) => setPage(p)}
+                      rowsPerPage={rowsPerPage}
+                      onRowsPerPageChange={(e) => {
+                        setRowsPerPage(parseInt(e.target.value, 10));
+                        setPage(0);
+                      }}
+                      rowsPerPageOptions={[5, 10, 20, 50]}
+                    />
+                  </Box>
+                )}
+
+                {/* Tab Panel 2: Digital Maintenance Records */}
+                {activeTab === 1 && (
+                  <Box sx={{ p: 2.5 }}>
+                    <Stack direction="row" alignItems="center" sx={{ mb: 1.5 }}>
+                      <Typography variant="h6" fontWeight={800} sx={{ pl: 2 }}>
+                        Digital Maintenance Records
+                      </Typography>
+                      <Box sx={{ flexGrow: 1 }} />
+                    </Stack>
+
+                    <TableContainer>
+                      <Table>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>No</TableCell>
+                            <TableCell>Date Added</TableCell>
+                            <TableCell>Added By</TableCell>
+                            <TableCell>Inspection ID</TableCell>
+                            <TableCell align="right">Actions</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {shownMaintenance.map((record) => (
+                            <TableRow key={record.id} hover>
+                              <TableCell>
+                                <Typography fontWeight={600}>
+                                  {record.formNo}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>{record.dateAdded}</TableCell>
+                              <TableCell>{record.addedBy}</TableCell>
+                              <TableCell>{record.inspectionNo}</TableCell>
+                              <TableCell align="right">
+                                <Stack
+                                  direction="row"
+                                  spacing={1}
+                                  justifyContent="flex-end"
+                                >
+                                  <Button
+                                    variant="contained"
+                                    size="small"
+                                    onClick={() => {
+                                      // Navigate to digital maintenance form
+                                      navigate(
+                                        `/digital-form/${encodeURIComponent(record.transformerNo)}/${record.inspectionId}`
+                                      );
+                                    }}
+                                  >
+                                    View
+                                  </Button>
+                                  <IconButton
+                                    size="small"
+                                    onClick={(event) =>
+                                      openMaintenanceMenu(event, record.id)
+                                    }
+                                    disabled={isDownloading}
+                                  >
+                                    <MoreVertIcon />
+                                  </IconButton>
+                                </Stack>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+
+                          {shownMaintenance.length === 0 && (
+                            <TableRow>
+                              <TableCell colSpan={6}>
+                                <Box sx={{ p: 4, textAlign: "center" }}>
+                                  <Typography>No maintenance records found</Typography>
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+
+                    <TablePagination
+                      component="div"
+                      count={maintenanceRecords.length}
+                      page={maintenancePage}
+                      onPageChange={(_e, p) => setMaintenancePage(p)}
+                      rowsPerPage={maintenanceRowsPerPage}
+                      onRowsPerPageChange={(e) => {
+                        setMaintenanceRowsPerPage(parseInt(e.target.value, 10));
+                        setMaintenancePage(0);
+                      }}
+                      rowsPerPageOptions={[5, 10, 20, 50]}
+                    />
+                  </Box>
+                )}
               </Paper>
             </Stack>
           )}
@@ -867,6 +1256,27 @@ export default function TransformerInspection() {
             <DeleteIcon fontSize="small" color="error" />
           </ListItemIcon>
           <ListItemText primary="Delete" />
+        </MenuItem>
+      </Menu>
+
+      <Menu
+        anchorEl={maintenanceMenuAnchor}
+        open={Boolean(maintenanceMenuAnchor)}
+        onClose={closeMaintenanceMenu}
+        transformOrigin={{ horizontal: "right", vertical: "top" }}
+        anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+        PaperProps={{ sx: { mt: 1, minWidth: 200, borderRadius: 2 } }}
+      >
+        <MenuItem
+          onClick={handleDownloadMaintenancePdf}
+          disabled={isDownloading}
+        >
+          <ListItemIcon>
+            <DownloadIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText
+            primary={isDownloading ? "Preparing PDF..." : "Download PDF"}
+          />
         </MenuItem>
       </Menu>
 
