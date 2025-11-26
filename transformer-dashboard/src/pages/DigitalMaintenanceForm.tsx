@@ -1256,6 +1256,8 @@ export default function DigitalMaintenanceForm() {
                       baselineImageUrl=""
                       transformerNo={inspection.transformerNo || inspection.transformer?.transformerNo || transformerNo}
                       inspectionId={inspectionId}
+                      defaultExpandedSessions={true}
+                      hideActivities={true}
                     />
                   </Box>
                 )}

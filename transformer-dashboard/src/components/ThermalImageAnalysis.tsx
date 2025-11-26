@@ -66,6 +66,8 @@ interface ThermalImageAnalysisProps {
   loading?: boolean;
   transformerNo?: string;
   inspectionId?: number;
+  defaultExpandedSessions?: boolean;
+  hideActivities?: boolean;
 }
 
 const ISSUE_TYPE_LABELS: Record<string, string> = {
@@ -367,6 +369,8 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
   loading = false,
   transformerNo,
   inspectionId,
+  defaultExpandedSessions = false,
+  hideActivities = false,
 }) => {
   const [analysisData, setAnalysisData] = useState<ThermalAnalysisData | null>(
     null
@@ -1019,6 +1023,16 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
     fetchActivityLog();
   }, [fetchActivityLog]);
 
+  // Expand all sessions by default if prop is set
+  useEffect(() => {
+    if (defaultExpandedSessions && predictionSessions.length > 0) {
+      const allSessionIds = new Set(
+        predictionSessions.map((session) => session.predictionId)
+      );
+      setExpandedSessions(allSessionIds);
+    }
+  }, [defaultExpandedSessions, predictionSessions]);
+
   // Filter prediction sessions based on selected filter
   // Filter prediction sessions based on selected session
   const filteredSessions = predictionSessions
@@ -1415,16 +1429,23 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
                 justifyContent="space-between"
                 mb={2}
               >
-                <Tabs
-                  value={activityLogTab}
-                  onChange={(
-                    _event: React.SyntheticEvent,
-                    value: "activities" | "sessions"
-                  ) => setActivityLogTab(value)}
-                >
-                  <Tab label="Activities" value="activities" />
-                  <Tab label="Sessions" value="sessions" />
-                </Tabs>
+                {!hideActivities && (
+                  <Tabs
+                    value={activityLogTab}
+                    onChange={(
+                      _event: React.SyntheticEvent,
+                      value: "activities" | "sessions"
+                    ) => setActivityLogTab(value)}
+                  >
+                    <Tab label="Activities" value="activities" />
+                    <Tab label="Sessions" value="sessions" />
+                  </Tabs>
+                )}
+                {hideActivities && (
+                  <Typography variant="h6" fontWeight={700}>
+                    Sessions
+                  </Typography>
+                )}
                 <Box display="flex" gap={1}>
                   <Tooltip title="Refresh" arrow>
                     <IconButton
@@ -1473,7 +1494,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
               </Box>
 
               {/* Filter controls for each tab */}
-              {activityLogTab === "activities" ? (
+              {!hideActivities && activityLogTab === "activities" ? (
                 <Box display="flex" gap={1} alignItems="center" mb={2}>
                   <FormControl size="small" sx={{ minWidth: 140 }}>
                     <Select
@@ -1527,7 +1548,7 @@ const ThermalImageAnalysis: React.FC<ThermalImageAnalysisProps> = ({
               )}
 
               {/* Activities Tab Content */}
-              {activityLogTab === "activities" ? (
+              {!hideActivities && activityLogTab === "activities" ? (
                 filteredActivities.length === 0 ? (
                   <Box display="flex" justifyContent="center" p={3}>
                     <Typography variant="body2" color="text.secondary">
