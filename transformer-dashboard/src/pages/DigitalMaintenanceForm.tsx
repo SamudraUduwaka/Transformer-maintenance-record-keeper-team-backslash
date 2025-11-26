@@ -926,28 +926,6 @@ export default function DigitalMaintenanceForm() {
             alignItems="center"
             sx={{ ml: 1 }}
           >
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={
-                saving ? (
-                  <CircularProgress size={14} color="inherit" />
-                ) : (
-                  <SaveIcon />
-                )
-              }
-              sx={{
-                textTransform: "none",
-                borderRadius: 999,
-                px: 2,
-                py: 0.5,
-                fontWeight: 600,
-              }}
-              onClick={handleSave}
-              disabled={saving || loading}
-            >
-              {saving ? "Saving..." : "Save"}
-            </Button>
             {!isAuthenticated ? (
               <Button
                 variant="outlined"
