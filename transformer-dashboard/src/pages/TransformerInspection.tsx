@@ -124,7 +124,7 @@ const API_BASE =
 
 async function http<T>(
   path: string,
-  init?: RequestInit & { json?: unknown }
+  init?: RequestInit & { json?: unknown; suppress404?: boolean }
 ): Promise<T> {
   const headers = new Headers(init?.headers || {});
   if (init?.json !== undefined) headers.set("Content-Type", "application/json");
@@ -142,6 +142,10 @@ async function http<T>(
   });
 
   if (!res.ok) {
+    // Silently return null for 404 when suppress404 is true
+    if (res.status === 404 && init?.suppress404) {
+      return null as unknown as T;
+    }
     const text = await res.text().catch(() => "");
     throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
   }
@@ -394,7 +398,9 @@ export default function TransformerInspection() {
               inspectedBy?: string;
               inspectionDate?: string;
             };
-          }>(`/inspections/${inspection.inspectionId}/maintenance-form`);
+          }>(`/inspections/${inspection.inspectionId}/maintenance-form`, {
+            suppress404: true,
+          });
 
           if (maintenanceForm) {
             records.push({
@@ -423,8 +429,8 @@ export default function TransformerInspection() {
               transformerNo: inspection.transformerNo,
             });
           }
-        } catch {
-          // If no maintenance form exists for this inspection, skip it
+        } catch (err) {
+          // If no maintenance form exists for this inspection, skip it (already handled by suppress404)
           console.log(
             `No maintenance form for inspection ${inspection.inspectionId}`
           );

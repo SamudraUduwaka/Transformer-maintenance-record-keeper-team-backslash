@@ -153,15 +153,26 @@ const ZoomableImage: React.FC<ZoomableImageProps> = ({
     setIsDragging(false);
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? 1 / 1.1 : 1.1;
-    setScale((prev) => {
-      const newScale = Math.min(Math.max(prev * delta, 0.5), 5);
-      onScaleChange?.(newScale);
-      return newScale;
-    });
-  };
+  // Use native wheel event with non-passive listener to allow preventDefault
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 1 / 1.1 : 1.1;
+      setScale((prev) => {
+        const newScale = Math.min(Math.max(prev * delta, 0.5), 5);
+        onScaleChange?.(newScale);
+        return newScale;
+      });
+    };
+
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener("wheel", handleWheel);
+    };
+  }, [onScaleChange]);
 
   const handleImageLoad = () => {
     if (imageRef.current && canvasRef?.current) {
@@ -229,7 +240,6 @@ const ZoomableImage: React.FC<ZoomableImageProps> = ({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onWheel={handleWheel}
       >
         <img
           ref={imageRef}
