@@ -42,6 +42,7 @@ import {
   Delete as DeleteIcon,
   Logout as LogoutIcon,
   Download as DownloadIcon,
+  Menu as MenuIcon,
 } from "@mui/icons-material";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -323,11 +324,11 @@ function StatPill({ top, bottom }: { top: string | number; bottom: string }) {
   return (
     <Box
       sx={{
-        px: 1.5,
-        py: 1,
+        px: { xs: 1, sm: 1.5 },
+        py: { xs: 0.75, sm: 1 },
         borderRadius: 3,
         bgcolor: "#EEF0F6",
-        minWidth: 108,
+        minWidth: { xs: 80, sm: 90, md: 108 },
         display: "inline-flex",
         flexDirection: "column",
         alignItems: "center",
@@ -812,6 +813,15 @@ export default function TransformerInspection() {
         }}
       >
         <Toolbar sx={{ minHeight: 64 }}>
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            edge="start"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            sx={{ mr: 2, display: { sm: "none" } }}
+          >
+            <MenuIcon />
+          </IconButton>
           <Stack direction="row" spacing={1.25} alignItems="center">
             <IconButton onClick={() => navigate("/")} sx={{ color: "inherit" }}>
               <ArrowBackIcon />
@@ -947,12 +957,17 @@ export default function TransformerInspection() {
                 <Stack
                   direction="row"
                   alignItems="stretch"
-                  sx={{ width: "100%" }}
+                  sx={{ width: "100%", minWidth: 950 }}
                 >
                   {/* Left block */}
                   <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                     {/* Row 1 */}
-                    <Stack direction="row" alignItems="center" spacing={1.25}>
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      spacing={1.25}
+                      flexWrap="wrap"
+                    >
                       <Box
                         sx={{
                           width: 28,
@@ -973,14 +988,22 @@ export default function TransformerInspection() {
                         />
                       </Box>
 
-                      <Typography variant="h6" fontWeight={800}>
+                      <Typography
+                        variant="h6"
+                        fontWeight={800}
+                        sx={{ fontSize: { xs: "1.1rem", sm: "1.25rem" } }}
+                      >
                         {transformer?.transformerNo ?? transformerNo}
                       </Typography>
 
                       {/* Region */}
                       {transformer?.region && (
                         <Typography
-                          sx={{ ml: 3, fontSize: 14, color: "text.secondary" }}
+                          sx={{
+                            ml: { xs: 1, sm: 3 },
+                            fontSize: { xs: 13, sm: 14 },
+                            color: "text.secondary",
+                          }}
                         >
                           {transformer.region}
                         </Typography>
@@ -1034,9 +1057,13 @@ export default function TransformerInspection() {
                   {/* Right block */}
                   <Stack
                     direction="column"
-                    alignItems="flex-end"
+                    alignItems={{ xs: "flex-start", md: "flex-end" }}
                     justifyContent="space-between"
-                    sx={{ alignSelf: "stretch", minWidth: 330, py: 0.5 }}
+                    sx={{
+                      alignSelf: "stretch",
+                      width: { xs: "100%", md: "auto" },
+                      py: 0.5,
+                    }}
                   >
                     <Typography
                       variant="body2"
@@ -1079,9 +1106,18 @@ export default function TransformerInspection() {
 
                 {/* Tab Panel 1: Transformer Inspections */}
                 {activeTab === 0 && (
-                  <Box sx={{ p: 2.5 }}>
-                    <Stack direction="row" alignItems="center" sx={{ mb: 1.5 }}>
-                      <Typography variant="h6" fontWeight={800} sx={{ pl: 2 }}>
+                  <Box sx={{ p: { xs: 1.5, sm: 2.5 } }}>
+                    <Stack
+                      direction={{ xs: "column", sm: "row" }}
+                      alignItems={{ xs: "stretch", sm: "center" }}
+                      spacing={{ xs: 1.5, sm: 0 }}
+                      sx={{ mb: 1.5 }}
+                    >
+                      <Typography
+                        variant="h6"
+                        fontWeight={800}
+                        sx={{ pl: { xs: 0, sm: 2 } }}
+                      >
                         Transformer Inspections
                       </Typography>
                       <Box sx={{ flexGrow: 1 }} />
@@ -1090,6 +1126,7 @@ export default function TransformerInspection() {
                         startIcon={<AddIcon />}
                         onClick={handleOpenAdd}
                         sx={{
+                          width: { xs: "100%", sm: "auto" },
                           borderRadius: 999,
                           px: 2.5,
                           py: 0.9,

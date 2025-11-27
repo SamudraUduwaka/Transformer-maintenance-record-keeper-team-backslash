@@ -51,6 +51,7 @@ import {
   Search as SearchIcon,
   List as ListIcon,
   Logout as LogoutIcon,
+  Menu as MenuIcon,
 } from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -70,11 +71,11 @@ function StatPill({ top, bottom }: { top: string | number; bottom: string }) {
   return (
     <Box
       sx={{
-        px: 1.5,
-        py: 1,
+        px: { xs: 1, sm: 1.5 },
+        py: { xs: 0.75, sm: 1 },
         borderRadius: 3,
         bgcolor: "#EEF0F6",
-        minWidth: 108,
+        minWidth: { xs: 70, sm: 80, md: 90 },
         display: "inline-flex",
         flexDirection: "column",
         alignItems: "center",
@@ -894,6 +895,15 @@ export default function DigitalMaintenanceForm() {
         }}
       >
         <Toolbar sx={{ minHeight: 64 }}>
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            edge="start"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            sx={{ mr: 2, display: { sm: "none" } }}
+          >
+            <MenuIcon />
+          </IconButton>
           <Stack direction="row" spacing={1.25} alignItems="center">
             <IconButton onClick={() => navigate(-1)} sx={{ color: "inherit" }}>
               <ArrowBackIcon />
@@ -999,12 +1009,17 @@ export default function DigitalMaintenanceForm() {
             {/* Global Header Card (same as previous UI) */}
             <Paper
               elevation={3}
-              sx={{ p: 2.25, borderRadius: 1, position: "relative" }}
+              sx={{
+                p: { xs: 1.5, sm: 2.25 },
+                borderRadius: 1,
+                position: "relative",
+              }}
             >
               <Stack
-                direction="row"
+                direction={{ xs: "column", md: "row" }}
                 alignItems="stretch"
-                sx={{ width: "100%" }}
+                spacing={{ xs: 2, md: 0 }}
+                sx={{ width: "100%", minWidth:{lg: 950} }}
               >
                 {/* Left */}
                 <Box sx={{ flexGrow: 1, minWidth: 0 }}>
@@ -1036,7 +1051,11 @@ export default function DigitalMaintenanceForm() {
                     </IconButton>
                   </Stack>
 
-                  <Stack direction="row" spacing={3} sx={{ mt: 0.5 }}>
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={{ xs: 1, sm: 3 }}
+                    sx={{ mt: 0.5 }}
+                  >
                     <Box>
                       <Typography
                         variant="caption"
@@ -1110,9 +1129,13 @@ export default function DigitalMaintenanceForm() {
                 {/* Right */}
                 <Stack
                   direction="column"
-                  alignItems="flex-end"
+                  alignItems={{ xs: "flex-start", md: "flex-end" }}
                   justifyContent="space-between"
-                  sx={{ alignSelf: "stretch", minWidth: 200, py: 0.5 }}
+                  sx={{
+                    alignSelf: "stretch",
+                    width: { xs: "100%", md: "auto" },
+                    py: 0.5,
+                  }}
                 >
                   <Box
                     sx={{
@@ -1136,7 +1159,12 @@ export default function DigitalMaintenanceForm() {
                 sx={{
                   borderBottom: 1,
                   borderColor: "divider",
-                  "& .MuiTab-root": { fontWeight: 600 },
+                  "& .MuiTab-root": {
+                    fontWeight: 600,
+                    flex: "1 1 0",
+                    minWidth: 0,
+                    maxWidth: "none",
+                  },
                 }}
               >
                 <Tab label="Thermal Image Inspection" />
@@ -1388,8 +1416,11 @@ export default function DigitalMaintenanceForm() {
                     >
                       Legend: C = Check, O = Clean, T = Tighten, R = Replace
                     </Typography>
-                    <TableContainer>
-                      <Table size="small">
+                    <TableContainer sx={{ overflowX: "auto" }}>
+                      <Table
+                        size="small"
+                        sx={{ minWidth: { xs: 650, sm: 750 } }}
+                      >
                         <TableHead>
                           <TableRow>
                             <TableCell>No.</TableCell>
