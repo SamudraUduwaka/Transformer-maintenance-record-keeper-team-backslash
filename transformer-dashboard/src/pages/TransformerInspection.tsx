@@ -206,14 +206,6 @@ function dtoToRow(dto: InspectionDTO): InspectionRow {
 
 const drawerWidth = 200;
 
-const formatFieldLabel = (key: string) =>
-  key
-    .replace(/_/g, " ")
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-
 const formatFieldValue = (value: unknown, fieldName?: string): string => {
   if (value === null || value === undefined || value === "") return "-";
   if (typeof value === "boolean") return value ? "Yes" : "No";
@@ -261,37 +253,6 @@ const formatFieldValue = (value: unknown, fieldName?: string): string => {
     return JSON.stringify(value, null, 2);
   }
   return String(value);
-};
-
-const mapObjectToRows = (obj?: Record<string, unknown>) => {
-  if (!obj) return [] as string[][];
-  const rows: string[][] = [];
-
-  Object.entries(obj).forEach(([key, value]) => {
-    if (
-      Array.isArray(value) &&
-      value.length > 0 &&
-      value.every((item) => typeof item === "object" && item !== null)
-    ) {
-      value.forEach((item, index) => {
-        Object.entries(item as Record<string, unknown>).forEach(
-          ([nestedKey, nestedValue]) => {
-            rows.push([
-              `${formatFieldLabel(key)} #${index + 1} - ${formatFieldLabel(
-                nestedKey
-              )}`,
-              formatFieldValue(nestedValue, nestedKey),
-            ]);
-          }
-        );
-      });
-      return;
-    }
-
-    rows.push([formatFieldLabel(key), formatFieldValue(value, key)]);
-  });
-
-  return rows;
 };
 
 const statusChip = (s: ImageStatus) => {
@@ -578,9 +539,12 @@ export default function TransformerInspection() {
     );
     setIsDownloading(true);
     try {
-      const maintenanceForm = await http<MaintenanceFormResponse>(
-        `/inspections/${maintenanceMenuRecordId}/maintenance-form`
-      );
+      const [maintenanceForm, inspectionDetails] = await Promise.all([
+        http<MaintenanceFormResponse>(
+          `/inspections/${maintenanceMenuRecordId}/maintenance-form`
+        ),
+        http<InspectionDTO>(`/inspections/${maintenanceMenuRecordId}`),
+      ]);
 
       if (!maintenanceForm) {
         setError("No maintenance form found for this inspection");
@@ -588,88 +552,763 @@ export default function TransformerInspection() {
       }
 
       const doc = new jsPDF({ unit: "pt", format: "a4" });
-      const titleY = 40;
-      doc.setFontSize(16);
-      doc.text("Digital Maintenance Record", 40, titleY);
-      doc.setFontSize(11);
-      const metaStartY = titleY + 20;
-      doc.text(
-        `Transformer: ${
-          maintenanceForm.transformerNo || record?.transformerNo || "-"
-        }`,
-        40,
-        metaStartY
-      );
-      doc.text(
-        `Inspection #: ${
-          record
-            ? pad8(record.inspectionId)
-            : pad8(maintenanceForm.inspectionId)
-        }`,
-        40,
-        metaStartY + 15
-      );
-      doc.text(
-        `Form #: ${
-          record?.formNo ||
-          pad8(
-            maintenanceForm.maintenanceFormId ?? maintenanceForm.inspectionId
-          )
-        }`,
-        40,
-        metaStartY + 30
-      );
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 40;
+      let currentY = 40;
 
-      const sections = [
-        {
-          title: "Thermal Image Inspection",
-          rows: mapObjectToRows(maintenanceForm.thermalInspection),
-        },
-        {
-          title: "Maintenance Record",
-          rows: mapObjectToRows(maintenanceForm.maintenanceRecord),
-        },
-        {
-          title: "Work + Data Sheet",
-          rows: mapObjectToRows(maintenanceForm.workDataSheet),
-        },
-      ].filter((section) => section.rows.length > 0);
+      // Title
+      doc.setFontSize(20);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(31, 28, 79);
+      doc.text("Digital Maintenance Form", margin, currentY);
+      currentY += 30;
 
-      let nextSectionY = metaStartY + 50;
+      // Header Information Box
+      doc.setDrawColor(200, 200, 200);
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(margin, currentY, pageWidth - 2 * margin, 105, 3, 3, "FD");
 
-      if (sections.length === 0) {
-        doc.setFontSize(12);
-        doc.text("No data available", 40, nextSectionY);
-      } else {
-        sections.forEach((section) => {
-          doc.setFontSize(13);
-          doc.text(section.title, 40, nextSectionY);
-          autoTable(doc, {
-            startY: nextSectionY + 10,
-            head: [["Field", "Value"]],
-            body: section.rows,
-            styles: {
-              fontSize: 10,
-              cellPadding: 4,
-              halign: "left",
-              valign: "top",
-            },
-            headStyles: {
-              fillColor: [38, 70, 83],
-              halign: "left",
-            },
-            columnStyles: {
-              0: { cellWidth: 180 },
-              1: { cellWidth: 320 },
-            },
-            margin: { left: 40, right: 40 },
+      currentY += 20;
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(80, 80, 80);
+
+      // Inspection details - Left column
+      const headerLeftX = margin + 20;
+      const headerRightX = pageWidth / 2 + 20;
+      let headerY = currentY;
+
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(60, 60, 60);
+      doc.text("Inspection #:", headerLeftX, headerY);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(pad8(maintenanceForm.inspectionId), headerLeftX + 80, headerY);
+
+      headerY += 17;
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(60, 60, 60);
+      doc.text("Transformer No:", headerLeftX, headerY);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(maintenanceForm.transformerNo || "-", headerLeftX + 80, headerY);
+
+      headerY += 17;
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(60, 60, 60);
+      doc.text("Pole No:", headerLeftX, headerY);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(String(maintenanceForm.thermalInspection?.poleNumber || "-"), headerLeftX + 80, headerY);
+
+      // Right column
+      headerY = currentY;
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(60, 60, 60);
+      doc.text("Branch:", headerRightX, headerY);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(String(maintenanceForm.thermalInspection?.branch || "-"), headerRightX + 80, headerY);
+
+      headerY += 17;
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(60, 60, 60);
+      doc.text("Inspected By:", headerRightX, headerY);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(String(maintenanceForm.thermalInspection?.inspectedBy || "-"), headerRightX + 80, headerY);
+
+      currentY += 85;
+      doc.setTextColor(0, 0, 0);
+
+      // Add thermal/maintenance image with bounding boxes
+      if (inspectionDetails.image && inspectionDetails.image.url) {
+        try {
+          // Check if we need a new page
+          if (currentY > pageHeight - 300) {
+            doc.addPage();
+            currentY = 40;
+          }
+
+          // Add image section title with styling
+          doc.setFontSize(16);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(31, 28, 79);
+          doc.text("Thermal Image Analysis", margin, currentY);
+          currentY += 10;
+          
+          // Add underline
+          doc.setDrawColor(31, 28, 79);
+          doc.setLineWidth(2);
+          doc.line(margin, currentY, margin + 160, currentY);
+          currentY += 15;
+          doc.setTextColor(0, 0, 0);
+
+          // Fetch the image
+          const imageResponse = await fetch(inspectionDetails.image.url);
+          const imageBlob = await imageResponse.blob();
+          const imageUrl = URL.createObjectURL(imageBlob);
+
+          // Create image element to get dimensions
+          const img = new Image();
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = reject;
+            img.src = imageUrl;
           });
 
-          const finalY =
-            (doc as unknown as { lastAutoTable?: { finalY: number } })
-              .lastAutoTable?.finalY ?? nextSectionY + 20;
-          nextSectionY = finalY + 24;
+          // Calculate image dimensions to fit in PDF
+          const maxImageWidth = pageWidth - 2 * margin;
+          const maxImageHeight = 250;
+          let imgWidth = img.width;
+          let imgHeight = img.height;
+
+          if (imgWidth > maxImageWidth) {
+            const ratio = maxImageWidth / imgWidth;
+            imgWidth = maxImageWidth;
+            imgHeight = imgHeight * ratio;
+          }
+
+          if (imgHeight > maxImageHeight) {
+            const ratio = maxImageHeight / imgHeight;
+            imgHeight = maxImageHeight;
+            imgWidth = imgWidth * ratio;
+          }
+
+          // Draw image container with border
+          doc.setDrawColor(200, 200, 200);
+          doc.setLineWidth(1);
+          doc.rect(margin, currentY, imgWidth, imgHeight);
+          
+          // Add image to PDF
+          doc.addImage(imageUrl, "JPEG", margin, currentY, imgWidth, imgHeight);
+
+          // Fetch and draw bounding boxes
+          try {
+            const detectionsResponse = await http<any>(
+              `/inspections/${maintenanceMenuRecordId}/detections`
+            );
+
+            if (detectionsResponse && Array.isArray(detectionsResponse)) {
+              const scaleX = imgWidth / img.width;
+              const scaleY = imgHeight / img.height;
+
+              // Draw each bounding box
+              detectionsResponse.forEach((detection: any) => {
+                if (
+                  detection.x !== undefined &&
+                  detection.y !== undefined &&
+                  detection.width !== undefined &&
+                  detection.height !== undefined
+                ) {
+                  const boxX = margin + detection.x * scaleX;
+                  const boxY = currentY + detection.y * scaleY;
+                  const boxWidth = detection.width * scaleX;
+                  const boxHeight = detection.height * scaleY;
+
+                  // Set color based on class (you can customize this)
+                  doc.setDrawColor(220, 38, 38); // Red color
+                  doc.setLineWidth(2);
+                  doc.rect(boxX, boxY, boxWidth, boxHeight);
+
+                  // Add label if available
+                  if (detection.class) {
+                    const labelWidth = Math.max(boxWidth, 60);
+                    doc.setFillColor(220, 38, 38);
+                    doc.rect(boxX, boxY - 18, labelWidth, 16, "F");
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(9);
+                    doc.setFont("helvetica", "bold");
+                    doc.text(detection.class, boxX + 4, boxY - 6);
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFont("helvetica", "normal");
+                  }
+                }
+              });
+            }
+          } catch (detectionError) {
+            console.log(
+              "No detections found or error fetching detections:",
+              detectionError
+            );
+          }
+
+          // Clean up
+          URL.revokeObjectURL(imageUrl);
+
+          currentY += imgHeight + 30;
+        } catch (imageError) {
+          console.error("Error adding image to PDF:", imageError);
+          // Continue without image
+        }
+      }
+
+      // Helper function to add a section with card-like styling
+      const addSection = (
+        title: string,
+        subsections: Array<{
+          subtitle?: string;
+          fields: Array<{ label: string; value: string }>;
+        }>
+      ) => {
+        // Check if we need a new page
+        if (currentY > pageHeight - 100) {
+          doc.addPage();
+          currentY = 40;
+        }
+
+        // Section title with background
+        doc.setFillColor(31, 28, 79);
+        doc.rect(margin, currentY, pageWidth - 2 * margin, 28, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(15);
+        doc.setFont("helvetica", "bold");
+        doc.text(title, margin + 15, currentY + 19);
+        currentY += 40;
+        doc.setTextColor(0, 0, 0);
+
+        subsections.forEach((subsection) => {
+          // Check for page break
+          if (currentY > pageHeight - 80) {
+            doc.addPage();
+            currentY = 40;
+          }
+
+          if (subsection.subtitle) {
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(31, 28, 79);
+            doc.text(subsection.subtitle, margin + 15, currentY);
+            currentY += 22;
+          }
+
+          // Draw card background
+          const cardHeight = Math.ceil(subsection.fields.length / 2) * 28 + 25;
+          doc.setDrawColor(220, 220, 220);
+          doc.setFillColor(250, 250, 252);
+          doc.roundedRect(
+            margin,
+            currentY - 8,
+            pageWidth - 2 * margin,
+            cardHeight,
+            3,
+            3,
+            "FD"
+          );
+
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "normal");
+
+          subsection.fields.forEach((field, index) => {
+            const column = index % 2;
+            const row = Math.floor(index / 2);
+            const xPos = column === 0 ? margin + 20 : pageWidth / 2 + 15;
+            const yPos = currentY + row * 28 + 5;
+
+            // Field label
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(80, 80, 80);
+            doc.text(field.label + ":", xPos, yPos);
+
+            // Field value
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(0, 0, 0);
+            const valueX = xPos + 85;
+            const maxWidth = pageWidth / 2 - 115;
+            const lines = doc.splitTextToSize(field.value, maxWidth);
+            doc.text(lines, valueX, yPos);
+          });
+
+          currentY += cardHeight + 15;
         });
+
+        currentY += 5;
+      };
+
+      // Tab 1: Thermal Image Inspection
+      const thermal = maintenanceForm.thermalInspection;
+      if (thermal) {
+        addSection("Thermal Image Inspection", [
+          {
+            subtitle: "Basic Details",
+            fields: [
+              { label: "Branch", value: String(thermal.branch || "-") },
+              {
+                label: "Transformer No",
+                value: String(thermal.transformerNo || "-"),
+              },
+              { label: "Pole No", value: String(thermal.poleNumber || "-") },
+              {
+                label: "Location Details",
+                value: String(thermal.locationDetails || "-"),
+              },
+            ],
+          },
+          {
+            subtitle: "Inspection Metadata",
+            fields: [
+              {
+                label: "Inspection Date",
+                value: String(formatFieldValue(thermal.inspectionDate, "date")),
+              },
+              {
+                label: "Inspection Time",
+                value: String(formatFieldValue(thermal.inspectionTime, "time")),
+              },
+              {
+                label: "Inspected By",
+                value: String(thermal.inspectedBy || "-"),
+              },
+            ],
+          },
+          {
+            subtitle: "Baseline Imaging",
+            fields: [
+              {
+                label: "Right No",
+                value: String(thermal.baselineImagingRightNo || "-"),
+              },
+              {
+                label: "Left No",
+                value: String(thermal.baselineImagingLeftNo || "-"),
+              },
+            ],
+          },
+          {
+            subtitle: "Load / kVA Details",
+            fields: [
+              {
+                label: "Last Month kVA",
+                value: String(thermal.lastMonthKva || "-"),
+              },
+              {
+                label: "Last Month Date",
+                value: String(formatFieldValue(thermal.lastMonthDate, "date")),
+              },
+              {
+                label: "Last Month Time",
+                value: String(formatFieldValue(thermal.lastMonthTime, "time")),
+              },
+              {
+                label: "Current Month kVA",
+                value: String(thermal.currentMonthKva || "-"),
+              },
+            ],
+          },
+          {
+            subtitle: "Operating / Environment",
+            fields: [
+              {
+                label: "Baseline Condition",
+                value: String(thermal.baselineCondition || "-"),
+              },
+              {
+                label: "Transformer Type",
+                value: String(thermal.transformerType || "-"),
+              },
+            ],
+          },
+          {
+            subtitle: "Meter Details",
+            fields: [
+              {
+                label: "Meter Serial",
+                value: String(thermal.meterSerial || "-"),
+              },
+              {
+                label: "Meter CT Ratio",
+                value: String(thermal.meterCtRatio || "-"),
+              },
+              { label: "Meter Make", value: String(thermal.meterMake || "-") },
+            ],
+          },
+          {
+            subtitle: "First Inspection Readings",
+            fields: [
+              {
+                label: "Voltage R",
+                value: String(thermal.firstInspectionVoltageR || "-"),
+              },
+              {
+                label: "Voltage Y",
+                value: String(thermal.firstInspectionVoltageY || "-"),
+              },
+              {
+                label: "Voltage B",
+                value: String(thermal.firstInspectionVoltageB || "-"),
+              },
+              {
+                label: "Current R",
+                value: String(thermal.firstInspectionCurrentR || "-"),
+              },
+              {
+                label: "Current Y",
+                value: String(thermal.firstInspectionCurrentY || "-"),
+              },
+              {
+                label: "Current B",
+                value: String(thermal.firstInspectionCurrentB || "-"),
+              },
+            ],
+          },
+          {
+            subtitle: "Second Inspection Readings",
+            fields: [
+              {
+                label: "Voltage R",
+                value: String(thermal.secondInspectionVoltageR || "-"),
+              },
+              {
+                label: "Voltage Y",
+                value: String(thermal.secondInspectionVoltageY || "-"),
+              },
+              {
+                label: "Voltage B",
+                value: String(thermal.secondInspectionVoltageB || "-"),
+              },
+              {
+                label: "Current R",
+                value: String(thermal.secondInspectionCurrentR || "-"),
+              },
+              {
+                label: "Current Y",
+                value: String(thermal.secondInspectionCurrentY || "-"),
+              },
+              {
+                label: "Current B",
+                value: String(thermal.secondInspectionCurrentB || "-"),
+              },
+            ],
+          },
+        ]);
+
+        // Work Content Table
+        if (
+          thermal.workContent &&
+          Array.isArray(thermal.workContent) &&
+          thermal.workContent.length > 0
+        ) {
+          if (currentY > pageHeight - 150) {
+            doc.addPage();
+            currentY = 40;
+          }
+
+          doc.setFontSize(11);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(31, 28, 79);
+          doc.text("Work Content", margin + 15, currentY);
+          currentY += 15;
+          doc.setTextColor(0, 0, 0);
+
+          // Helper function to draw checkbox
+          const drawCheckbox = (
+            doc: jsPDF,
+            x: number,
+            y: number,
+            checked: boolean
+          ) => {
+            const boxSize = 8;
+            // Draw box
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.5);
+            doc.rect(x, y, boxSize, boxSize);
+
+            // Draw check mark if checked
+            if (checked) {
+              doc.setLineWidth(1);
+              doc.line(x + 1, y + 4, x + 3, y + 7);
+              doc.line(x + 3, y + 7, x + 7, y + 1);
+            }
+          };
+
+          autoTable(doc, {
+            startY: currentY,
+            head: [["No.", "C", "O", "T", "R", "Other", "Status", "Nos"]],
+            body: thermal.workContent.map((item: any) => [
+              item.itemNo || "-",
+              "", // C - will draw checkbox
+              "", // O - will draw checkbox
+              "", // T - will draw checkbox
+              "", // R - will draw checkbox
+              item.other || "-",
+              item.afterInspectionStatus || "-",
+              item.afterInspectionNos || "-",
+            ]),
+            styles: {
+              fontSize: 8,
+              cellPadding: 3,
+            },
+            headStyles: {
+              fillColor: [31, 28, 79],
+              textColor: [255, 255, 255],
+              fontStyle: "bold",
+            },
+            columnStyles: {
+              1: { halign: "center", cellWidth: 20 },
+              2: { halign: "center", cellWidth: 20 },
+              3: { halign: "center", cellWidth: 20 },
+              4: { halign: "center", cellWidth: 20 },
+            },
+            margin: { left: margin, right: margin },
+            didDrawCell: (data: any) => {
+              // Draw checkboxes in C, O, T, R columns
+              if (
+                data.section === "body" &&
+                data.column.index >= 1 &&
+                data.column.index <= 4
+              ) {
+                const workContent = thermal.workContent as any[];
+                const item = workContent[data.row.index];
+                const centerX = data.cell.x + data.cell.width / 2 - 4;
+                const centerY = data.cell.y + data.cell.height / 2 - 4;
+
+                switch (data.column.index) {
+                  case 1: // C - Check
+                    drawCheckbox(doc, centerX, centerY, item.doCheck);
+                    break;
+                  case 2: // O - Clean
+                    drawCheckbox(doc, centerX, centerY, item.doClean);
+                    break;
+                  case 3: // T - Tighten
+                    drawCheckbox(doc, centerX, centerY, item.doTighten);
+                    break;
+                  case 4: // R - Replace
+                    drawCheckbox(doc, centerX, centerY, item.doReplace);
+                    break;
+                }
+              }
+            },
+          });
+
+          currentY =
+            (doc as unknown as { lastAutoTable?: { finalY: number } })
+              .lastAutoTable?.finalY ?? currentY + 20;
+          currentY += 20;
+        }
+      }
+
+      // Tab 2: Maintenance Record
+      const maintenance = maintenanceForm.maintenanceRecord;
+      if (maintenance) {
+        addSection("Maintenance Record", [
+          {
+            subtitle: "Job Timing",
+            fields: [
+              {
+                label: "Start Time",
+                value: String(formatFieldValue(maintenance.startTime, "time")),
+              },
+              {
+                label: "Completion Time",
+                value: String(
+                  formatFieldValue(maintenance.completionTime, "time")
+                ),
+              },
+              {
+                label: "Supervised By",
+                value: String(maintenance.supervisedBy || "-"),
+              },
+            ],
+          },
+          {
+            subtitle: "Team Composition",
+            fields: [
+              { label: "Tech 1", value: String(maintenance.tech1 || "-") },
+              { label: "Tech 2", value: String(maintenance.tech2 || "-") },
+              { label: "Tech 3", value: String(maintenance.tech3 || "-") },
+              { label: "Helpers", value: String(maintenance.helpers || "-") },
+            ],
+          },
+          {
+            subtitle: "Inspection / Rectification Chain",
+            fields: [
+              {
+                label: "Inspected By",
+                value: String(maintenance.maintenanceInspectedBy || "-"),
+              },
+              {
+                label: "Inspected Date",
+                value: String(
+                  formatFieldValue(maintenance.maintenanceInspectedDate, "date")
+                ),
+              },
+              {
+                label: "Rectified By",
+                value: String(maintenance.maintenanceRectifiedBy || "-"),
+              },
+              {
+                label: "Rectified Date",
+                value: String(
+                  formatFieldValue(maintenance.maintenanceRectifiedDate, "date")
+                ),
+              },
+              {
+                label: "Re-inspected By",
+                value: String(maintenance.maintenanceReinspectedBy || "-"),
+              },
+              {
+                label: "Re-inspected Date",
+                value: String(
+                  formatFieldValue(
+                    maintenance.maintenanceReinspectedDate,
+                    "date"
+                  )
+                ),
+              },
+            ],
+          },
+          {
+            subtitle: "CSS / Closure",
+            fields: [
+              {
+                label: "CSS Officer",
+                value: String(maintenance.cssOfficer || "-"),
+              },
+              {
+                label: "CSS Date",
+                value: String(formatFieldValue(maintenance.cssDate, "date")),
+              },
+              {
+                label: "All Spots Corrected By",
+                value: String(maintenance.allSpotsCorrectedBy || "-"),
+              },
+              {
+                label: "Corrected Date",
+                value: String(
+                  formatFieldValue(maintenance.allSpotsCorrectedDate, "date")
+                ),
+              },
+            ],
+          },
+        ]);
+      }
+
+      // Tab 3: Work + Data Sheet
+      const workData = maintenanceForm.workDataSheet;
+      if (workData) {
+        addSection("Work + Data Sheet", [
+          {
+            subtitle: "Job / Transformer Data",
+            fields: [
+              {
+                label: "Team Leader",
+                value: String(workData.gangLeader || "-"),
+              },
+              {
+                label: "Job Date",
+                value: String(formatFieldValue(workData.jobDate, "date")),
+              },
+              {
+                label: "Job Start Time",
+                value: String(formatFieldValue(workData.jobStartTime, "time")),
+              },
+              { label: "Serial No", value: String(workData.serialNo || "-") },
+              { label: "kVA Rating", value: String(workData.kvaRating || "-") },
+              {
+                label: "Tap Position",
+                value: String(workData.tapPosition || "-"),
+              },
+              { label: "CT Ratio", value: String(workData.ctRatio || "-") },
+              {
+                label: "Earth Resistance",
+                value: String(workData.earthResistance || "-"),
+              },
+              { label: "Neutral", value: String(workData.neutral || "-") },
+            ],
+          },
+          {
+            subtitle: "Protection Devices",
+            fields: [
+              {
+                label: "Surge Checked",
+                value: String(formatFieldValue(workData.surgeChecked)),
+              },
+              {
+                label: "Body Checked",
+                value: String(formatFieldValue(workData.bodyChecked)),
+              },
+              {
+                label: "FDS Fuse F1",
+                value: String(workData.fdsFuseF1 || "-"),
+              },
+              {
+                label: "FDS Fuse F2",
+                value: String(workData.fdsFuseF2 || "-"),
+              },
+              {
+                label: "FDS Fuse F3",
+                value: String(workData.fdsFuseF3 || "-"),
+              },
+              {
+                label: "FDS Fuse F4",
+                value: String(workData.fdsFuseF4 || "-"),
+              },
+              {
+                label: "FDS Fuse F5",
+                value: String(workData.fdsFuseF5 || "-"),
+              },
+            ],
+          },
+          {
+            subtitle: "Job Completion",
+            fields: [
+              {
+                label: "Completed Time",
+                value: String(
+                  formatFieldValue(workData.jobCompletedTime, "time")
+                ),
+              },
+              { label: "Notes", value: String(workData.notes || "-") },
+            ],
+          },
+        ]);
+
+        // Materials Table
+        if (
+          workData.materials &&
+          Array.isArray(workData.materials) &&
+          workData.materials.length > 0
+        ) {
+          const usedMaterials = workData.materials.filter((m: any) => m.used);
+
+          if (usedMaterials.length > 0) {
+            if (currentY > pageHeight - 150) {
+              doc.addPage();
+              currentY = 40;
+            }
+
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(31, 28, 79);
+            doc.text("Materials Used", margin + 15, currentY);
+            currentY += 15;
+            doc.setTextColor(0, 0, 0);
+
+            autoTable(doc, {
+              startY: currentY,
+              head: [["Description", "Code"]],
+              body: usedMaterials.map((item: any) => [
+                item.description || "-",
+                item.code || "-",
+              ]),
+              styles: {
+                fontSize: 9,
+                cellPadding: 4,
+              },
+              headStyles: {
+                fillColor: [31, 28, 79],
+                textColor: [255, 255, 255],
+                fontStyle: "bold",
+              },
+              margin: { left: margin, right: margin },
+            });
+
+            currentY =
+              (doc as unknown as { lastAutoTable?: { finalY: number } })
+                .lastAutoTable?.finalY ?? currentY + 20;
+          }
+        }
       }
 
       const fileName = `Digital-Maintenance-${
