@@ -34,18 +34,30 @@ import { useNavigate } from "react-router-dom";
 import PowerLensBranding from "../components/PowerLensBranding";
 import { useAuth } from "../context/AuthContext";
 import ConfirmationDialog from "../models/ConfirmationDialog";
+import { authService } from "../services/authService";
 
+const API_BASE_URL = 'http://localhost:8080/api';
 const drawerWidth = 200;
 
 export default function Settings() {
   const navigate = useNavigate();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, updateUser } = useAuth();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [message, setMessage] = React.useState<{
     text: string;
     type: "success" | "error";
   } | null>(null);
+
+  // Auto-hide message after 3 seconds
+  React.useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
 
   // User details state
   const [userDetails, setUserDetails] = React.useState({
@@ -92,12 +104,32 @@ export default function Settings() {
         setMessage(null);
 
         try {
-          // TODO: Add API call to update user details
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          const response = await fetch(`${API_BASE_URL}/users/profile`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              ...authService.getAuthHeader(),
+            },
+            body: JSON.stringify({
+              name: userDetails.name,
+              email: userDetails.email,
+            }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to update profile');
+          }
+
+          const updatedUser = await response.json();
+          
+          // Update user in context and local storage
+          updateUser(updatedUser);
+
           setMessage({ text: "Profile updated successfully!", type: "success" });
-        } catch {
+        } catch (error) {
           setMessage({
-            text: "Failed to update profile. Please try again.",
+            text: error instanceof Error ? error.message : "Failed to update profile. Please try again.",
             type: "error",
           });
         } finally {
@@ -344,7 +376,7 @@ export default function Settings() {
             {message && (
               <Paper
                 sx={{
-                  p: 2.5,
+                  p: 1.5,
                   bgcolor:
                     message.type === "success"
                       ? "success.light"
@@ -356,7 +388,7 @@ export default function Settings() {
                   borderRadius: 2,
                 }}
               >
-                <Typography fontWeight={600} sx={{ fontSize: "1.05rem" }}>{message.text}</Typography>
+                <Typography fontWeight={600} sx={{ fontSize: "0.95rem" }}>{message.text}</Typography>
               </Paper>
             )}
 
