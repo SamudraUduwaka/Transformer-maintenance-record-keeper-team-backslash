@@ -65,6 +65,7 @@ import {
 import PowerLensBranding from "../components/PowerLensBranding";
 import ThermalImageAnalysis from "../components/ThermalImageAnalysis";
 import { useAuth } from "../context/AuthContext";
+import ConfirmationDialog from "../models/ConfirmationDialog";
 
 /* Helpers */
 function StatPill({ top, bottom }: { top: string | number; bottom: string }) {
@@ -241,6 +242,21 @@ export default function DigitalMaintenanceForm() {
     message: string;
     severity: "success" | "error" | "info";
   }>({ open: false, message: "", severity: "info" });
+
+  // Confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = React.useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void | Promise<void>;
+    confirmText?: string;
+    confirmColor?: "primary" | "error" | "warning" | "success";
+  }>({
+    open: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
 
   // Inspection details state (for header)
   const [inspectionDetails, setInspectionDetails] = React.useState({
@@ -563,13 +579,17 @@ export default function DigitalMaintenanceForm() {
   };
 
   const handleCancel = () => {
-    if (
-      window.confirm(
-        "Are you sure you want to cancel? Unsaved changes will be lost."
-      )
-    ) {
-      navigate(-1);
-    }
+    setConfirmDialog({
+      open: true,
+      title: "Cancel Changes",
+      message: "Are you sure you want to cancel? Unsaved changes will be lost.",
+      confirmText: "Cancel",
+      confirmColor: "error",
+      onConfirm: () => {
+        setConfirmDialog((prev) => ({ ...prev, open: false }));
+        navigate(-1);
+      },
+    });
   };
 
   const handleConfirm = async () => {
@@ -582,39 +602,43 @@ export default function DigitalMaintenanceForm() {
       return;
     }
 
-    if (
-      !window.confirm(
-        "Are you sure you want to submit this form? This action will finalize the maintenance record."
-      )
-    ) {
-      return;
-    }
+    setConfirmDialog({
+      open: true,
+      title: "Submit Form",
+      message: "Are you sure you want to submit this form? This action will finalize the maintenance record.",
+      confirmText: "Submit",
+      confirmColor: "success",
+      onConfirm: async () => {
+        setConfirmDialog((prev) => ({ ...prev, open: false }));
+        
+        const formData = buildFormData();
+        if (!formData) return;
 
-    const formData = buildFormData();
-    if (!formData) return;
-
-    setSaving(true);
-    try {
-      await inspectionService.submitMaintenanceForm(
-        parseInt(inspectionNo, 10),
-        formData
-      );
-      setSnackbar({
-        open: true,
-        message: "Form submitted successfully!",
-        severity: "success",
-      });
-      setTimeout(() => navigate(-1), 1500);
-    } catch (error) {
-      console.error("Error submitting form:", error);
-      setSnackbar({
-        open: true,
-        message:
-          error instanceof Error ? error.message : "Failed to submit form",
-        severity: "error",
-      });
-      setSaving(false);
-    }
+        setSaving(true);
+        try {
+          await inspectionService.submitMaintenanceForm(
+            parseInt(inspectionNo, 10),
+            formData
+          );
+          setSnackbar({
+            open: true,
+            message: "Form submitted successfully!",
+            severity: "success",
+          });
+          setTimeout(() => navigate(-1), 1500);
+        } catch (error) {
+          console.error("Error submitting form:", error);
+          setSnackbar({
+            open: true,
+            message:
+              error instanceof Error ? error.message : "Failed to submit form",
+            severity: "error",
+          });
+        } finally {
+          setSaving(false);
+        }
+      },
+    });
   };
 
   // Fetch inspection details and maintenance form data on mount
@@ -834,7 +858,7 @@ export default function DigitalMaintenanceForm() {
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>
-          <ListItemButton>
+          <ListItemButton onClick={() => navigate("/settings")}>
             <ListItemIcon>
               <SettingsIcon />
             </ListItemIcon>
@@ -1164,6 +1188,12 @@ export default function DigitalMaintenanceForm() {
                     flex: "1 1 0",
                     minWidth: 0,
                     maxWidth: "none",
+                    "&:focus": {
+                      outline: "none",
+                    },
+                    "&:focus-visible": {
+                      outline: "none",
+                    },
                   },
                 }}
               >
@@ -2236,6 +2266,18 @@ export default function DigitalMaintenanceForm() {
           </Stack>
         </Box>
       </Box>
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        open={confirmDialog.open}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmText={confirmDialog.confirmText}
+        confirmColor={confirmDialog.confirmColor}
+        onClose={() => setConfirmDialog((prev) => ({ ...prev, open: false }))}
+        onConfirm={confirmDialog.onConfirm}
+        isLoading={saving}
+      />
     </>
   );
 }

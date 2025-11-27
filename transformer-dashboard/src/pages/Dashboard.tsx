@@ -510,7 +510,7 @@ export default function Dashboard() {
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>
-          <ListItemButton>
+          <ListItemButton onClick={() => navigate("/settings")}>
             <ListItemIcon>
               <SettingsIcon />
             </ListItemIcon>

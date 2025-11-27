@@ -432,7 +432,7 @@ export default function TransformerInspection() {
         } catch (err) {
           // If no maintenance form exists for this inspection, skip it (already handled by suppress404)
           console.log(
-            `No maintenance form for inspection ${inspection.inspectionId}`
+            `No maintenance form for inspection ${inspection.inspectionId}`, err
           );
         }
       }
@@ -696,7 +696,13 @@ export default function TransformerInspection() {
 
           // Fetch and draw bounding boxes
           try {
-            const detectionsResponse = await http<any>(
+            const detectionsResponse = await http<Array<{
+              x?: number;
+              y?: number;
+              width?: number;
+              height?: number;
+              class?: string;
+            }>>(
               `/inspections/${targetRecordId}/detections`
             );
 
@@ -705,7 +711,7 @@ export default function TransformerInspection() {
               const scaleY = imgHeight / img.height;
 
               // Draw each bounding box
-              detectionsResponse.forEach((detection: any) => {
+              detectionsResponse.forEach((detection) => {
                 if (
                   detection.x !== undefined &&
                   detection.y !== undefined &&
@@ -1035,7 +1041,7 @@ export default function TransformerInspection() {
           autoTable(doc, {
             startY: currentY,
             head: [["No.", "C", "O", "T", "R", "Other", "Status", "Nos"]],
-            body: thermal.workContent.map((item: any) => [
+            body: thermal.workContent.map((item: Record<string, unknown>) => [
               item.itemNo || "-",
               "", // C - will draw checkbox
               "", // O - will draw checkbox
@@ -1061,30 +1067,40 @@ export default function TransformerInspection() {
               4: { halign: "center", cellWidth: 20 },
             },
             margin: { left: margin, right: margin },
-            didDrawCell: (data: any) => {
+            didDrawCell: (data: {
+              section: string;
+              column: { index: number };
+              row: { index: number };
+              cell: { x: number; y: number; width: number; height: number };
+            }) => {
               // Draw checkboxes in C, O, T, R columns
               if (
                 data.section === "body" &&
                 data.column.index >= 1 &&
                 data.column.index <= 4
               ) {
-                const workContent = thermal.workContent as any[];
+                const workContent = thermal.workContent as Array<{
+                  doCheck?: boolean;
+                  doClean?: boolean;
+                  doTighten?: boolean;
+                  doReplace?: boolean;
+                }>;
                 const item = workContent[data.row.index];
                 const centerX = data.cell.x + data.cell.width / 2 - 4;
                 const centerY = data.cell.y + data.cell.height / 2 - 4;
 
                 switch (data.column.index) {
                   case 1: // C - Check
-                    drawCheckbox(doc, centerX, centerY, item.doCheck);
+                    drawCheckbox(doc, centerX, centerY, item.doCheck ?? false);
                     break;
                   case 2: // O - Clean
-                    drawCheckbox(doc, centerX, centerY, item.doClean);
+                    drawCheckbox(doc, centerX, centerY, item.doClean ?? false);
                     break;
                   case 3: // T - Tighten
-                    drawCheckbox(doc, centerX, centerY, item.doTighten);
+                    drawCheckbox(doc, centerX, centerY, item.doTighten ?? false);
                     break;
                   case 4: // R - Replace
-                    drawCheckbox(doc, centerX, centerY, item.doReplace);
+                    drawCheckbox(doc, centerX, centerY, item.doReplace ?? false);
                     break;
                 }
               }
@@ -1280,7 +1296,11 @@ export default function TransformerInspection() {
           Array.isArray(workData.materials) &&
           workData.materials.length > 0
         ) {
-          const usedMaterials = workData.materials.filter((m: any) => m.used);
+          const usedMaterials = (workData.materials as Array<{
+            used?: boolean;
+            description?: string;
+            code?: string;
+          }>).filter((m) => m.used);
 
           if (usedMaterials.length > 0) {
             if (currentY > pageHeight - 150) {
@@ -1298,7 +1318,7 @@ export default function TransformerInspection() {
             autoTable(doc, {
               startY: currentY,
               head: [["Description", "Code"]],
-              body: usedMaterials.map((item: any) => [
+              body: usedMaterials.map((item: Record<string, unknown>) => [
                 item.description || "-",
                 item.code || "-",
               ]),
@@ -1434,7 +1454,7 @@ export default function TransformerInspection() {
           </ListItemButton>
         </ListItem>
         <ListItem disablePadding>
-          <ListItemButton>
+          <ListItemButton onClick={() => navigate("/settings")}>
             <ListItemIcon>
               <SettingsIcon />
             </ListItemIcon>
@@ -1745,6 +1765,12 @@ export default function TransformerInspection() {
                         fontSize: "0.95rem",
                         minHeight: 56,
                         px: 3,
+                        "&:focus": {
+                          outline: "none",
+                        },
+                        "&:focus-visible": {
+                          outline: "none",
+                        },
                       },
                     }}
                   >
