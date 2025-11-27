@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import TransformerInspection from "./pages/TransformerInspection";
 import InspectionDetails from "./pages/InspectionDetails";
 import DigitalMaintenanceForm from "./pages/DigitalMaintenanceForm";
+import Settings from "./pages/Settings";
 import "./App.css";
 import { AuthProvider } from "./context/AuthContext";
 import Login from "./pages/Login";
@@ -33,6 +34,7 @@ function App() {
                 path="/digital-form/:transformerNo/:inspectionNo"
                 element={<DigitalMaintenanceForm />}
               />
+              <Route path="/settings" element={<Settings />} />
             </Routes>
           </Router>
         </ThemeProvider>
