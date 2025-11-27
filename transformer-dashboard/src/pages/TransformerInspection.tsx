@@ -366,8 +366,6 @@ export default function TransformerInspection() {
   // delete dialog
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleteId, setDeleteId] = React.useState<number | null>(null);
-  const [maintenanceMenuAnchor, setMaintenanceMenuAnchor] =
-    React.useState<null | HTMLElement>(null);
   const [maintenanceMenuRecordId, setMaintenanceMenuRecordId] = React.useState<
     number | null
   >(null);
@@ -519,19 +517,6 @@ export default function TransformerInspection() {
     setMenuRowId(null);
   };
 
-  const openMaintenanceMenu = (
-    e: React.MouseEvent<HTMLButtonElement>,
-    recordId: number
-  ) => {
-    setMaintenanceMenuAnchor(e.currentTarget);
-    setMaintenanceMenuRecordId(recordId);
-  };
-
-  const closeMaintenanceMenu = () => {
-    setMaintenanceMenuAnchor(null);
-    setMaintenanceMenuRecordId(null);
-  };
-
   const handleDownloadMaintenancePdf = async () => {
     if (maintenanceMenuRecordId == null) return;
     const record = maintenanceRecords.find(
@@ -567,7 +552,15 @@ export default function TransformerInspection() {
       // Header Information Box
       doc.setDrawColor(200, 200, 200);
       doc.setFillColor(248, 250, 252);
-      doc.roundedRect(margin, currentY, pageWidth - 2 * margin, 105, 3, 3, "FD");
+      doc.roundedRect(
+        margin,
+        currentY,
+        pageWidth - 2 * margin,
+        105,
+        3,
+        3,
+        "FD"
+      );
 
       currentY += 20;
       doc.setFontSize(10);
@@ -600,7 +593,11 @@ export default function TransformerInspection() {
       doc.text("Pole No:", headerLeftX, headerY);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(0, 0, 0);
-      doc.text(String(maintenanceForm.thermalInspection?.poleNumber || "-"), headerLeftX + 80, headerY);
+      doc.text(
+        String(maintenanceForm.thermalInspection?.poleNumber || "-"),
+        headerLeftX + 80,
+        headerY
+      );
 
       // Right column
       headerY = currentY;
@@ -609,7 +606,11 @@ export default function TransformerInspection() {
       doc.text("Branch:", headerRightX, headerY);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(0, 0, 0);
-      doc.text(String(maintenanceForm.thermalInspection?.branch || "-"), headerRightX + 80, headerY);
+      doc.text(
+        String(maintenanceForm.thermalInspection?.branch || "-"),
+        headerRightX + 80,
+        headerY
+      );
 
       headerY += 17;
       doc.setFont("helvetica", "bold");
@@ -617,7 +618,11 @@ export default function TransformerInspection() {
       doc.text("Inspected By:", headerRightX, headerY);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(0, 0, 0);
-      doc.text(String(maintenanceForm.thermalInspection?.inspectedBy || "-"), headerRightX + 80, headerY);
+      doc.text(
+        String(maintenanceForm.thermalInspection?.inspectedBy || "-"),
+        headerRightX + 80,
+        headerY
+      );
 
       currentY += 85;
       doc.setTextColor(0, 0, 0);
@@ -637,7 +642,7 @@ export default function TransformerInspection() {
           doc.setTextColor(31, 28, 79);
           doc.text("Thermal Image Analysis", margin, currentY);
           currentY += 10;
-          
+
           // Add underline
           doc.setDrawColor(31, 28, 79);
           doc.setLineWidth(2);
@@ -680,7 +685,7 @@ export default function TransformerInspection() {
           doc.setDrawColor(200, 200, 200);
           doc.setLineWidth(1);
           doc.rect(margin, currentY, imgWidth, imgHeight);
-          
+
           // Add image to PDF
           doc.addImage(imageUrl, "JPEG", margin, currentY, imgWidth, imgHeight);
 
@@ -1316,12 +1321,12 @@ export default function TransformerInspection() {
         pad8(maintenanceForm.maintenanceFormId ?? maintenanceForm.inspectionId)
       }.pdf`;
       doc.save(fileName);
-      closeMaintenanceMenu();
     } catch (downloadError) {
       console.error(downloadError);
       setError("Failed to download maintenance record PDF");
     } finally {
       setIsDownloading(false);
+      setMaintenanceMenuRecordId(null);
     }
   };
 
@@ -1935,12 +1940,15 @@ export default function TransformerInspection() {
                                   </Button>
                                   <IconButton
                                     size="small"
-                                    onClick={(event) =>
-                                      openMaintenanceMenu(event, record.id)
-                                    }
+                                    color="primary"
+                                    onClick={() => {
+                                      setMaintenanceMenuRecordId(record.id);
+                                      handleDownloadMaintenancePdf();
+                                    }}
                                     disabled={isDownloading}
+                                    title="Download PDF"
                                   >
-                                    <MoreVertIcon />
+                                    <DownloadIcon />
                                   </IconButton>
                                 </Stack>
                               </TableCell>
@@ -2011,27 +2019,6 @@ export default function TransformerInspection() {
             <DeleteIcon fontSize="small" color="error" />
           </ListItemIcon>
           <ListItemText primary="Delete" />
-        </MenuItem>
-      </Menu>
-
-      <Menu
-        anchorEl={maintenanceMenuAnchor}
-        open={Boolean(maintenanceMenuAnchor)}
-        onClose={closeMaintenanceMenu}
-        transformOrigin={{ horizontal: "right", vertical: "top" }}
-        anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
-        PaperProps={{ sx: { mt: 1, minWidth: 200, borderRadius: 2 } }}
-      >
-        <MenuItem
-          onClick={handleDownloadMaintenancePdf}
-          disabled={isDownloading}
-        >
-          <ListItemIcon>
-            <DownloadIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText
-            primary={isDownloading ? "Preparing PDF..." : "Download PDF"}
-          />
         </MenuItem>
       </Menu>
 
