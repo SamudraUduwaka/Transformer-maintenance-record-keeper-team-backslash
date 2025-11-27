@@ -523,18 +523,17 @@ export default function TransformerInspection() {
     setMenuRowId(null);
   };
 
-  const handleDownloadMaintenancePdf = async () => {
-    if (maintenanceMenuRecordId == null) return;
-    const record = maintenanceRecords.find(
-      (r) => r.id === maintenanceMenuRecordId
-    );
+  const handleDownloadMaintenancePdf = async (recordId?: number) => {
+    const targetRecordId = recordId ?? maintenanceMenuRecordId;
+    if (targetRecordId == null) return;
+    const record = maintenanceRecords.find((r) => r.id === targetRecordId);
     setIsDownloading(true);
     try {
       const [maintenanceForm, inspectionDetails] = await Promise.all([
         http<MaintenanceFormResponse>(
-          `/inspections/${maintenanceMenuRecordId}/maintenance-form`
+          `/inspections/${targetRecordId}/maintenance-form`
         ),
-        http<InspectionDTO>(`/inspections/${maintenanceMenuRecordId}`),
+        http<InspectionDTO>(`/inspections/${targetRecordId}`),
       ]);
 
       if (!maintenanceForm) {
@@ -698,7 +697,7 @@ export default function TransformerInspection() {
           // Fetch and draw bounding boxes
           try {
             const detectionsResponse = await http<any>(
-              `/inspections/${maintenanceMenuRecordId}/detections`
+              `/inspections/${targetRecordId}/detections`
             );
 
             if (detectionsResponse && Array.isArray(detectionsResponse)) {
@@ -1948,8 +1947,7 @@ export default function TransformerInspection() {
                                     size="small"
                                     color="primary"
                                     onClick={() => {
-                                      setMaintenanceMenuRecordId(record.id);
-                                      handleDownloadMaintenancePdf();
+                                      handleDownloadMaintenancePdf(record.id);
                                     }}
                                     disabled={isDownloading}
                                     title="Download PDF"
