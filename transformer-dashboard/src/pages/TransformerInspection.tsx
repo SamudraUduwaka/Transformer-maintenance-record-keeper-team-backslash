@@ -69,7 +69,7 @@ type TransformerDTO = {
 
 type InspectionDTO = {
   inspectionId: number;
-  inspectionTime: string; 
+  inspectionTime: string;
   branch: string;
   inspector: string;
   createdAt?: string;
@@ -223,13 +223,19 @@ const formatFieldValue = (value: unknown, fieldName?: string): string => {
       try {
         const date = new Date(value);
         const lowerFieldName = (fieldName || "").toLowerCase();
-        
+
         // If field name contains "date" but not "time", show only date
-        if (lowerFieldName.includes("date") && !lowerFieldName.includes("time")) {
+        if (
+          lowerFieldName.includes("date") &&
+          !lowerFieldName.includes("time")
+        ) {
           return date.toLocaleDateString();
         }
         // If field name contains "time" but not "date", show only time
-        if (lowerFieldName.includes("time") && !lowerFieldName.includes("date")) {
+        if (
+          lowerFieldName.includes("time") &&
+          !lowerFieldName.includes("date")
+        ) {
           return date.toLocaleTimeString();
         }
         // Default: show both
@@ -354,7 +360,9 @@ export default function TransformerInspection() {
     null
   );
   const [rows, setRows] = React.useState<InspectionRow[]>([]);
-  const [maintenanceRecords, setMaintenanceRecords] = React.useState<MaintenanceRecordRow[]>([]);
+  const [maintenanceRecords, setMaintenanceRecords] = React.useState<
+    MaintenanceRecordRow[]
+  >([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -368,9 +376,14 @@ export default function TransformerInspection() {
 
   // maintenance records paging
   const [maintenancePage, setMaintenancePage] = React.useState(0);
-  const [maintenanceRowsPerPage, setMaintenanceRowsPerPage] = React.useState(10);
+  const [maintenanceRowsPerPage, setMaintenanceRowsPerPage] =
+    React.useState(10);
   const shownMaintenance = React.useMemo(
-    () => maintenanceRecords.slice(maintenancePage * maintenanceRowsPerPage, maintenancePage * maintenanceRowsPerPage + maintenanceRowsPerPage),
+    () =>
+      maintenanceRecords.slice(
+        maintenancePage * maintenanceRowsPerPage,
+        maintenancePage * maintenanceRowsPerPage + maintenanceRowsPerPage
+      ),
     [maintenanceRecords, maintenancePage, maintenanceRowsPerPage]
   );
 
@@ -393,8 +406,9 @@ export default function TransformerInspection() {
   const [deleteId, setDeleteId] = React.useState<number | null>(null);
   const [maintenanceMenuAnchor, setMaintenanceMenuAnchor] =
     React.useState<null | HTMLElement>(null);
-  const [maintenanceMenuRecordId, setMaintenanceMenuRecordId] =
-    React.useState<number | null>(null);
+  const [maintenanceMenuRecordId, setMaintenanceMenuRecordId] = React.useState<
+    number | null
+  >(null);
   const [isDownloading, setIsDownloading] = React.useState(false);
 
   // load maintenance records
@@ -425,18 +439,35 @@ export default function TransformerInspection() {
           if (maintenanceForm) {
             records.push({
               id: inspection.inspectionId,
-              maintenanceFormId: maintenanceForm.maintenanceFormId || inspection.inspectionId,
-              formNo: maintenanceForm.maintenanceFormId ? pad8(maintenanceForm.maintenanceFormId) : pad8(inspection.inspectionId),
-              dateAdded: maintenanceForm.createdAt ? toLocal(maintenanceForm.createdAt) : inspection.createdAt ? toLocal(inspection.createdAt) : '-',
-              addedBy: maintenanceForm.thermalInspection?.inspectedBy || inspection.inspector || 'N/A',
+              maintenanceFormId:
+                maintenanceForm.maintenanceFormId || inspection.inspectionId,
+              formNo: maintenanceForm.maintenanceFormId
+                ? pad8(maintenanceForm.maintenanceFormId)
+                : pad8(inspection.inspectionId),
+              dateAdded: maintenanceForm.createdAt
+                ? toLocal(maintenanceForm.createdAt)
+                : inspection.createdAt
+                ? toLocal(inspection.createdAt)
+                : "-",
+              addedBy:
+                maintenanceForm.thermalInspection?.inspectedBy ||
+                inspection.inspector ||
+                "N/A",
               inspectionId: inspection.inspectionId,
-              updatedAt: maintenanceForm.updatedAt && maintenanceForm.createdAt && maintenanceForm.updatedAt !== maintenanceForm.createdAt ? toLocal(maintenanceForm.updatedAt) : '-',
+              updatedAt:
+                inspection.updatedAt &&
+                inspection.createdAt &&
+                inspection.updatedAt !== inspection.createdAt
+                  ? toLocal(inspection.updatedAt)
+                  : "-",
               transformerNo: inspection.transformerNo,
             });
           }
         } catch {
           // If no maintenance form exists for this inspection, skip it
-          console.log(`No maintenance form for inspection ${inspection.inspectionId}`);
+          console.log(
+            `No maintenance form for inspection ${inspection.inspectionId}`
+          );
         }
       }
 
@@ -444,7 +475,7 @@ export default function TransformerInspection() {
       records.sort((a, b) => b.id - a.id);
       setMaintenanceRecords(records);
     } catch (err) {
-      console.error('Failed to load maintenance records:', err);
+      console.error("Failed to load maintenance records:", err);
       setMaintenanceRecords([]);
     }
   }, [transformerNo]);
@@ -473,7 +504,7 @@ export default function TransformerInspection() {
       } finally {
         setLoading(false);
       }
-      
+
       // Load maintenance records
       await loadMaintenanceRecords();
     })();
@@ -510,7 +541,7 @@ export default function TransformerInspection() {
       );
     } catch {
       setError("Failed to create inspection");
-      throw new Error("Failed to create inspection"); 
+      throw new Error("Failed to create inspection");
     } finally {
       setCreating(false);
     }
@@ -569,14 +600,20 @@ export default function TransformerInspection() {
         metaStartY
       );
       doc.text(
-        `Inspection #: ${record ? pad8(record.inspectionId) : pad8(maintenanceForm.inspectionId)}`,
+        `Inspection #: ${
+          record
+            ? pad8(record.inspectionId)
+            : pad8(maintenanceForm.inspectionId)
+        }`,
         40,
         metaStartY + 15
       );
       doc.text(
         `Form #: ${
           record?.formNo ||
-          pad8(maintenanceForm.maintenanceFormId ?? maintenanceForm.inspectionId)
+          pad8(
+            maintenanceForm.maintenanceFormId ?? maintenanceForm.inspectionId
+          )
         }`,
         40,
         metaStartY + 30
@@ -628,8 +665,8 @@ export default function TransformerInspection() {
           });
 
           const finalY =
-            (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable
-              ?.finalY ?? nextSectionY + 20;
+            (doc as unknown as { lastAutoTable?: { finalY: number } })
+              .lastAutoTable?.finalY ?? nextSectionY + 20;
           nextSectionY = finalY + 24;
         });
       }
@@ -661,7 +698,7 @@ export default function TransformerInspection() {
       status: row.status,
       branch: row.branch,
       inspector: row.inspector,
-      inspectionTime: row.inspectionTimeIso, 
+      inspectionTime: row.inspectionTimeIso,
     };
     setEditingInspection(editData);
     setEditOpen(true);
@@ -689,7 +726,7 @@ export default function TransformerInspection() {
       setEditingInspection(null);
     } catch {
       setError("Failed to update inspection");
-      throw new Error("Failed to update inspection"); 
+      throw new Error("Failed to update inspection");
     } finally {
       setSaving(false);
     }
@@ -803,13 +840,16 @@ export default function TransformerInspection() {
                   py: 0.5,
                   fontWeight: 600,
                 }}
-                onClick={() => navigate('/login')}
+                onClick={() => navigate("/login")}
               >
                 Login
               </Button>
             ) : (
               <>
-                <Avatar src={user?.avatar || "./user.png"} sx={{ width: 36, height: 36 }} />
+                <Avatar
+                  src={user?.avatar || "./user.png"}
+                  sx={{ width: 36, height: 36 }}
+                />
                 <Box sx={{ display: { xs: "none", md: "block" } }}>
                   <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
                     {user?.name}
@@ -818,7 +858,12 @@ export default function TransformerInspection() {
                     {user?.email}
                   </Typography>
                 </Box>
-                <IconButton size="small" onClick={logout} title="Logout" aria-label="logout">
+                <IconButton
+                  size="small"
+                  onClick={logout}
+                  title="Logout"
+                  aria-label="logout"
+                >
                   <LogoutIcon />
                 </IconButton>
               </>
@@ -1005,17 +1050,23 @@ export default function TransformerInspection() {
               </Paper>
 
               {/* ===== Split View with Tabs ===== */}
-              <Paper elevation={3} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+              <Paper elevation={3} sx={{ borderRadius: 2, overflow: "hidden" }}>
                 {/* Tabs Header */}
-                <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
-                  <Tabs 
-                    value={activeTab} 
+                <Box
+                  sx={{
+                    borderBottom: 1,
+                    borderColor: "divider",
+                    bgcolor: "background.paper",
+                  }}
+                >
+                  <Tabs
+                    value={activeTab}
                     onChange={(_, newValue) => setActiveTab(newValue)}
                     sx={{
-                      '& .MuiTab-root': {
-                        textTransform: 'none',
+                      "& .MuiTab-root": {
+                        textTransform: "none",
                         fontWeight: 600,
-                        fontSize: '0.95rem',
+                        fontSize: "0.95rem",
                         minHeight: 56,
                         px: 3,
                       },
@@ -1101,7 +1152,9 @@ export default function TransformerInspection() {
                                       navigate(
                                         `/${encodeURIComponent(
                                           row.transformerNo
-                                        )}/${encodeURIComponent(row.inspectionNo)}`,
+                                        )}/${encodeURIComponent(
+                                          row.inspectionNo
+                                        )}`,
                                         {
                                           state: {
                                             from: "transformer-inspection",
@@ -1196,7 +1249,9 @@ export default function TransformerInspection() {
                                     onClick={() => {
                                       // Navigate to digital maintenance form
                                       navigate(
-                                        `/digital-form/${encodeURIComponent(record.transformerNo)}/${record.inspectionId}`
+                                        `/digital-form/${encodeURIComponent(
+                                          record.transformerNo
+                                        )}/${record.inspectionId}`
                                       );
                                     }}
                                   >
@@ -1220,7 +1275,9 @@ export default function TransformerInspection() {
                             <TableRow>
                               <TableCell colSpan={6}>
                                 <Box sx={{ p: 4, textAlign: "center" }}>
-                                  <Typography>No maintenance records found</Typography>
+                                  <Typography>
+                                    No maintenance records found
+                                  </Typography>
                                 </Box>
                               </TableCell>
                             </TableRow>
