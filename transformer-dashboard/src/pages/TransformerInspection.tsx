@@ -1796,7 +1796,7 @@ export default function TransformerInspection() {
                           <TableRow>
                             <TableCell width={48} />
                             <TableCell>Inspection No</TableCell>
-                            <TableCell>Inspected Date</TableCell>
+                            <TableCell>Inspected Date & Time</TableCell>
                             <TableCell>Image Status</TableCell>
                             <TableCell align="right">Actions</TableCell>
                           </TableRow>
@@ -1901,9 +1901,9 @@ export default function TransformerInspection() {
                         <TableHead>
                           <TableRow>
                             <TableCell>Inspection ID</TableCell>
-                            <TableCell>Date Added</TableCell>
+                            <TableCell>Created Date & Time</TableCell>
                             <TableCell>Added By</TableCell>
-                            <TableCell>Date Updated</TableCell>
+                            <TableCell>Updated Date & Time</TableCell>
                             <TableCell align="right">Actions</TableCell>
                           </TableRow>
                         </TableHead>
