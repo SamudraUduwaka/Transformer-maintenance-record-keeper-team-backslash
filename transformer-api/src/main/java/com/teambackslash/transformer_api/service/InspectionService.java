@@ -2,10 +2,12 @@ package com.teambackslash.transformer_api.service;
 
 import com.teambackslash.transformer_api.dto.InspectionDTO;
 import com.teambackslash.transformer_api.entity.Inspection;
+import com.teambackslash.transformer_api.entity.MaintenanceForm;
 import com.teambackslash.transformer_api.entity.Transformer;
 import com.teambackslash.transformer_api.exception.ResourceNotFoundException;
 import com.teambackslash.transformer_api.mapper.InspectionMapper;
 import com.teambackslash.transformer_api.repository.InspectionRepository;
+import com.teambackslash.transformer_api.repository.MaintenanceFormRepository;
 import com.teambackslash.transformer_api.repository.TransformerRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,13 +23,16 @@ public class InspectionService {
     private final InspectionRepository inspectionRepository;
     private final InspectionMapper inspectionMapper;
     private final TransformerRepository transformerRepository;
+    private final MaintenanceFormRepository maintenanceFormRepository;
 
     public InspectionService(InspectionRepository inspectionRepository,
                              InspectionMapper inspectionMapper,
-                             TransformerRepository transformerRepository) {
+                             TransformerRepository transformerRepository,
+                             MaintenanceFormRepository maintenanceFormRepository) {
         this.inspectionRepository = inspectionRepository;
         this.inspectionMapper = inspectionMapper;
         this.transformerRepository = transformerRepository;
+        this.maintenanceFormRepository = maintenanceFormRepository;
     }
 
     public List<InspectionDTO> getAllInspections() {
@@ -52,6 +57,15 @@ public class InspectionService {
         inspection.setTransformer(transformer);
 
         inspection = inspectionRepository.save(inspection);
+        
+        // Automatically create an empty maintenance form for new inspections
+        if (inspectionDTO.getInspectionId() == null) {
+            MaintenanceForm maintenanceForm = new MaintenanceForm();
+            maintenanceForm.setInspection(inspection);
+            maintenanceForm.setSubmitted(false);
+            maintenanceFormRepository.save(maintenanceForm);
+        }
+        
         return inspectionMapper.toDTO(inspection);
     }
 
