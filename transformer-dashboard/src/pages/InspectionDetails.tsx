@@ -47,6 +47,7 @@ import {
   Close as CloseIcon,
   Logout as LogoutIcon,
   Description as DescriptionIcon,
+  Menu as MenuIcon,
 } from "@mui/icons-material";
 import { format } from "date-fns";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
@@ -134,11 +135,11 @@ function StatPill({ top, bottom }: { top: string | number; bottom: string }) {
   return (
     <Box
       sx={{
-        px: 1.5,
-        py: 1,
+        px: { xs: 1, sm: 1.5 },
+        py: { xs: 0.75, sm: 1 },
         borderRadius: 3,
         bgcolor: "#EEF0F6",
-        minWidth: 108,
+        minWidth: { xs: 80, sm: 90, md: 108 },
         display: "inline-flex",
         flexDirection: "column",
         alignItems: "center",
@@ -170,7 +171,7 @@ export default function InspectionDetails() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isAuthenticated, logout } = useAuth();
-  
+
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   // Smart back navigation function
@@ -535,7 +536,7 @@ export default function InspectionDetails() {
   const handleConfirmUpload = async () => {
     if (!file) return;
     setUploadOpen(false);
-    startUploadProgress(); 
+    startUploadProgress();
 
     try {
       // 1) Upload directly to Cloudinary (unsigned)
@@ -569,34 +570,57 @@ export default function InspectionDetails() {
     const val = Math.max(0, Math.min(100, Number(percentage) || 0));
     try {
       setSavingThreshold(true);
-      const res = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/inference/config/class-threshold`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authService.getAuthHeader(),
-        },
-        body: JSON.stringify({ percentage: val }),
-      });
+      const res = await fetch(
+        `${API_BASE_URL.replace(/\/$/, "")}/inference/config/class-threshold`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authService.getAuthHeader(),
+          },
+          body: JSON.stringify({ percentage: val }),
+        }
+      );
       if (!res.ok && res.status !== 204) {
         throw new Error(`Failed: ${res.status} ${res.statusText}`);
       }
-      setSnackbar({ open: true, message: `Ruleset saved: ${val}%`, severity: "success" });
+      setSnackbar({
+        open: true,
+        message: `Ruleset saved: ${val}%`,
+        severity: "success",
+      });
       // Refresh inspection details to pick up new image URL and then scroll to analysis
       try {
-        const res2 = await fetch(`${API_BASE_URL}/inspections/${inspectionNo}`, {
-          headers: {
-            ...authService.getAuthHeader(),
-          },
-        });
+        const res2 = await fetch(
+          `${API_BASE_URL}/inspections/${inspectionNo}`,
+          {
+            headers: {
+              ...authService.getAuthHeader(),
+            },
+          }
+        );
         if (res2.ok) {
           const data = await res2.json();
           setInspection(data);
           // Smooth scroll to analysis section
-          setTimeout(() => analysisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+          setTimeout(
+            () =>
+              analysisRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              }),
+            150
+          );
         }
-      } catch { console.warn('Failed to refresh inspection after saving threshold'); }
+      } catch {
+        console.warn("Failed to refresh inspection after saving threshold");
+      }
     } catch (err) {
-      setSnackbar({ open: true, message: `Failed to update threshold: ${(err as Error).message}` , severity: "error"});
+      setSnackbar({
+        open: true,
+        message: `Failed to update threshold: ${(err as Error).message}`,
+        severity: "error",
+      });
     } finally {
       setSavingThreshold(false);
       // Close dialog and reset the upload flags so effect doesn't reopen
@@ -786,7 +810,7 @@ export default function InspectionDetails() {
     }
   };
   const viewBaseline = (w: Weather) => {
-    const url = baselineImage?.url; 
+    const url = baselineImage?.url;
     if (!url) return;
     setViewer({ open: true, url, weather: w });
   };
@@ -842,6 +866,15 @@ export default function InspectionDetails() {
         }}
       >
         <Toolbar sx={{ minHeight: 64 }}>
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            edge="start"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            sx={{ mr: 2, display: { sm: "none" } }}
+          >
+            <MenuIcon />
+          </IconButton>
           <Stack direction="row" spacing={1.25} alignItems="center">
             <IconButton
               onClick={handleBackNavigation}
@@ -871,13 +904,16 @@ export default function InspectionDetails() {
                   py: 0.5,
                   fontWeight: 600,
                 }}
-                onClick={() => navigate('/login')}
+                onClick={() => navigate("/login")}
               >
                 Login
               </Button>
             ) : (
               <>
-                <Avatar src={user?.avatar || "./user.png"} sx={{ width: 36, height: 36 }} />
+                <Avatar
+                  src={user?.avatar || "./user.png"}
+                  sx={{ width: 36, height: 36 }}
+                />
                 <Box sx={{ display: { xs: "none", md: "block" } }}>
                   <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
                     {user?.name}
@@ -947,11 +983,16 @@ export default function InspectionDetails() {
             {/* ===== Header ===== */}
             <Paper
               elevation={3}
-              sx={{ p: 2.25, borderRadius: 1, position: "relative" }}
+              sx={{
+                p: { xs: 1.5, sm: 2.25 },
+                borderRadius: 1,
+                position: "relative",
+              }}
             >
               <Stack
-                direction="row"
+                direction={{ xs: "column", md: "row" }}
                 alignItems="stretch"
+                spacing={{ xs: 2, md: 0 }}
                 sx={{ width: "100%" }}
               >
                 {/* Left */}
@@ -985,7 +1026,11 @@ export default function InspectionDetails() {
                   </Stack>
 
                   {/* Updated section with both inspection date and last updated */}
-                  <Stack direction="row" spacing={3} sx={{ mt: 0.5 }}>
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={{ xs: 1, sm: 3 }}
+                    sx={{ mt: 0.5 }}
+                  >
                     <Box>
                       <Typography
                         variant="caption"
@@ -1066,7 +1111,11 @@ export default function InspectionDetails() {
                       variant="outlined"
                       size="small"
                       startIcon={<DescriptionIcon />}
-                      onClick={() => navigate(`/digital-form/${transformerNo}/${inspectionId}`)}
+                      onClick={() =>
+                        navigate(
+                          `/digital-form/${transformerNo}/${inspectionId}`
+                        )
+                      }
                       sx={{
                         textTransform: "none",
                         fontWeight: 600,
@@ -1182,7 +1231,11 @@ export default function InspectionDetails() {
                   <ThermalImageAnalysis
                     thermalImageUrl={inspection.image.imageUrl}
                     baselineImageUrl={baselineImage?.url || ""}
-                    transformerNo={inspection.transformerNo || inspection.transformer?.transformerNo || transformerNo}
+                    transformerNo={
+                      inspection.transformerNo ||
+                      inspection.transformer?.transformerNo ||
+                      transformerNo
+                    }
                     inspectionId={inspectionId} // Pass inspectionId prop
                   />
                 </div>
@@ -1538,7 +1591,13 @@ export default function InspectionDetails() {
         maxWidth="xs"
         PaperProps={{ sx: { borderRadius: 2 } }}
       >
-        <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <DialogTitle
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
           <Typography fontWeight={800} fontSize={18} color="text.primary">
             Error Ruleset
           </Typography>
@@ -1559,7 +1618,7 @@ export default function InspectionDetails() {
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   setPercentage(e.target.value.replace(/[^0-9.]/g, ""))
                 }
-                inputProps={{ inputMode: 'decimal', pattern: '[0-9.]*' }}
+                inputProps={{ inputMode: "decimal", pattern: "[0-9.]*" }}
                 sx={{ width: 120 }}
               />
               <Typography color="text.secondary">%</Typography>
@@ -1568,7 +1627,16 @@ export default function InspectionDetails() {
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 1.5 }}>
           <Button onClick={handleCloseRuleset}>Cancel</Button>
-          <Button variant="contained" onClick={saveThreshold} disabled={savingThreshold} startIcon={savingThreshold ? <CircularProgress size={16} /> : undefined}>Save</Button>
+          <Button
+            variant="contained"
+            onClick={saveThreshold}
+            disabled={savingThreshold}
+            startIcon={
+              savingThreshold ? <CircularProgress size={16} /> : undefined
+            }
+          >
+            Save
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -1577,13 +1645,13 @@ export default function InspectionDetails() {
         open={snackbar.open}
         autoHideDuration={3000}
         onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
         <Alert
           onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ width: '100%' }}
+          sx={{ width: "100%" }}
         >
           {snackbar.message}
         </Alert>

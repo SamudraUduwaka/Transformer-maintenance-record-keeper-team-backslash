@@ -1,6 +1,15 @@
 import React from "react";
-import { AppBar, Toolbar, Stack, Typography, Box, Avatar, IconButton, Button } from "@mui/material";
-import { Logout as LogoutIcon } from "@mui/icons-material";
+import {
+  AppBar,
+  Toolbar,
+  Stack,
+  Typography,
+  Box,
+  Avatar,
+  IconButton,
+  Button,
+} from "@mui/material";
+import { Logout as LogoutIcon, Menu as MenuIcon } from "@mui/icons-material";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
@@ -8,12 +17,14 @@ interface AppHeaderProps {
   title: string;
   drawerWidth: number;
   leftContent?: React.ReactNode;
+  onMenuClick?: () => void;
 }
 
 const AppHeader: React.FC<AppHeaderProps> = ({
   title,
   drawerWidth,
   leftContent,
+  onMenuClick,
 }) => {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
@@ -32,6 +43,17 @@ const AppHeader: React.FC<AppHeaderProps> = ({
       }}
     >
       <Toolbar sx={{ minHeight: 64 }}>
+        {onMenuClick && (
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            edge="start"
+            onClick={onMenuClick}
+            sx={{ mr: 2, display: { sm: "none" } }}
+          >
+            <MenuIcon />
+          </IconButton>
+        )}
         <Stack direction="row" spacing={1.25} alignItems="center">
           {leftContent}
           <Typography variant="h6" sx={{ fontWeight: 800 }}>
@@ -62,13 +84,16 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                   bgcolor: "primary.50",
                 },
               }}
-              onClick={() => navigate('/login')}
+              onClick={() => navigate("/login")}
             >
               Login
             </Button>
           ) : (
             <>
-              <Avatar src={user?.avatar || "./user.png"} sx={{ width: 36, height: 36 }} />
+              <Avatar
+                src={user?.avatar || "./user.png"}
+                sx={{ width: 36, height: 36 }}
+              />
               <Box sx={{ display: { xs: "none", md: "block" } }}>
                 <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
                   {user?.name}

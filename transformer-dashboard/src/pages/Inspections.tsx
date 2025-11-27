@@ -67,14 +67,14 @@ type ImageDTO = {
 
 type InspectionDTO = {
   inspectionId: number;
-  inspectionTime: string; 
+  inspectionTime: string;
   branch: string;
   inspector: string;
   createdAt: string;
   updatedAt: string;
   transformerNo: string;
-  image?: ImageDTO; 
-  favorite?: boolean; 
+  image?: ImageDTO;
+  favorite?: boolean;
 };
 
 type InspectionRow = {
@@ -82,12 +82,12 @@ type InspectionRow = {
   transformerNo: string;
   inspectionNo: string;
   inspectedDate: string;
-  maintenanceDate: string; 
+  maintenanceDate: string;
   status: ImageStatus;
   branch: string;
   inspector: string;
-  inspectionTime: string; 
-  favorite: boolean; 
+  inspectionTime: string;
+  favorite: boolean;
 };
 
 /* API Service */
@@ -98,9 +98,9 @@ const inspectionService = {
     const response = await fetch(`${API_BASE_URL}/inspections`, {
       method: "GET",
       headers: {
-                "Content-Type": "application/json",
-                ...authService.getAuthHeader(),
-              },
+        "Content-Type": "application/json",
+        ...authService.getAuthHeader(),
+      },
       credentials: "include",
     });
 
@@ -215,8 +215,7 @@ const convertDTOToRow = (dto: InspectionDTO): InspectionRow => {
       dto.image.type === "maintenance"
     ) {
       status = "maintenance";
-    }
-    else {
+    } else {
       status = "maintenance";
     }
   }
@@ -238,7 +237,7 @@ const convertDTOToRow = (dto: InspectionDTO): InspectionRow => {
     branch: dto.branch,
     inspector: dto.inspector,
     inspectionTime: dto.inspectionTime,
-    favorite: dto.favorite || false, 
+    favorite: dto.favorite || false,
   };
 };
 
@@ -288,7 +287,6 @@ const statusChip = (s: ImageStatus) => {
     <Chip size="small" variant="outlined" color={i.color} label={i.label} />
   );
 };
-
 
 export default function Inspections({
   view = "inspections",
@@ -463,7 +461,6 @@ export default function Inspections({
             : r
         )
       );
-
     } catch (error) {
       console.error("Failed to update favorite status:", error);
       setError("Failed to update favorite status");
@@ -664,8 +661,8 @@ export default function Inspections({
 
         {/* Table */}
         <Paper>
-          <TableContainer>
-            <Table>
+          <TableContainer sx={{ overflowX: "auto" }}>
+            <Table sx={{ minWidth: { xs: 750, sm: 850 } }}>
               <TableHead>
                 <TableRow>
                   <TableCell width={48}></TableCell>
@@ -767,7 +764,7 @@ export default function Inspections({
                     <TableCell align="right">
                       <Stack
                         direction="row"
-                        spacing={1}
+                        spacing={{ xs: 0.5, sm: 1 }}
                         justifyContent="flex-end"
                       >
                         <Button
@@ -781,6 +778,7 @@ export default function Inspections({
                               { state: { from: "inspections-dashboard" } }
                             )
                           }
+                          sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
                         >
                           View
                         </Button>
@@ -788,7 +786,7 @@ export default function Inspections({
                           size="small"
                           onClick={(e) => handleMenuClick(e, row.id)}
                         >
-                          <MoreVertIcon />
+                          <MoreVertIcon fontSize="small" />
                         </IconButton>
                       </Stack>
                     </TableCell>

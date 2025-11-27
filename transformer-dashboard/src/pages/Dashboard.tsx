@@ -48,6 +48,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Logout as LogoutIcon,
+  Menu as MenuIcon,
 } from "@mui/icons-material";
 import PowerLensBranding from "../components/PowerLensBranding";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -212,7 +213,7 @@ export default function Dashboard() {
   // Redirect to login if not authenticated
   React.useEffect(() => {
     if (!isAuthenticated) {
-      navigate('/login');
+      navigate("/login");
     }
   }, [isAuthenticated, navigate]);
 
@@ -420,7 +421,7 @@ export default function Dashboard() {
         err instanceof Error ? err.message : `Failed to ${action} transformer`,
         "error"
       );
-      throw err; 
+      throw err;
     } finally {
       setSaving(false);
     }
@@ -453,7 +454,7 @@ export default function Dashboard() {
         err instanceof Error ? err.message : "Failed to delete transformer",
         "error"
       );
-      throw err; 
+      throw err;
     }
   };
 
@@ -537,6 +538,15 @@ export default function Dashboard() {
         }}
       >
         <Toolbar sx={{ minHeight: 64 }}>
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            edge="start"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            sx={{ mr: 2, display: { sm: "none" } }}
+          >
+            <MenuIcon />
+          </IconButton>
           <Stack direction="row" spacing={1.25} alignItems="center">
             <Typography variant="h6" sx={{ fontWeight: 800 }}>
               {view === "transformers" ? "Transformers" : "Inspections"}
@@ -549,51 +559,53 @@ export default function Dashboard() {
             alignItems="center"
             sx={{ ml: 1 }}
           >
-            
-  {!isAuthenticated ? (
-    // Show Login button when not logged in
-    <Button
-      variant="outlined"
-      size="small"
-      sx={{
-        textTransform: "none",
-        borderRadius: 999,
-        px: 2,
-        py: 0.5,
-        fontWeight: 600,
-        borderColor: "primary.main",
-        color: "primary.main",
-        "&:hover": {
-          borderColor: "primary.dark",
-          bgcolor: "primary.50",
-        },
-      }}
-      onClick={() => navigate('/login')}
-    >
-      Login
-    </Button>
-  ) : (
-    // Show user info when logged in
-    <>
-      <Avatar src={user?.avatar || "./user.png"} sx={{ width: 36, height: 36 }} />
-      <Box sx={{ display: { xs: "none", md: "block" } }}>
-        <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
-          {user?.name}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {user?.email}
-        </Typography>
-      </Box>
-      <IconButton
-        size="small"
-        onClick={logout}
-        sx={{ ml: 1 }}
-        title="Logout"
-      >
-        <LogoutIcon />
-      </IconButton>
-    </>
-  )}
+            {!isAuthenticated ? (
+              // Show Login button when not logged in
+              <Button
+                variant="outlined"
+                size="small"
+                sx={{
+                  textTransform: "none",
+                  borderRadius: 999,
+                  px: 2,
+                  py: 0.5,
+                  fontWeight: 600,
+                  borderColor: "primary.main",
+                  color: "primary.main",
+                  "&:hover": {
+                    borderColor: "primary.dark",
+                    bgcolor: "primary.50",
+                  },
+                }}
+                onClick={() => navigate("/login")}
+              >
+                Login
+              </Button>
+            ) : (
+              // Show user info when logged in
+              <>
+                <Avatar
+                  src={user?.avatar || "./user.png"}
+                  sx={{ width: 36, height: 36 }}
+                />
+                <Box sx={{ display: { xs: "none", md: "block" } }}>
+                  <Typography variant="subtitle2" sx={{ lineHeight: 1 }}>
+                    {user?.name}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {user?.email}
+                  </Typography>
+                </Box>
+                <IconButton
+                  size="small"
+                  onClick={logout}
+                  sx={{ ml: 1 }}
+                  title="Logout"
+                >
+                  <LogoutIcon />
+                </IconButton>
+              </>
+            )}
           </Stack>
         </Toolbar>
       </AppBar>
@@ -809,8 +821,8 @@ export default function Dashboard() {
                   </Box>
                 ) : (
                   <>
-                    <TableContainer>
-                      <Table>
+                    <TableContainer sx={{ overflowX: "auto" }}>
+                      <Table sx={{ minWidth: { xs: 650, sm: 750 } }}>
                         <TableHead>
                           <TableRow>
                             <TableCell width={48}></TableCell>
@@ -897,7 +909,7 @@ export default function Dashboard() {
                               <TableCell align="right">
                                 <Stack
                                   direction="row"
-                                  spacing={1}
+                                  spacing={{ xs: 0.5, sm: 1 }}
                                   justifyContent="flex-end"
                                 >
                                   <Button
@@ -906,15 +918,22 @@ export default function Dashboard() {
                                     onClick={() =>
                                       navigate(`/${row.transformerNo}`)
                                     }
+                                    sx={{
+                                      fontSize: {
+                                        xs: "0.75rem",
+                                        sm: "0.875rem",
+                                      },
+                                    }}
                                   >
                                     View
                                   </Button>
                                   <IconButton
+                                    size="small"
                                     onClick={(e) =>
                                       handleOpenActionMenu(e, row)
                                     }
                                   >
-                                    <MoreVertIcon />
+                                    <MoreVertIcon fontSize="small" />
                                   </IconButton>
                                 </Stack>
                               </TableCell>

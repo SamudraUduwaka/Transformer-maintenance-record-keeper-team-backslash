@@ -75,6 +75,11 @@ public class MaintenanceFormService {
         updateWorkDataSheet(workDataSheet, dto.getWorkDataSheet());
 
         MaintenanceForm saved = maintenanceFormRepository.save(form);
+        
+        // Update the inspection's updatedAt timestamp by touching the entity
+        inspection.setUpdatedAt(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Colombo")));
+        inspectionRepository.save(inspection);
+        
         return convertToDTO(saved);
     }
 

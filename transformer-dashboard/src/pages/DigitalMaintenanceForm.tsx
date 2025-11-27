@@ -51,6 +51,7 @@ import {
   Search as SearchIcon,
   List as ListIcon,
   Logout as LogoutIcon,
+  Menu as MenuIcon,
 } from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -70,11 +71,11 @@ function StatPill({ top, bottom }: { top: string | number; bottom: string }) {
   return (
     <Box
       sx={{
-        px: 1.5,
-        py: 1,
+        px: { xs: 1, sm: 1.5 },
+        py: { xs: 0.75, sm: 1 },
         borderRadius: 3,
         bgcolor: "#EEF0F6",
-        minWidth: 108,
+        minWidth: { xs: 70, sm: 80, md: 90 },
         display: "inline-flex",
         flexDirection: "column",
         alignItems: "center",
@@ -96,9 +97,11 @@ function StatPill({ top, bottom }: { top: string | number; bottom: string }) {
 type ImageStatus = "baseline" | "maintenance" | "no image";
 
 /* Helper function to determine image status */
-const determineImageStatus = (inspection: {
-  image?: { type?: string };
-} | null): ImageStatus => {
+const determineImageStatus = (
+  inspection: {
+    image?: { type?: string };
+  } | null
+): ImageStatus => {
   if (!inspection || !inspection.image) {
     return "no image";
   }
@@ -524,6 +527,18 @@ export default function DigitalMaintenanceForm() {
     setSaving(true);
     try {
       await inspectionService.saveMaintenanceFormData(formData);
+
+      // Refetch inspection data to update the "Date Updated" field
+      const inspectionData = await inspectionService.getInspectionById(
+        parseInt(inspectionNo, 10)
+      );
+      setInspectionDetails((prev) => ({
+        ...prev,
+        lastUpdated: inspectionData.updatedAt
+          ? format(new Date(inspectionData.updatedAt), "yyyy-MM-dd HH:mm")
+          : prev.lastUpdated,
+      }));
+
       setSnackbar({
         open: true,
         message: "Form saved successfully!",
@@ -533,8 +548,7 @@ export default function DigitalMaintenanceForm() {
       console.error("Error saving form:", error);
       setSnackbar({
         open: true,
-        message:
-          error instanceof Error ? error.message : "Failed to save form",
+        message: error instanceof Error ? error.message : "Failed to save form",
         severity: "error",
       });
     } finally {
@@ -663,9 +677,7 @@ export default function DigitalMaintenanceForm() {
             setInspectionTime(
               thermal.inspectionTime ? dayjs(thermal.inspectionTime) : dayjs()
             );
-            setBaselineImagingRightNo(
-              thermal.baselineImagingRightNo || ""
-            );
+            setBaselineImagingRightNo(thermal.baselineImagingRightNo || "");
             setBaselineImagingLeftNo(thermal.baselineImagingLeftNo || "");
             setLastMonthKva(thermal.lastMonthKva || "");
             setLastMonthDate(
@@ -689,42 +701,18 @@ export default function DigitalMaintenanceForm() {
             if (thermal.workContent && thermal.workContent.length > 0) {
               setWorkContent(thermal.workContent);
             }
-            setFirstInspectionVoltageR(
-              thermal.firstInspectionVoltageR || ""
-            );
-            setFirstInspectionVoltageY(
-              thermal.firstInspectionVoltageY || ""
-            );
-            setFirstInspectionVoltageB(
-              thermal.firstInspectionVoltageB || ""
-            );
-            setFirstInspectionCurrentR(
-              thermal.firstInspectionCurrentR || ""
-            );
-            setFirstInspectionCurrentY(
-              thermal.firstInspectionCurrentY || ""
-            );
-            setFirstInspectionCurrentB(
-              thermal.firstInspectionCurrentB || ""
-            );
-            setSecondInspectionVoltageR(
-              thermal.secondInspectionVoltageR || ""
-            );
-            setSecondInspectionVoltageY(
-              thermal.secondInspectionVoltageY || ""
-            );
-            setSecondInspectionVoltageB(
-              thermal.secondInspectionVoltageB || ""
-            );
-            setSecondInspectionCurrentR(
-              thermal.secondInspectionCurrentR || ""
-            );
-            setSecondInspectionCurrentY(
-              thermal.secondInspectionCurrentY || ""
-            );
-            setSecondInspectionCurrentB(
-              thermal.secondInspectionCurrentB || ""
-            );
+            setFirstInspectionVoltageR(thermal.firstInspectionVoltageR || "");
+            setFirstInspectionVoltageY(thermal.firstInspectionVoltageY || "");
+            setFirstInspectionVoltageB(thermal.firstInspectionVoltageB || "");
+            setFirstInspectionCurrentR(thermal.firstInspectionCurrentR || "");
+            setFirstInspectionCurrentY(thermal.firstInspectionCurrentY || "");
+            setFirstInspectionCurrentB(thermal.firstInspectionCurrentB || "");
+            setSecondInspectionVoltageR(thermal.secondInspectionVoltageR || "");
+            setSecondInspectionVoltageY(thermal.secondInspectionVoltageY || "");
+            setSecondInspectionVoltageB(thermal.secondInspectionVoltageB || "");
+            setSecondInspectionCurrentR(thermal.secondInspectionCurrentR || "");
+            setSecondInspectionCurrentY(thermal.secondInspectionCurrentY || "");
+            setSecondInspectionCurrentB(thermal.secondInspectionCurrentB || "");
 
             // Populate maintenance record data
             const maintenance = maintenanceData.maintenanceRecord;
@@ -741,17 +729,13 @@ export default function DigitalMaintenanceForm() {
             setTech2(maintenance.tech2 || "");
             setTech3(maintenance.tech3 || "");
             setHelpers(maintenance.helpers || "");
-            setMaintenanceInspectedBy(
-              maintenance.maintenanceInspectedBy || ""
-            );
+            setMaintenanceInspectedBy(maintenance.maintenanceInspectedBy || "");
             setMaintenanceInspectedDate(
               maintenance.maintenanceInspectedDate
                 ? dayjs(maintenance.maintenanceInspectedDate)
                 : null
             );
-            setMaintenanceRectifiedBy(
-              maintenance.maintenanceRectifiedBy || ""
-            );
+            setMaintenanceRectifiedBy(maintenance.maintenanceRectifiedBy || "");
             setMaintenanceRectifiedDate(
               maintenance.maintenanceRectifiedDate
                 ? dayjs(maintenance.maintenanceRectifiedDate)
@@ -767,9 +751,7 @@ export default function DigitalMaintenanceForm() {
             );
             setCssOfficer(maintenance.cssOfficer || "");
             setCssDate(maintenance.cssDate ? dayjs(maintenance.cssDate) : null);
-            setAllSpotsCorrectedBy(
-              maintenance.allSpotsCorrectedBy || ""
-            );
+            setAllSpotsCorrectedBy(maintenance.allSpotsCorrectedBy || "");
             setAllSpotsCorrectedDate(
               maintenance.allSpotsCorrectedDate
                 ? dayjs(maintenance.allSpotsCorrectedDate)
@@ -797,7 +779,9 @@ export default function DigitalMaintenanceForm() {
             setFdsFuseF4(workData.fdsFuseF4 || "");
             setFdsFuseF5(workData.fdsFuseF5 || "");
             setJobCompletedTime(
-              workData.jobCompletedTime ? dayjs(workData.jobCompletedTime) : null
+              workData.jobCompletedTime
+                ? dayjs(workData.jobCompletedTime)
+                : null
             );
             setNotes(workData.notes || "");
             setMaterials(workData.materials || MATERIALS_LIST);
@@ -911,6 +895,15 @@ export default function DigitalMaintenanceForm() {
         }}
       >
         <Toolbar sx={{ minHeight: 64 }}>
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            edge="start"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            sx={{ mr: 2, display: { sm: "none" } }}
+          >
+            <MenuIcon />
+          </IconButton>
           <Stack direction="row" spacing={1.25} alignItems="center">
             <IconButton onClick={() => navigate(-1)} sx={{ color: "inherit" }}>
               <ArrowBackIcon />
@@ -1016,12 +1009,17 @@ export default function DigitalMaintenanceForm() {
             {/* Global Header Card (same as previous UI) */}
             <Paper
               elevation={3}
-              sx={{ p: 2.25, borderRadius: 1, position: "relative" }}
+              sx={{
+                p: { xs: 1.5, sm: 2.25 },
+                borderRadius: 1,
+                position: "relative",
+              }}
             >
               <Stack
-                direction="row"
+                direction={{ xs: "column", md: "row" }}
                 alignItems="stretch"
-                sx={{ width: "100%" }}
+                spacing={{ xs: 2, md: 0 }}
+                sx={{ width: "100%", minWidth:{lg: 950} }}
               >
                 {/* Left */}
                 <Box sx={{ flexGrow: 1, minWidth: 0 }}>
@@ -1053,7 +1051,11 @@ export default function DigitalMaintenanceForm() {
                     </IconButton>
                   </Stack>
 
-                  <Stack direction="row" spacing={3} sx={{ mt: 0.5 }}>
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={{ xs: 1, sm: 3 }}
+                    sx={{ mt: 0.5 }}
+                  >
                     <Box>
                       <Typography
                         variant="caption"
@@ -1127,9 +1129,13 @@ export default function DigitalMaintenanceForm() {
                 {/* Right */}
                 <Stack
                   direction="column"
-                  alignItems="flex-end"
+                  alignItems={{ xs: "flex-start", md: "flex-end" }}
                   justifyContent="space-between"
-                  sx={{ alignSelf: "stretch", minWidth: 200, py: 0.5 }}
+                  sx={{
+                    alignSelf: "stretch",
+                    width: { xs: "100%", md: "auto" },
+                    py: 0.5,
+                  }}
                 >
                   <Box
                     sx={{
@@ -1153,7 +1159,12 @@ export default function DigitalMaintenanceForm() {
                 sx={{
                   borderBottom: 1,
                   borderColor: "divider",
-                  "& .MuiTab-root": { fontWeight: 600 },
+                  "& .MuiTab-root": {
+                    fontWeight: 600,
+                    flex: "1 1 0",
+                    minWidth: 0,
+                    maxWidth: "none",
+                  },
                 }}
               >
                 <Tab label="Thermal Image Inspection" />
@@ -1248,10 +1259,7 @@ export default function DigitalMaintenanceForm() {
                     <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
                       Baseline Imaging
                     </Typography>
-                    <Stack
-                      direction={{ xs: "column", md: "row" }}
-                      spacing={2}
-                    >
+                    <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                       <TextField
                         fullWidth
                         label="Baseline Imaging Right No"
@@ -1278,7 +1286,11 @@ export default function DigitalMaintenanceForm() {
                     <ThermalImageAnalysis
                       thermalImageUrl={inspection.image.imageUrl}
                       baselineImageUrl=""
-                      transformerNo={inspection.transformerNo || inspection.transformer?.transformerNo || transformerNo}
+                      transformerNo={
+                        inspection.transformerNo ||
+                        inspection.transformer?.transformerNo ||
+                        transformerNo
+                      }
                       inspectionId={inspectionId}
                       defaultExpandedSessions={true}
                       hideActivities={true}
@@ -1334,17 +1346,12 @@ export default function DigitalMaintenanceForm() {
                     <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
                       Operating / Environment
                     </Typography>
-                    <Stack
-                      direction={{ xs: "column", md: "row" }}
-                      spacing={2}
-                    >
+                    <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                       <FormControl fullWidth>
                         <InputLabel>Baseline Condition</InputLabel>
                         <Select
                           value={baselineCondition}
-                          onChange={(e) =>
-                            setBaselineCondition(e.target.value)
-                          }
+                          onChange={(e) => setBaselineCondition(e.target.value)}
                           label="Baseline Condition"
                         >
                           <MenuItem value="Sunny">Sunny</MenuItem>
@@ -1356,15 +1363,11 @@ export default function DigitalMaintenanceForm() {
                         <InputLabel>Transformer Type</InputLabel>
                         <Select
                           value={transformerType}
-                          onChange={(e) =>
-                            setTransformerType(e.target.value)
-                          }
+                          onChange={(e) => setTransformerType(e.target.value)}
                           label="Transformer Type"
                         >
                           <MenuItem value="Bulk">Bulk</MenuItem>
-                          <MenuItem value="Distribution">
-                            Distribution
-                          </MenuItem>
+                          <MenuItem value="Distribution">Distribution</MenuItem>
                           <MenuItem value="Other">Other</MenuItem>
                         </Select>
                       </FormControl>
@@ -1378,10 +1381,7 @@ export default function DigitalMaintenanceForm() {
                     <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
                       Meter Details
                     </Typography>
-                    <Stack
-                      direction={{ xs: "column", md: "row" }}
-                      spacing={2}
-                    >
+                    <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                       <TextField
                         fullWidth
                         label="Meter Serial"
@@ -1416,8 +1416,11 @@ export default function DigitalMaintenanceForm() {
                     >
                       Legend: C = Check, O = Clean, T = Tighten, R = Replace
                     </Typography>
-                    <TableContainer>
-                      <Table size="small">
+                    <TableContainer sx={{ overflowX: "auto" }}>
+                      <Table
+                        size="small"
+                        sx={{ minWidth: { xs: 650, sm: 750 } }}
+                      >
                         <TableHead>
                           <TableRow>
                             <TableCell>No.</TableCell>
@@ -1548,10 +1551,7 @@ export default function DigitalMaintenanceForm() {
                     <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
                       After Thermal Info
                     </Typography>
-                    <Stack
-                      direction={{ xs: "column", md: "row" }}
-                      spacing={2}
-                    >
+                    <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                       <DatePicker
                         label="After Thermal Date"
                         value={afterThermalDate}
