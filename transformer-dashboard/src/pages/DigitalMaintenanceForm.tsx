@@ -1188,6 +1188,12 @@ export default function DigitalMaintenanceForm() {
                     flex: "1 1 0",
                     minWidth: 0,
                     maxWidth: "none",
+                    "&:focus": {
+                      outline: "none",
+                    },
+                    "&:focus-visible": {
+                      outline: "none",
+                    },
                   },
                 }}
               >
