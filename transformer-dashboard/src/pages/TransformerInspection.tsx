@@ -1765,6 +1765,12 @@ export default function TransformerInspection() {
                         fontSize: "0.95rem",
                         minHeight: 56,
                         px: 3,
+                        "&:focus": {
+                          outline: "none",
+                        },
+                        "&:focus-visible": {
+                          outline: "none",
+                        },
                       },
                     }}
                   >
