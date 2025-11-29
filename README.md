@@ -342,6 +342,82 @@ A new **automated fine-tuning pipeline** has been introduced to continuously imp
 
 This approach establishes a **self-improving loop** — every validated user correction contributes directly to a smarter, more reliable detection model.
 
+### Digital Maintenance Record Generation
+
+#### Comprehensive Maintenance Record System
+The system now provides a complete digital maintenance record generation and management solution:
+
+**Automated Maintenance Record Form Generation**
+- **Pre-filled Form Generation**: Automatically generates maintenance forms with transformer metadata
+  - Transformer ID, location details, and capacity specifications
+  - Inspection timestamp and weather conditions
+  - Embedded thermal image with AI-detected anomaly markers
+  - Complete list of detected/annotated anomalies with classification and confidence scores
+- **Thermal Image Integration**: Full integration with Phase 3 thermal analysis
+  - Interactive thermal image display with fault detection overlays
+  - Session-based detection history with expand/collapse functionality
+  - Color-coded anomaly markers for easy visual interpretation
+
+**Editable Engineer Input Fields**
+- **Comprehensive Input System**: Multi-section form with structured data collection
+  - **Thermal Image Inspection**: Location details, inspection date/time, baseline imaging references
+  - **Load/kVA Details**: Last month and current month load tracking with date/time stamps
+  - **Operating Environment**: Transformer type, baseline conditions, meter specifications
+  - **Work Content Table**: Checklist for Check, Clean, Tighten, Replace actions with status tracking
+  - **Voltage & Current Readings**: First and second inspection readings (R, Y, B phases)
+  - **Maintenance Record**: Job timing, team composition, inspection/rectification chain
+  - **Work Data Sheet**: Serial number, kVA rating, tap position, earth resistance, FDS fuse details
+  - **Materials Used**: Predefined materials list with usage tracking
+- **Field Types**: Text inputs, date pickers, time pickers, dropdowns, checkboxes, and numeric inputs
+- **Status Management**: Dropdown for transformer status (OK / NOT_OK) with additional notes
+- **User Authentication**: Form filled by authenticated users with role-based access
+
+**Save and Retrieve Completed Records**
+- **Persistent Storage**: Complete form data saved to database with versioning
+  - Associated with specific transformer and inspection timestamp
+  - Structured JSON storage for thermal inspection, maintenance record, and work data sheet
+  - Timestamped creation and update tracking
+- **Record Retrieval**: Load previously saved maintenance forms
+  - Auto-populate all fields when reopening existing records
+  - Maintain form state across sessions
+- **Record History Viewer**: Access historical maintenance records per transformer
+  - View all past inspections from transformer inspection page
+  - Filter and search capabilities
+  - Export functionality for reporting
+
+#### Technical Implementation
+
+**Frontend Features**
+- **Multi-tab Form Interface**: Three-section tabbed layout (Thermal Image Inspection, Maintenance Record, Work + Data Sheet)
+- **Real-time Validation**: Input validation and error handling
+- **Progress Tracking**: Visual indicators for form completion status
+- **Responsive Design**: Mobile-friendly form layout with adaptive components
+- **Snackbar Notifications**: User feedback for save/submit operations
+- **Confirmation Dialogs**: Prevent accidental data loss with submit/cancel confirmations
+
+**Backend Implementation**
+- **REST API Endpoints**:
+  - `GET /api/inspections/{inspectionId}/maintenance-form`: Retrieve form by inspection
+  - `POST /api/inspections/maintenance-form`: Create new maintenance form
+  - `PUT /api/inspections/{inspectionId}/maintenance-form`: Update existing form
+  - `POST /api/inspections/{inspectionId}/maintenance-form/submit`: Submit final form
+- **Database Schema**: Comprehensive schema for maintenance records
+  - `MaintenanceForm`: Parent entity linking to inspection with timestamps
+  - `ThermalInspection`: Thermal image inspection details (OneToOne with MaintenanceForm)
+  - `MaintenanceRecord`: Maintenance work records (OneToOne with MaintenanceForm)
+  - `WorkDataSheet`: Technical work data and materials (OneToOne with MaintenanceForm)
+  - `WorkContent`: Work checklist items (OneToMany with ThermalInspection)
+  - `Material`: Materials used list (OneToMany with WorkDataSheet)
+- **Data Transfer Objects**: Structured DTOs for API communication
+- **Service Layer**: Business logic for form processing and validation
+
+**UI/UX Features**
+- **PDF Export**: Generate PDF reports from completed maintenance records (available in inspection history)
+- **Manual Save**: Explicit save button with confirmation feedback
+- **Form State Management**: React state management for complex form data
+- **Navigation Guards**: Confirmation dialogs to prevent accidental data loss
+- **Status Chips**: Visual indicators for inspection status (Baseline/Maintenance/Pending)
+
 ---
 
 ## Getting Started
